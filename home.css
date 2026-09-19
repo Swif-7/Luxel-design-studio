@@ -1,114 +1,102 @@
 /* Luxel — 首页
    ────────────────────────────────────────────────────────────────────────
-   除顶部栏外全页无分割线。版面靠对齐、间距和尺度维系：
-   海报与工具区按 2:1 分配顶部栏以下的高度（flex 比例，无写死常数）。
-   海报内容垂直居中：窄屏下字标受宽度约束，比例带来的余量若全落在下方会
-   形成一块死区，居中后余量平分到上下，字标的重心落在页面约 40% 处。
+   三列横排，一屏不滚动：
 
-   字标与灰阶尺组成一个整体：尺与字等宽（.mark-block 用 fit-content 收到
-   字标的内容宽），所以它读起来是「这个字的量化刻度」，而不是一条横杠。
-   字标五个字母取的正是尺上的五级 —— 同一件事的两种尺度。
+     ┌────┬───────────────────────────┬──┐
+     │ 标 │                    L   u  │██│  ← 字标竖排右上，
+     │    │       ┌────────┐   x   e  │▓▓│     灰阶条紧贴其右、
+     │ 竖 │       │ 工具卡 │      l   │▒▒│     贴住屏幕右缘
+     │ 排 │       └────────┘          │░░│
+     │ 文 │                          │  │
+     │ ☾  │  一句话说明                │  │
+     └────┴───────────────────────────┴──┘
 
-   字标尺寸用容器查询单位：海报高度已由 flex 比例确定，cqh 直接就是它。
+   全页唯一的分隔线是左栏的右边线（原顶部栏那条，现在立起来了）。
+   灰阶条与字标同高：两者是 .masthead 这个 flex 行的兄弟，stretch 对齐即可，
+   不需要任何计算。字标的五级灰正是条上十六级里的五级。
    ──────────────────────────────────────────────────────────────────────── */
 
-body{min-height:100dvh;display:flex;flex-direction:column;overflow:hidden}
+body{height:100dvh;display:flex;overflow:hidden}
 
-/* ── 顶部栏：全页唯一保留的分隔 ── */
-.top{flex:none;display:flex;align-items:center;justify-content:space-between;
-  padding:0 34px;height:68px;border-bottom:1px solid var(--border)}
-.brand{display:flex;align-items:center;gap:11px;color:inherit;text-decoration:none;font-size:20px;font-weight:600;letter-spacing:-.015em}
-.brand-mark{width:22px;height:22px;color:var(--text);display:block;flex:none}
-.top nav{display:flex;align-items:center;gap:18px}
-.top .meta{font:11px var(--mono);color:var(--text-3);letter-spacing:.04em}
-#theme{padding:0;width:32px;height:32px;display:grid;place-items:center;background:transparent;border-color:var(--border);color:var(--text-2)}
+/* ── 左侧竖栏：全页唯一保留的分隔 ── */
+.rail{flex:none;width:58px;display:flex;flex-direction:column;align-items:center;
+  justify-content:space-between;padding:18px 0;border-right:1px solid var(--border)}
+.brand{display:block;color:inherit;text-decoration:none}
+.brand-mark{width:22px;height:22px;color:var(--text);display:block}
+/* 竖排说明文字：自下而上读，是左栏的惯例方向 */
+.rail-text{writing-mode:vertical-rl;transform:rotate(180deg);
+  font:10px var(--mono);letter-spacing:.24em;text-transform:uppercase;color:var(--text-3);
+  white-space:nowrap;overflow:hidden}
+#theme{flex:none;padding:0;width:30px;height:30px;display:grid;place-items:center;
+  background:transparent;border-color:var(--border);color:var(--text-2)}
 #theme:hover{background:var(--surface-3);color:var(--text)}
-#theme svg{width:16px;height:16px}
+#theme svg{width:15px;height:15px}
 
-/* ── 海报：顶部栏以下的 3/5 ── */
-.poster{flex:2 1 0;min-height:0;container-type:size;
-  --gutter:34px;--side:clamp(190px,24cqw,290px);--band-gap:clamp(24px,5cqw,64px);
-  padding:clamp(20px,4cqh,46px) var(--gutter);
-  display:flex;flex-direction:column;justify-content:center;gap:clamp(18px,3cqh,34px)}
+/* ── 画面 ── */
+.stage{--pad:34px;flex:1 1 0;min-width:0;position:relative;
+  display:flex;flex-direction:column;justify-content:center;align-items:center;
+  padding:30px var(--pad)}
 
-.meta-row{display:flex;align-items:baseline;justify-content:space-between;gap:20px}
-.meta-row .eyebrow{font:11px var(--mono);letter-spacing:.22em;text-transform:uppercase;color:var(--text-3)}
-.meta-row .formula{font:12px var(--mono);color:var(--text-2)}
-
-/* 中段双栏：左为字标＋刻度，右为说明，底对齐同一条基线。 */
-.band{display:grid;grid-template-columns:minmax(0,1fr) var(--side);
-  gap:var(--band-gap);align-items:end;min-height:0}
-.mark-block{width:fit-content;max-width:100%;display:flex;flex-direction:column;
-  gap:clamp(10px,1.8cqh,20px)}
-
-/* 字号由实测定出：Plex Sans SemiBold 下 "Luxel" 连同 -.045em 字距的墨宽
-   恰为字号的 2.305 倍（末字母的字距不出墨），除数留 2.32 作余量。
-   宽度项减去右栏与栏距；高度项由预算反推 —— 字标盒高 ≤ 海报内高 − 元信息行
-   − 刻度块 − 两处间距，除以 .78 行高。取 124cqh − 120px：宽屏下让宽度项先约束
-   （填充率 ~99%），而 1920×700 这类矮宽窗口仍放得下。 */
-.wordmark{display:flex;line-height:.78;font-weight:600;letter-spacing:-.045em;margin:0;
-  font-size:max(44px, min(
-    calc((100cqw - var(--side) - var(--band-gap)) / 2.32),
-    calc(124cqh - 120px)
-  ))}
+/* 字标 ＋ 灰阶条。绝对定位贴住 stage 的内边距框，也就是屏幕右缘。 */
+.masthead{position:absolute;top:0;right:0;display:flex;align-items:stretch;gap:14px;padding-top:24px}
+/* 竖排字标：五个字母各占一行，居中对齐同一条轴。
+   字号由视口高度定 —— 五行 × .84 行高约占视口的 44%。 */
+.wordmark{margin:0;display:flex;flex-direction:column;align-items:center;
+  line-height:.84;font-weight:600;letter-spacing:-.02em;
+  font-size:clamp(34px,10.4vh,104px)}
 .wordmark span{display:block}
 .wordmark span:nth-child(1){opacity:1}
 .wordmark span:nth-child(2){opacity:.875}
 .wordmark span:nth-child(3){opacity:.75}
 .wordmark span:nth-child(4){opacity:.625}
 .wordmark span:nth-child(5){opacity:.5}
+/* 公式落在右下角，与左下的说明构成对角 —— 四角各有一处落点。 */
+.formula{position:absolute;right:var(--pad);bottom:30px;
+  font:10px var(--mono);color:var(--text-3);letter-spacing:.08em;white-space:nowrap}
 
-/* 灰阶尺：16 级由实到空，与字标等宽。末级不可见，由刻度数字交代整条长度。 */
-.wedge{width:100%;display:flex;flex-direction:column;gap:6px}
-.steps{display:flex;height:clamp(8px,2cqh,16px)}
-.steps i{flex:1 1 0;background:currentColor;display:block}
-.scale{display:flex;justify-content:space-between;gap:12px;
-  font:10px var(--mono);letter-spacing:.1em;color:var(--text-3)}
+/* 灰阶条：16 级自上而下由实到空，与字标精确等高 —— 两者是同一 flex 行的
+   兄弟，stretch 对齐即可，不需要任何计算。 */
+.wedge{flex:none;width:clamp(10px,1.5vw,18px);display:flex;flex-direction:column}
+.wedge i{flex:1 1 0;background:currentColor;display:block}
 
-.side{display:flex;flex-direction:column;justify-content:flex-end;min-width:0;padding-bottom:2px}
-.tagline{margin:0;font-size:clamp(12.5px,1.5cqw,14.5px);color:var(--text-2);line-height:1.7}
-
-/* ── 工具：顶部栏以下的 1/3。不加底色也不加线 —— 淡底会在页脚形成一整块
-   实色，把版面压成头轻脚重；这里只靠间距和标题分区。 ── */
-.tools{flex:1 1 0;min-height:0;display:flex;flex-direction:column;
-  padding:clamp(14px,2.4vh,22px) 34px clamp(18px,3vh,28px)}
-.tools-head{display:flex;align-items:baseline;gap:12px;margin-bottom:14px;flex:none}
-.tools-head h2{margin:0;font-size:13px;font-weight:600}
-.tools-head .count{font:10px var(--mono);letter-spacing:.12em;color:var(--text-3);text-transform:uppercase}
-
-/* 卡片没有边框也没有底色：缩略图本身就是对象，文字直接落在淡底上。 */
-.card-row{flex:1 1 0;min-height:0;display:flex;gap:20px;overflow-x:auto;overflow-y:hidden;
-  scrollbar-width:thin;align-items:stretch}
-.card{flex:0 0 clamp(180px,20vw,250px);min-width:0;display:flex;flex-direction:column;gap:10px;
+/* 工具：画面正中，尺寸不随版面变化 */
+.tools{display:flex;gap:20px;align-items:flex-start}
+.card{flex:none;width:clamp(180px,20vw,250px);display:flex;flex-direction:column;gap:10px;
   text-decoration:none;color:inherit}
-.card img{width:100%;flex:1 1 0;min-height:0;object-fit:cover;display:block;
+.card img{width:100%;height:auto;aspect-ratio:3/2;object-fit:cover;display:block;
   border-radius:10px;background:var(--stage);transition:opacity .15s}
 .card:hover img{opacity:.82}
-.card .body{flex:none;display:grid;grid-template-columns:1fr auto;align-items:baseline;gap:4px 10px}
-.card h3{margin:0;font-size:14px;font-weight:600;letter-spacing:-.01em}
+.card .body{display:grid;grid-template-columns:1fr auto;align-items:baseline;gap:4px 10px}
+.card h2{margin:0;font-size:14px;font-weight:600;letter-spacing:-.01em}
 .card .idx{font:9.5px var(--mono);color:var(--text-3)}
 .card p{grid-column:1/-1;margin:0;font-size:11.5px;color:var(--text-3);line-height:1.45}
 
-/* 窄屏：双栏折叠成单栏，否则左栏被右栏挤到只剩一百多像素，字标会小得荒唐。
-   折叠后 --side / --band-gap 归零，字标的宽度项自然回到整宽。 */
+/* 说明：画面左下，与工具卡拉开层级 */
+.blurb{position:absolute;left:var(--pad);bottom:30px;margin:0;max-width:34ch;
+  font-size:13px;line-height:1.75;color:var(--text-2)}
+
 @media(max-width:860px){
-  .poster{--side:0px;--band-gap:0px}
-  .band{grid-template-columns:1fr;gap:clamp(16px,2.6cqh,26px);align-items:start}
-  .wordmark{font-size:max(44px, min(calc(100cqw / 2.32), calc(95cqh - 150px)))}
+  .stage{--pad:22px;padding:26px var(--pad)}
+  .blurb{bottom:26px;font-size:12.5px;max-width:26ch}
+  .formula{bottom:26px}
+  .masthead{gap:10px}
+  .masthead{padding-top:18px}
+  .wordmark{font-size:clamp(30px,8.4vh,72px)}
 }
-@media(max-width:740px){
-  .top{padding:0 18px;height:58px}
-  .top .meta{display:none}
-  .poster{--gutter:18px}
-  .tools{padding-left:18px;padding-right:18px}
-  .meta-row .eyebrow{letter-spacing:.14em;font-size:10px}
-  .scale span:nth-child(2){display:none}
+@media(max-width:560px){
+  .rail{width:46px;padding:14px 0}
+  .rail-text{display:none}
+  /* 字标缩到不与居中的工具卡打架 */
+  .wordmark{font-size:clamp(26px,6.6vh,52px)}
+  .formula{display:none}
+  .tools{padding-top:12px}
 }
 /* 矮窗口：一屏放不下就别硬撑 */
-@media(max-height:560px){
-  body{overflow:auto}
-  .poster{container-type:normal;justify-content:flex-start}
-  .wordmark{font-size:max(44px,min(calc((100vw - var(--gutter)*2) / 2.32), 170px))}
-  .tools{min-height:230px}
+@media(max-height:480px){
+  body{height:auto;min-height:100dvh;overflow:auto}
+  /* 静态排布后仍要贴住屏幕右缘，用负边距抵掉 stage 的内边距 */
+  .masthead{position:static;align-self:stretch;justify-content:flex-end;margin:0 calc(var(--pad) * -1) 18px 0}
+  .blurb{position:static;margin-top:20px}
+  .stage{justify-content:flex-start}
 }
 @media(prefers-reduced-motion:reduce){*{transition:none!important}}
