@@ -1,8 +1,9 @@
 /* Luxel — 首页
    ────────────────────────────────────────────────────────────────────────
    除顶部栏外全页无分割线。版面靠对齐、间距和尺度维系：
-   海报与工具区按 3:2 分配顶部栏以下的高度（flex 比例，无写死常数），
-   工具区以一块淡底而非一条线与海报区分。
+   海报与工具区按 2:1 分配顶部栏以下的高度（flex 比例，无写死常数）。
+   海报内容垂直居中：窄屏下字标受宽度约束，比例带来的余量若全落在下方会
+   形成一块死区，居中后余量平分到上下，字标的重心落在页面约 40% 处。
 
    字标与灰阶尺组成一个整体：尺与字等宽（.mark-block 用 fit-content 收到
    字标的内容宽），所以它读起来是「这个字的量化刻度」，而不是一条横杠。
@@ -25,10 +26,10 @@ body{min-height:100dvh;display:flex;flex-direction:column;overflow:hidden}
 #theme svg{width:16px;height:16px}
 
 /* ── 海报：顶部栏以下的 3/5 ── */
-.poster{flex:3 1 0;min-height:0;container-type:size;
+.poster{flex:2 1 0;min-height:0;container-type:size;
   --gutter:34px;--side:clamp(190px,24cqw,290px);--band-gap:clamp(24px,5cqw,64px);
   padding:clamp(20px,4cqh,46px) var(--gutter);
-  display:flex;flex-direction:column;justify-content:space-between;gap:clamp(18px,3cqh,36px)}
+  display:flex;flex-direction:column;justify-content:center;gap:clamp(18px,3cqh,34px)}
 
 .meta-row{display:flex;align-items:baseline;justify-content:space-between;gap:20px}
 .meta-row .eyebrow{font:11px var(--mono);letter-spacing:.22em;text-transform:uppercase;color:var(--text-3)}
@@ -42,13 +43,13 @@ body{min-height:100dvh;display:flex;flex-direction:column;overflow:hidden}
 
 /* 字号由实测定出：Plex Sans SemiBold 下 "Luxel" 连同 -.045em 字距的墨宽
    恰为字号的 2.305 倍（末字母的字距不出墨），除数留 2.32 作余量。
-   宽度项减去右栏与栏距；高度项由实测预算反推 —— 1440×900 下海报内高 424，
-   元信息行 16 ＋ 刻度块 28 ＋ 两处间距 37 ＝ 固定占用 81，余 343 给字标盒，
-   除以 .78 行高得 440，换算即 126cqh − 112px（留约 18px 余量）。 */
+   宽度项减去右栏与栏距；高度项由预算反推 —— 字标盒高 ≤ 海报内高 − 元信息行
+   − 刻度块 − 两处间距，除以 .78 行高。取 124cqh − 120px：宽屏下让宽度项先约束
+   （填充率 ~99%），而 1920×700 这类矮宽窗口仍放得下。 */
 .wordmark{display:flex;line-height:.78;font-weight:600;letter-spacing:-.045em;margin:0;
   font-size:max(44px, min(
     calc((100cqw - var(--side) - var(--band-gap)) / 2.32),
-    calc(126cqh - 112px)
+    calc(124cqh - 120px)
   ))}
 .wordmark span{display:block}
 .wordmark span:nth-child(1){opacity:1}
@@ -71,9 +72,10 @@ body{min-height:100dvh;display:flex;flex-direction:column;overflow:hidden}
 .facts dt{font-size:11px;color:var(--text-3)}
 .facts dd{margin:0;font:11px var(--mono);color:var(--text-2);letter-spacing:.03em}
 
-/* ── 工具：顶部栏以下的 2/5。以淡底而非细线与海报区分。 ── */
-.tools{flex:2 1 0;min-height:0;display:flex;flex-direction:column;
-  background:var(--surface);padding:clamp(16px,3vh,26px) 34px clamp(18px,3vh,28px)}
+/* ── 工具：顶部栏以下的 1/3。不加底色也不加线 —— 淡底会在页脚形成一整块
+   实色，把版面压成头轻脚重；这里只靠间距和标题分区。 ── */
+.tools{flex:1 1 0;min-height:0;display:flex;flex-direction:column;
+  padding:clamp(14px,2.4vh,22px) 34px clamp(18px,3vh,28px)}
 .tools-head{display:flex;align-items:baseline;gap:12px;margin-bottom:14px;flex:none}
 .tools-head h2{margin:0;font-size:13px;font-weight:600}
 .tools-head .count{font:10px var(--mono);letter-spacing:.12em;color:var(--text-3);text-transform:uppercase}
