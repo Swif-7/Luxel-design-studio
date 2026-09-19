@@ -1,0 +1,170 @@
+<!doctype html><html lang="zh"><meta charset="utf-8"><title>Flux rendering checks</title><style>body{font:16px monospace;background:#141414;color:white}canvas{width:320px}pre{white-space:pre-wrap}</style><h1>GPU render checks</h1><canvas id="canvas"></canvas><div id="studies" style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px"></div><pre id="results">Running…</pre><script type="module">
+import {Renderer} from '/src/shader.js';import {glyphGroups,createGlyphAtlas,glyphDensityLookup} from '/src/glyphs.js';import {defaults,hashSeed,pinkStudy,modes} from '/src/model.js';
+const results=[];const canvas=document.getElementById('canvas');
+try{
+ const renderer=new Renderer(canvas),gl=renderer.gl;
+ const render=(time,patch={})=>{renderer.draw({...defaults,asciiRate:0,asciiDensity:0,...patch,seedValue:patch.seedValue??hashSeed(patch.seed??defaults.seed)%10000},time,320,180);const pixels=new Uint8Array(320*180*4);gl.readPixels(0,0,320,180,gl.RGBA,gl.UNSIGNED_BYTE,pixels);return pixels;};
+ const diff=(a,b)=>{let sum=0;for(let i=0;i<a.length;i++)if(i%4!==3)sum+=Math.abs(a[i]-b[i]);return sum/(a.length*.75);};
+ const check=(name,ok,detail)=>{results.push({name,pass:ok,detail});};
+ const a=render(0),b=render(1/60),c=render(2),same=render(0);
+ const step=diff(a,b),motion=diff(a,c);
+ check('Continuous movement over 2 seconds',motion>1,{meanChannelDelta:motion});
+ check('Adjacent frames change smoothly',step<4&&motion>step*3,{oneFrameDelta:step,twoSecondDelta:motion});
+ check('Same parameters and time reproduce exact pixels',diff(a,same)===0,diff(a,same));
+ check('Custom palette affects output',diff(a,render(0,{colors:['#ff0000','#00ff00']}))>1);
+ check('Particle switch affects output',diff(a,render(0,{particles:true,density:100,particleSize:3}))>.01);
+ for(let texture=1;texture<=4;texture++)check('Surface texture '+texture+' affects output',diff(a,render(0,{texture,textureStrength:1}))>.01);
+ // Hold the pigment frame fixed and advance only the post-pass clock. This
+ // isolates character animation from the already animated fluid underneath.
+ const textAt=(time,patch={})=>{
+  render(0,{particles:true,particleType:3,asciiGroup:'symbols',asciiOpacity:1,asciiRate:1,asciiDensity:1,colors:['#144090','#144090'],...patch});
+  gl.useProgram(renderer.post.program);gl.uniform1f(renderer.post.uniforms.time,time);gl.drawArrays(gl.TRIANGLES,0,3);
+  const pixels=new Uint8Array(320*180*4);gl.readPixels(0,0,320,180,gl.RGBA,gl.UNSIGNED_BYTE,pixels);return pixels;
+ };
+ const changingText=textAt(0);
+ check('Characters change even over a frozen pigment frame',diff(changingText,textAt(2))>.2);
+ check('Character changes reproduce the same seeded frame',diff(changingText,textAt(0))===0);
+ check('Zero character rate freezes automatic substitutions',diff(textAt(0,{asciiRate:0}),textAt(6,{asciiRate:0}))===0);
+ check('Character substitutions have smooth adjacent frames',diff(textAt(.9999),textAt(1.0001))<.1);
+ check('Measured density mapping affects character selection',diff(textAt(0,{asciiDensity:0}),textAt(0,{asciiDensity:1}))>.2);
+ const measured=createGlyphAtlas(['.','#','%','/']);
+ check('Coverage is measured from actual rendered glyph pixels',measured.coverage[0]<measured.coverage[1]&&measured.coverage.every(x=>x>0&&x<1),measured.coverage);
+ const densityTable=glyphDensityLookup(measured.coverage);
+ const averageCoverage=row=>{let sum=0;for(let x=0;x<256;x++)sum+=measured.coverage[densityTable[(row*256+x)*4]];return sum/256;};
+ check('Edge selection is measurably sparser than body selection',averageCoverage(0)<averageCoverage(63)*.7,{edge:averageCoverage(0),body:averageCoverage(63)});
+ const ascii=render(0,{particles:true,particleType:3,asciiOpacity:1});
+ let untouched=0,whiteInk=0,darkened=0;
+ for(let i=0;i<a.length;i+=4){let delta=0;for(let c=0;c<3;c++){delta+=ascii[i+c]-a[i+c];if(ascii[i+c]<a[i+c]-1)darkened++;}if(delta===0)untouched++;if(delta>9)whiteInk++;}
+ check('White glyph overlay preserves the flowing base between strokes',untouched>320*180*.5&&whiteInk>320*180*.02&&darkened===0,{untouched,whiteInk,darkened});
+ check('ASCII zero strength exactly bypasses glyphs',diff(a,render(0,{particles:true,particleType:3,asciiOpacity:0}))===0);
+ check('ASCII size changes glyph grid',diff(ascii,render(0,{particles:true,particleType:3,asciiOpacity:1,asciiSize:2}))>1);
+ check('ASCII follows the moving field',diff(ascii,render(2,{particles:true,particleType:3,asciiOpacity:1}))>1);
+ check('ASCII respects depth blur',diff(ascii,render(0,{particles:true,particleType:3,asciiOpacity:1,blur:100}))>.1);
+ check('ASCII leaves a uniform background unchanged',diff(render(0,{background:'#000000',colors:['#000000','#000000']}),render(0,{background:'#000000',colors:['#000000','#000000'],particles:true,particleType:3,asciiOpacity:1}))<.01);
+ renderer.draw({...defaults,particles:true,particleType:3,asciiOpacity:1,asciiSize:1.5,seedValue:hashSeed(defaults.seed)%10000},3,720,450);
+ const asciiFigure=document.createElement('figure');asciiFigure.style.margin='0';const asciiImage=document.createElement('img');asciiImage.src=canvas.toDataURL();asciiImage.style.width='100%';const asciiCaption=document.createElement('figcaption');asciiCaption.textContent='ASCII / smooth font';asciiFigure.append(asciiImage,asciiCaption);document.getElementById('studies').append(asciiFigure);
+ for(const asciiGroup of Object.keys(glyphGroups)){
+  const patch={particles:true,particleType:3,asciiOpacity:1,asciiGroup,asciiCustom:'山水あア01'};
+  const visible={...patch,colors:['#144090','#144090']};
+  check('Font glyphs render for '+asciiGroup,diff(render(0,{...visible,particles:false}),render(0,visible))>1);
+  renderer.draw({...defaults,asciiRate:0,asciiDensity:0,...patch,seedValue:hashSeed(defaults.seed)%10000,textureScale:2},3,720,450);
+  const figure=document.createElement('figure'),image=document.createElement('img'),caption=document.createElement('figcaption');image.src=canvas.toDataURL();image.style.width='100%';caption.textContent='FONT '+asciiGroup;figure.append(image,caption);document.getElementById('studies').append(figure);
+ }
+ check('Binary and Chinese use distinct glyph atlases',diff(render(0,{particles:true,particleType:3,asciiOpacity:1,asciiGroup:'binary'}),render(0,{particles:true,particleType:3,asciiOpacity:1,asciiGroup:'chinese'}))>.1);
+ const customA=render(0,{particles:true,particleType:3,asciiOpacity:1,asciiGroup:'custom',asciiCustom:'0'});
+ check('Custom character edits update the atlas',diff(customA,render(0,{particles:true,particleType:3,asciiOpacity:1,asciiGroup:'custom',asciiCustom:'山'}))>.1);
+ for(let mode=0;mode<4;mode++){
+  const patch={mode,texture:1,textureStrength:1};
+  check('Grain has no frame-bin jump in mode '+mode,diff(render(1/24-.00001,patch),render(1/24+.00001,patch))<.08);
+  check('Grain reproduces exact paused pixels in mode '+mode,diff(render(2,patch),render(2,patch))===0);
+ }
+ check('Zero grain strength restores original field',diff(a,render(0,{texture:1,textureStrength:0}))===0);
+ for(let mode=0;mode<modes.length;mode++){
+  // Recover glyph coverage on overlapping lit body regions. A fixed display
+  // must preserve positions and brightness while the pigment changes.
+  const patch={mode,colors:['#144090','#144090'],scale:1.3,glow:2.5,backgroundTint:0,colorFlow:0,asciiGroup:'binary',asciiSize:1.5};
+  const base0=render(0,patch),base1=render(.8,patch);
+  const text0=render(0,{...patch,particles:true,particleType:3,asciiOpacity:1});
+  const text1=render(.8,{...patch,particles:true,particleType:3,asciiOpacity:1});
+  let movement=0,count=0;
+  for(let i=0;i<base0.length;i+=4){const pixel=i/4,pitch=180*patch.asciiSize/24;const x=Math.min(319,Math.floor((Math.floor((pixel%320+.5)/pitch)+.5)*pitch)),y=Math.min(179,Math.floor((Math.floor((Math.floor(pixel/320)+.5)/pitch)+.5)*pitch)),center=(y*320+x)*4;if(base0[center]<80&&base1[center]<80&&base0[i]<180&&base1[i]<180){movement+=Math.abs((text0[i]-base0[i])/(255-base0[i])-(text1[i]-base1[i])/(255-base1[i]));count++;}}
+  check('Display glyphs stay fixed while pigment moves in mode '+mode,count>200&&movement/count<.015,{count,coverageChange:movement/count});
+ }
+ check('Paused character particles reproduce exact frames',diff(render(1,{particles:true,particleType:3}),render(1,{particles:true,particleType:3}))===0);
+ const framing={colors:['#144090','#144090'],mode:1,asciiGroup:'binary',asciiSize:1.5,glow:2.5,backgroundTint:0};
+ const recover=(patch)=>{const base=render(0,{...framing,...patch}),text=render(0,{...framing,...patch,particles:true,particleType:3});return {base,text};};
+ const reference=recover({scale:1.2}),framed=recover({scale:2.2,angle:65,offsetX:.1,distortion:1.6});
+ let gridChange=0,gridCount=0;for(let i=0;i<reference.base.length;i+=4)if(reference.base[i]<100&&framed.base[i]<100){gridChange+=Math.abs((reference.text[i]-reference.base[i])/(255-reference.base[i])-(framed.text[i]-framed.base[i])/(255-framed.base[i]));gridCount++;}
+ check('Character spacing ignores ribbon scale, angle, offset and distortion',gridCount>200&&gridChange/gridCount<.015,{gridCount,gridChange:gridChange/gridCount});
+ check('Independent character spacing changes coverage',diff(render(0,{particles:true,particleType:3,asciiSpacing:1}),render(0,{particles:true,particleType:3,asciiSpacing:1.8}))>.2);
+ const mist={...framing,glow:.2,scale:.3,offsetX:0,offsetY:0,backgroundTint:2,backgroundSpread:3};
+ const mistBase=render(0,mist),mistText=render(0,{...mist,particles:true,particleType:3});
+ let outsideChange=0;for(let y=0;y<180;y++)for(let x=0;x<320;x++)if(x<30||x>290){for(let c=0;c<3;c++)outsideChange+=Math.abs(mistBase[(y*320+x)*4+c]-mistText[(y*320+x)*4+c]);}
+ check('Characters outside the ribbon are fully extinguished',outsideChange===0,{outsideChange});
+ check('Character particles combine with surface grain',diff(render(0,{particles:true,particleType:3}),render(0,{particles:true,particleType:3,texture:1,textureStrength:1}))>.005);
+ check('Disabling character particles restores the original base',diff(a,render(0,{particleType:3,particles:false}))===0);
+ for(let mode=0;mode<modes.length;mode++){const frame=render(1,{mode});check('Mode '+mode+' renders',frame.some((v,i)=>i%4<3&&v<180));}
+ for(let mode=1;mode<modes.length;mode++){
+  const first=render(0,{mode,colorFlow:0}),next=render(2,{mode,colorFlow:0});
+  check(modes[mode]+' changes geometry without color cycling',diff(first,next)>1);
+  check(modes[mode]+' has continuous motion',diff(first,render(1/60,{mode,colorFlow:0}))<4);
+  renderer.draw({...defaults,mode,seedValue:hashSeed(defaults.seed)%10000},3,480,300);const figure=document.createElement('figure'),image=document.createElement('img'),caption=document.createElement('figcaption');figure.style.margin='0';image.src=canvas.toDataURL();image.style.width='100%';caption.textContent=modes[mode];figure.append(image,caption);document.getElementById('studies').append(figure);
+ }
+ for(const seed of ['silk-001','prism','aurora','flow']){
+  const patch={mode:3,seed,colorFlow:0};
+  const start=render(0,patch),early=render(.5,patch),later=render(4,patch);
+  check('Drift starts moving immediately for '+seed,diff(start,early)>.8&&diff(start,render(1/60,patch))<4);
+  check('Drift continues changing for '+seed,diff(early,later)>1);
+  renderer.draw({...defaults,mode:3,seedValue:hashSeed(seed)%10000},0,480,300);const figure=document.createElement('figure'),image=document.createElement('img'),caption=document.createElement('figcaption');figure.style.margin='0';image.src=canvas.toDataURL();image.style.width='100%';caption.textContent='Drift start / '+seed;figure.append(image,caption);document.getElementById('studies').append(figure);
+ }
+ check('Drift seed changes initial flow geometry',diff(render(0,{mode:3,seed:'prism',colorFlow:0}),render(0,{mode:3,seed:'aurora',colorFlow:0}))>5);
+ const small=render(0,{mode:1,scale:.35}),large=render(0,{mode:1,scale:1.4});
+ const coloredArea=p=>{let count=0;for(let i=0;i<p.length;i+=4)if(p[i]+p[i+1]+p[i+2]<660)count++;return count;};
+ check('Subject size changes occupied area',coloredArea(large)>coloredArea(small)*2,{small:coloredArea(small),large:coloredArea(large)});
+ for(const scale of [.45,.9]){
+  const centered=render(0,{mode:1,scale,offsetX:0,offsetY:0}),shifted=render(0,{mode:1,scale,offsetX:.2,offsetY:.1});
+  let error=0,count=0;for(let y=0;y<162;y++)for(let x=0;x<284;x++)for(let c=0;c<3;c++){error+=Math.abs(centered[(y*320+x)*4+c]-shifted[((y+18)*320+x+36)*4+c]);count++;}
+  check('XY translation is independent of subject size '+scale,error/count<.75,{meanError:error/count});
+ }
+ const noAura=render(0,{backgroundTint:0,backgroundSpread:.5});
+ check('Disabling background tint removes spread influence',diff(noAura,render(0,{backgroundTint:0,backgroundSpread:3}))===0);
+ check('Background spread independently changes the extended field',diff(render(0,{backgroundSpread:.5}),render(0,{backgroundSpread:3}))>1);
+ const mono={colors:['#e87898','#e87898'],background:'#ffffff',glow:.2};
+ const bare=render(0,{...mono,backgroundTint:0}),tinted=render(0,{...mono,backgroundTint:1});
+ let wrongDirection=0,changed=0;for(let i=0;i<bare.length;i++)if(i%4<3){if(tinted[i]>bare[i]+1)wrongDirection++;if(bare[i]-tinted[i]>3)changed++;}
+ check('Extended pigment increases tint toward the same ribbon color',wrongDirection===0&&changed>bare.length*.1,{wrongDirection,changed});
+ const studyFrame=render(0,pinkStudy);
+ check('Pink study keeps moving continuously',diff(studyFrame,render(2,pinkStudy))>1&&diff(studyFrame,render(1/60,pinkStudy))<4);
+ const sharp=render(0,{blur:0}),uniformBlur=render(0,{blur:100,regionalBlur:false}),regional=render(0,{blur:100,regionalBlur:true});
+ check('Zero blur bypasses either focus mode exactly',diff(sharp,render(0,{blur:0,regionalBlur:false}))===0);
+ check('Blur amount produces visible smoothing',diff(sharp,uniformBlur)>1);
+ let retained=0,softened=0;for(let i=0;i<sharp.length;i+=4){let d=0;for(let c=0;c<3;c++)d+=Math.abs(sharp[i+c]-regional[i+c]);if(d===0)retained++;if(d>6)softened++;}
+ check('Regional focus retains sharp pixels and softens others',retained>320*180*.05&&softened>320*180*.05,{retained,softened});
+ check('Regional and full blur produce distinct outputs',diff(regional,uniformBlur)>.2);
+ check('Regional blur animates continuously',diff(regional,render(1/60,{blur:100,regionalBlur:true}))<4);
+ check('WebGL has no error',gl.getError()===gl.NO_ERROR);
+ for(const seed of ['silk-001','silk-002','aurora','prism','flow','studio','weave','rainbow']){renderer.draw({...defaults,seedValue:hashSeed(seed)%10000},0,320,180);const figure=document.createElement('figure');figure.style.margin='0';const image=document.createElement('img');image.src=canvas.toDataURL();image.style.width='100%';const caption=document.createElement('figcaption');caption.textContent=seed;figure.append(image,caption);document.getElementById('studies').append(figure);}
+ for(const seed of ['silk-001','silk-002','aurora','prism','flow','studio','weave','rainbow']){renderer.draw({...pinkStudy,seedValue:hashSeed(seed)%10000},3,480,300);const figure=document.createElement('figure');figure.style.margin='0';const image=document.createElement('img');image.src=canvas.toDataURL();image.style.width='100%';const caption=document.createElement('figcaption');caption.textContent='PINK '+seed;figure.append(image,caption);document.getElementById('studies').append(figure);}
+ const edge=(pixels,w,h)=>{
+  // Remove final one-LSB dithering before measuring coherent layer ripples.
+  const smooth=new Float32Array(pixels.length);
+  for(let y=1;y<h-1;y++)for(let x=1;x<w-1;x++)for(let c=0;c<3;c++){
+   let v=0;for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++)v+=pixels[((y+dy)*w+x+dx)*4+c];
+   smooth[(y*w+x)*4+c]=v/9;
+  }
+  let energy=0;for(let y=4;y<h-4;y++)for(let x=4;x<w-4;x++)for(let c=0;c<3;c++){
+   const i=(y*w+x)*4+c;energy+=Math.abs(smooth[i]-(smooth[i-12]+smooth[i+12]+smooth[i-w*12]+smooth[i+w*12])*.25);
+  }
+  return energy/((w-8)*(h-8)*3);
+ };
+
+ const edgeRenderer=new Renderer(document.createElement('canvas'));
+ const edgeValues=[];
+ for(const time of [0,2,4]){
+  edgeRenderer.draw({...defaults,seedValue:hashSeed('aurora')%10000,mode:0,detail:5.48,softness:.74},time,480,270);
+  const pixels=new Uint8Array(480*270*4);edgeRenderer.gl.readPixels(0,0,480,270,edgeRenderer.gl.RGBA,edgeRenderer.gl.UNSIGNED_BYTE,pixels);
+  edgeValues.push(edge(pixels,480,270));
+ }
+ // Previously 0.579 / 0.373 / 0.469 on these same frames: catch exposed layer rings.
+ check('Known layered-edge regression remains smooth',edgeValues.every(v=>v<.31),edgeValues);
+ edgeRenderer.fieldType=edgeRenderer.gl.UNSIGNED_BYTE;edgeRenderer.size='';
+ edgeRenderer.draw({...defaults,seedValue:hashSeed(defaults.seed)%10000},2,480,270);
+ check('RGBA8 fallback renders without WebGL errors',edgeRenderer.gl.getError()===edgeRenderer.gl.NO_ERROR);
+ // Read the packed geometric depth in RGBA8, then verify that the in-focus
+ // ridge stays unchanged while the receding shoulders receive blur.
+ const depthState={...defaults,seedValue:hashSeed(defaults.seed)%10000};
+ const depthFrame=(patch={})=>{edgeRenderer.draw({...depthState,...patch},0,480,270);const pixels=new Uint8Array(480*270*4);edgeRenderer.gl.readPixels(0,0,480,270,edgeRenderer.gl.RGBA,edgeRenderer.gl.UNSIGNED_BYTE,pixels);return pixels;};
+ const readDepth=()=>{const g=edgeRenderer.gl,pixels=new Uint8Array(480*270*4);g.bindFramebuffer(g.FRAMEBUFFER,edgeRenderer.fbo);g.readPixels(0,0,480,270,g.RGBA,g.UNSIGNED_BYTE,pixels);g.bindFramebuffer(g.FRAMEBUFFER,null);return pixels.filter((v,i)=>i%4===3);};
+ const depthSharp=depthFrame({blur:0}),depthMap=readDepth();
+ const depthBlur=depthFrame({blur:100,regionalBlur:true});
+ let nearCount=0,nearError=0,shoulderCount=0,shoulderError=0;
+ for(let i=0;i<depthMap.length;i++){let error=0;for(let c=0;c<3;c++)error+=Math.abs(depthSharp[i*4+c]-depthBlur[i*4+c])/3;if(depthMap[i]===0){nearCount++;nearError+=error;}if(depthMap[i]>100&&depthMap[i]<240){shoulderCount++;shoulderError+=error;}}
+ check('Glass-depth ridge remains sharp and shoulders soften',nearCount>500&&shoulderCount>500&&nearError/nearCount<.1&&shoulderError/shoulderCount>.3,{nearCount,nearMeanChange:nearError/nearCount,shoulderMeanChange:shoulderError/shoulderCount});
+ depthFrame({colors:['#0088ff','#ff5500'],glow:2,backgroundTint:0,backgroundSpread:3});
+ const recoloredDepth=readDepth();
+ check('Glass distance is independent of palette and background settings',depthMap.every((v,i)=>v===recoloredDepth[i]));
+ check('Depth inspection leaves WebGL error-free',edgeRenderer.gl.getError()===edgeRenderer.gl.NO_ERROR);
+ edgeRenderer.destroy();
+ document.getElementById('results').textContent=JSON.stringify({passed:results.filter(x=>x.pass).length,total:results.length,results},null,2);
+}catch(error){document.getElementById('results').textContent=error.stack;}
+</script></html>
