@@ -1,19 +1,19 @@
 /* Luxel — 首页
    ────────────────────────────────────────────────────────────────────────
-   一屏不滚动。顶部栏之下按 3:2 分给海报与工具区 —— 用 flex 比例分配，
-   不靠任何写死的高度常数。
+   除顶部栏外全页无分割线。版面靠对齐、间距和尺度维系：
+   海报与工具区按 3:2 分配顶部栏以下的高度（flex 比例，无写死常数），
+   工具区以一块淡底而非一条线与海报区分。
 
-   海报是一张版面，不是一行大字：元信息行 / 字标 / 灰阶尺 / 说明四段，
-   左对齐同一条网格线。灰阶尺是把阶梯格标志的想法做成图形 —— 光被量化成
-   16 级，字标五个字母则取其中五级，两者是同一件事的两种尺度。
+   字标与灰阶尺组成一个整体：尺与字等宽（.mark-block 用 fit-content 收到
+   字标的内容宽），所以它读起来是「这个字的量化刻度」，而不是一条横杠。
+   字标五个字母取的正是尺上的五级 —— 同一件事的两种尺度。
 
-   字标尺寸用容器查询单位（cqw / cqh）而非 dvh：海报的高度已由 flex 比例
-   确定，cqh 直接就是它，不必再去猜页眉和工具区占掉多少。
+   字标尺寸用容器查询单位：海报高度已由 flex 比例确定，cqh 直接就是它。
    ──────────────────────────────────────────────────────────────────────── */
 
 body{min-height:100dvh;display:flex;flex-direction:column;overflow:hidden}
 
-/* ── 页眉 ── */
+/* ── 顶部栏：全页唯一保留的分隔 ── */
 .top{flex:none;display:flex;align-items:center;justify-content:space-between;
   padding:0 34px;height:68px;border-bottom:1px solid var(--border)}
 .brand{display:flex;align-items:center;gap:11px;color:inherit;text-decoration:none;font-size:20px;font-weight:600;letter-spacing:-.015em}
@@ -24,31 +24,31 @@ body{min-height:100dvh;display:flex;flex-direction:column;overflow:hidden}
 #theme:hover{background:var(--surface-3);color:var(--text)}
 #theme svg{width:16px;height:16px}
 
-/* ── 海报：占顶部栏以下的 3/5 ── */
+/* ── 海报：顶部栏以下的 3/5 ── */
 .poster{flex:3 1 0;min-height:0;container-type:size;
-  --gutter:34px;--side:clamp(200px,25cqw,300px);--band-gap:clamp(20px,4cqw,56px);
-  padding:clamp(16px,3cqh,38px) var(--gutter);
-  display:flex;flex-direction:column;justify-content:space-between;gap:clamp(14px,2.5cqh,32px)}
+  --gutter:34px;--side:clamp(190px,24cqw,290px);--band-gap:clamp(24px,5cqw,64px);
+  padding:clamp(20px,4cqh,46px) var(--gutter);
+  display:flex;flex-direction:column;justify-content:space-between;gap:clamp(18px,3cqh,36px)}
 
-.meta-row{display:flex;align-items:baseline;justify-content:space-between;gap:20px;
-  padding-bottom:9px;border-bottom:1px solid var(--border)}
+.meta-row{display:flex;align-items:baseline;justify-content:space-between;gap:20px}
 .meta-row .eyebrow{font:11px var(--mono);letter-spacing:.22em;text-transform:uppercase;color:var(--text-3)}
 .meta-row .formula{font:12px var(--mono);color:var(--text-2)}
 
-/* 中段双栏：字标占左，说明与事实占右。海报变矮后字标已无法既填满整宽
-   又放得下，所以让出右侧做成信息栏 —— 版面反而更实。 */
+/* 中段双栏：左为字标＋刻度，右为说明与事实，底对齐同一条基线。 */
 .band{display:grid;grid-template-columns:minmax(0,1fr) var(--side);
-  gap:var(--band-gap);align-items:center;min-height:0}
+  gap:var(--band-gap);align-items:end;min-height:0}
+.mark-block{width:fit-content;max-width:100%;display:flex;flex-direction:column;
+  gap:clamp(10px,1.8cqh,20px)}
 
 /* 字号由实测定出：Plex Sans SemiBold 下 "Luxel" 连同 -.045em 字距的墨宽
    恰为字号的 2.305 倍（末字母的字距不出墨），除数留 2.32 作余量。
-   宽度项减去右栏与栏距。高度项由预算反推：字标盒高 ≤ 海报内高 − 元信息 26
-   − 灰阶尺 31 − 两个间距 28，除以 .78 行高，即 120cqh − 110px。
-   用 cqh 是因为海报高度已由 3:2 的 flex 比例确定，不必再推算页眉和工具区。 */
+   宽度项减去右栏与栏距；高度项由实测预算反推 —— 1440×900 下海报内高 424，
+   元信息行 16 ＋ 刻度块 28 ＋ 两处间距 37 ＝ 固定占用 81，余 343 给字标盒，
+   除以 .78 行高得 440，换算即 126cqh − 112px（留约 18px 余量）。 */
 .wordmark{display:flex;line-height:.78;font-weight:600;letter-spacing:-.045em;margin:0;
   font-size:max(44px, min(
     calc((100cqw - var(--side) - var(--band-gap)) / 2.32),
-    calc(120cqh - 110px)
+    calc(126cqh - 112px)
   ))}
 .wordmark span{display:block}
 .wordmark span:nth-child(1){opacity:1}
@@ -57,45 +57,45 @@ body{min-height:100dvh;display:flex;flex-direction:column;overflow:hidden}
 .wordmark span:nth-child(4){opacity:.625}
 .wordmark span:nth-child(5){opacity:.5}
 
-/* 灰阶尺：16 级由实到空。末级不可见，靠底部细线交代整条的长度。 */
-.wedge{display:flex;flex-direction:column;gap:7px}
-.steps{display:flex;height:clamp(9px,2.4cqh,20px);border-bottom:1px solid var(--border)}
+/* 灰阶尺：16 级由实到空，与字标等宽。末级不可见，由刻度数字交代整条长度。 */
+.wedge{width:100%;display:flex;flex-direction:column;gap:6px}
+.steps{display:flex;height:clamp(8px,2cqh,16px)}
 .steps i{flex:1 1 0;background:currentColor;display:block}
 .scale{display:flex;justify-content:space-between;gap:12px;
   font:10px var(--mono);letter-spacing:.1em;color:var(--text-3)}
-.scale span:nth-child(2){letter-spacing:.04em}
 
-.side{display:flex;flex-direction:column;gap:clamp(14px,2.6cqh,26px);min-width:0}
+.side{display:flex;flex-direction:column;gap:clamp(16px,3cqh,28px);min-width:0;padding-bottom:2px}
 .tagline{margin:0;font-size:clamp(12.5px,1.5cqw,14.5px);color:var(--text-2);line-height:1.7}
-.facts{margin:0;display:flex;flex-direction:column;gap:6px;border-top:1px solid var(--border);padding-top:11px}
+.facts{margin:0;display:flex;flex-direction:column;gap:7px}
 .facts>div{display:flex;align-items:baseline;justify-content:space-between;gap:12px}
 .facts dt{font-size:11px;color:var(--text-3)}
 .facts dd{margin:0;font:11px var(--mono);color:var(--text-2);letter-spacing:.03em}
 
-/* ── 工具：占顶部栏以下的 2/5 ── */
+/* ── 工具：顶部栏以下的 2/5。以淡底而非细线与海报区分。 ── */
 .tools{flex:2 1 0;min-height:0;display:flex;flex-direction:column;
-  border-top:1px solid var(--border);background:var(--surface);padding:16px 34px 20px}
-.tools-head{display:flex;align-items:baseline;gap:12px;margin-bottom:12px;flex:none}
+  background:var(--surface);padding:clamp(16px,3vh,26px) 34px clamp(18px,3vh,28px)}
+.tools-head{display:flex;align-items:baseline;gap:12px;margin-bottom:14px;flex:none}
 .tools-head h2{margin:0;font-size:13px;font-weight:600}
 .tools-head .count{font:10px var(--mono);letter-spacing:.12em;color:var(--text-3);text-transform:uppercase}
-.tools-head .hint{margin-left:auto;font-size:11px;color:var(--text-3)}
-.card-row{flex:1 1 0;min-height:0;display:flex;gap:16px;overflow-x:auto;overflow-y:hidden;
-  scrollbar-width:thin;padding-bottom:2px;align-items:stretch}
-.card{flex:0 0 clamp(190px,21vw,260px);min-width:0;display:flex;flex-direction:column;
-  border:1px solid var(--border);border-radius:11px;background:var(--surface-2);overflow:hidden;
-  text-decoration:none;color:inherit;transition:border-color .15s,background .15s}
-.card:hover{border-color:var(--border-control)}
-.card img{width:100%;flex:1 1 0;min-height:0;object-fit:cover;display:block;background:var(--stage)}
-.card .body{position:relative;flex:none;padding:10px 12px 11px;border-top:1px solid var(--border)}
-.card .idx{position:absolute;top:10px;right:12px;font:9.5px var(--mono);color:var(--text-3)}
-.card h3{margin:0 0 2px;font-size:14px;font-weight:600;letter-spacing:-.01em}
-.card p{margin:0;font-size:11.5px;color:var(--text-3);line-height:1.45}
+
+/* 卡片没有边框也没有底色：缩略图本身就是对象，文字直接落在淡底上。 */
+.card-row{flex:1 1 0;min-height:0;display:flex;gap:20px;overflow-x:auto;overflow-y:hidden;
+  scrollbar-width:thin;align-items:stretch}
+.card{flex:0 0 clamp(180px,20vw,250px);min-width:0;display:flex;flex-direction:column;gap:10px;
+  text-decoration:none;color:inherit}
+.card img{width:100%;flex:1 1 0;min-height:0;object-fit:cover;display:block;
+  border-radius:10px;background:var(--stage);transition:opacity .15s}
+.card:hover img{opacity:.82}
+.card .body{flex:none;display:grid;grid-template-columns:1fr auto;align-items:baseline;gap:4px 10px}
+.card h3{margin:0;font-size:14px;font-weight:600;letter-spacing:-.01em}
+.card .idx{font:9.5px var(--mono);color:var(--text-3)}
+.card p{grid-column:1/-1;margin:0;font-size:11.5px;color:var(--text-3);line-height:1.45}
 
 /* 窄屏：双栏折叠成单栏，否则左栏被右栏挤到只剩一百多像素，字标会小得荒唐。
    折叠后 --side / --band-gap 归零，字标的宽度项自然回到整宽。 */
 @media(max-width:860px){
   .poster{--side:0px;--band-gap:0px}
-  .band{grid-template-columns:1fr;gap:clamp(12px,2cqh,22px);align-items:start}
+  .band{grid-template-columns:1fr;gap:clamp(16px,2.6cqh,26px);align-items:start}
   .wordmark{font-size:max(44px, min(calc(100cqw / 2.32), calc(95cqh - 150px)))}
   .facts{flex-direction:row;flex-wrap:wrap;gap:8px 24px}
   .facts>div{gap:8px}
@@ -104,17 +104,15 @@ body{min-height:100dvh;display:flex;flex-direction:column;overflow:hidden}
   .top{padding:0 18px;height:58px}
   .top .meta{display:none}
   .poster{--gutter:18px}
-  .tools{padding:14px 18px 18px}
-  .tools-head .hint{display:none}
+  .tools{padding-left:18px;padding-right:18px}
   .meta-row .eyebrow{letter-spacing:.14em;font-size:10px}
   .scale span:nth-child(2){display:none}
 }
 /* 矮窗口：一屏放不下就别硬撑 */
 @media(max-height:560px){
   body{overflow:auto}
-  .poster{container-type:normal;gap:18px;justify-content:flex-start}
-  .band{grid-template-columns:1fr;gap:16px}
+  .poster{container-type:normal;justify-content:flex-start}
   .wordmark{font-size:max(44px,min(calc((100vw - var(--gutter)*2) / 2.32), 170px))}
-  .tools{min-height:220px}
+  .tools{min-height:230px}
 }
 @media(prefers-reduced-motion:reduce){*{transition:none!important}}
