@@ -39,12 +39,18 @@ body{height:100dvh;display:flex;overflow:hidden}
 
 /* 字标 ＋ 灰阶条。绝对定位贴住 stage 的内边距框，也就是屏幕右缘。 */
 .masthead{position:absolute;top:0;right:0;display:flex;align-items:stretch;gap:14px;padding-top:24px}
-/* 竖排字标：五个字母各占一行，居中对齐同一条轴。
-   字号由视口高度定 —— 五行 × .84 行高约占视口的 44%。 */
-.wordmark{margin:0;display:flex;flex-direction:column;align-items:center;
-  line-height:.84;font-weight:600;letter-spacing:-.02em;
-  font-size:clamp(34px,10.4vh,104px)}
-.wordmark span{display:block}
+/* 竖排字标：不是把字母逐个堆叠，而是把正常排版整体转 90°。
+   用 writing-mode 而非 transform —— 前者参与布局，元素真实占位，
+   灰阶条才能靠 flex stretch 与它等高；后者不占位，得另外算尺寸。
+   text-orientation 默认 mixed，拉丁字母顺时针转 90°，自上而下读。
+
+   实测 Plex Sans SemiBold 全大写 "LUXEL" 连同 -.02em 字距长 2.875 em。
+   两项约束：长度取视口高的一半（除以 2.875 得字号），厚度不超过视口宽的 16%
+   —— 后者在窄屏自动收住，不必逐断点写死 px 上限（写死会让字标在高视口
+   显小、矮视口显大，实测波动达 19%–62%）。 */
+.wordmark{margin:0;writing-mode:vertical-rl;line-height:1;
+  font-weight:600;letter-spacing:-.02em;
+  font-size:min(calc(50vh / 2.875), 16vw)}
 .wordmark span:nth-child(1){opacity:1}
 .wordmark span:nth-child(2){opacity:.875}
 .wordmark span:nth-child(3){opacity:.75}
@@ -66,10 +72,9 @@ body{height:100dvh;display:flex;overflow:hidden}
 .card img{width:100%;height:auto;aspect-ratio:3/2;object-fit:cover;display:block;
   border-radius:10px;background:var(--stage);transition:opacity .15s}
 .card:hover img{opacity:.82}
-.card .body{display:grid;grid-template-columns:1fr auto;align-items:baseline;gap:4px 10px}
+.card .body{display:flex;flex-direction:column;gap:3px}
 .card h2{margin:0;font-size:14px;font-weight:600;letter-spacing:-.01em}
-.card .idx{font:9.5px var(--mono);color:var(--text-3)}
-.card p{grid-column:1/-1;margin:0;font-size:11.5px;color:var(--text-3);line-height:1.45}
+.card p{margin:0;font-size:11.5px;color:var(--text-3);line-height:1.45}
 
 /* 说明：画面左下，与工具卡拉开层级 */
 .blurb{position:absolute;left:var(--pad);bottom:30px;margin:0;max-width:34ch;
@@ -81,13 +86,10 @@ body{height:100dvh;display:flex;overflow:hidden}
   .formula{bottom:26px}
   .masthead{gap:10px}
   .masthead{padding-top:18px}
-  .wordmark{font-size:clamp(30px,8.4vh,72px)}
 }
 @media(max-width:560px){
   .rail{width:46px;padding:14px 0}
   .rail-text{display:none}
-  /* 字标缩到不与居中的工具卡打架 */
-  .wordmark{font-size:clamp(26px,6.6vh,52px)}
   .formula{display:none}
   .tools{padding-top:12px}
 }
