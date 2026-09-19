@@ -35,7 +35,7 @@ body{min-height:100dvh;display:flex;flex-direction:column;overflow:hidden}
 .meta-row .eyebrow{font:11px var(--mono);letter-spacing:.22em;text-transform:uppercase;color:var(--text-3)}
 .meta-row .formula{font:12px var(--mono);color:var(--text-2)}
 
-/* 中段双栏：左为字标＋刻度，右为说明与事实，底对齐同一条基线。 */
+/* 中段双栏：左为字标＋刻度，右为说明，底对齐同一条基线。 */
 .band{display:grid;grid-template-columns:minmax(0,1fr) var(--side);
   gap:var(--band-gap);align-items:end;min-height:0}
 .mark-block{width:fit-content;max-width:100%;display:flex;flex-direction:column;
@@ -65,12 +65,8 @@ body{min-height:100dvh;display:flex;flex-direction:column;overflow:hidden}
 .scale{display:flex;justify-content:space-between;gap:12px;
   font:10px var(--mono);letter-spacing:.1em;color:var(--text-3)}
 
-.side{display:flex;flex-direction:column;gap:clamp(16px,3cqh,28px);min-width:0;padding-bottom:2px}
+.side{display:flex;flex-direction:column;justify-content:flex-end;min-width:0;padding-bottom:2px}
 .tagline{margin:0;font-size:clamp(12.5px,1.5cqw,14.5px);color:var(--text-2);line-height:1.7}
-.facts{margin:0;display:flex;flex-direction:column;gap:7px}
-.facts>div{display:flex;align-items:baseline;justify-content:space-between;gap:12px}
-.facts dt{font-size:11px;color:var(--text-3)}
-.facts dd{margin:0;font:11px var(--mono);color:var(--text-2);letter-spacing:.03em}
 
 /* ── 工具：顶部栏以下的 1/3。不加底色也不加线 —— 淡底会在页脚形成一整块
    实色，把版面压成头轻脚重；这里只靠间距和标题分区。 ── */
@@ -99,8 +95,6 @@ body{min-height:100dvh;display:flex;flex-direction:column;overflow:hidden}
   .poster{--side:0px;--band-gap:0px}
   .band{grid-template-columns:1fr;gap:clamp(16px,2.6cqh,26px);align-items:start}
   .wordmark{font-size:max(44px, min(calc(100cqw / 2.32), calc(95cqh - 150px)))}
-  .facts{flex-direction:row;flex-wrap:wrap;gap:8px 24px}
-  .facts>div{gap:8px}
 }
 @media(max-width:740px){
   .top{padding:0 18px;height:58px}
