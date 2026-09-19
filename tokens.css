@@ -1,0 +1,68 @@
+/* Luxel — 共享基底
+   ────────────────────────────────────────────────────────────────────────
+   所有页面都先加载本文件，再加载各自的页面样式。
+   Token 只在这里定义一份 —— 改色请只改这里。
+
+   字体：IBM Plex 自托管于 /fonts（OFL，见 fonts/LICENSE.txt）。
+   Plex Sans 不含汉字，中文自动回落到 PingFang SC 等系统字体；
+   IBM Plex Sans SC 体积数 MB，不值得为此打包。
+
+   配色：界面为单色。画布渲染的是饱和作品，chrome 里任何色相都会抢视线，
+   所以 --accent 浅色近黑、深色近白，承担全部主操作与激活态。
+   主题由 prefers-color-scheme 决定，可被 <html> 上的 [data-theme] 覆盖。
+   ──────────────────────────────────────────────────────────────────────── */
+
+@font-face{font-family:"IBM Plex Sans";src:url(/fonts/IBMPlexSans-Regular.woff2)format("woff2");font-weight:400;font-style:normal;font-display:swap}
+@font-face{font-family:"IBM Plex Sans";src:url(/fonts/IBMPlexSans-SemiBold.woff2)format("woff2");font-weight:600;font-style:normal;font-display:swap}
+@font-face{font-family:"IBM Plex Mono";src:url(/fonts/IBMPlexMono-Regular.woff2)format("woff2");font-weight:400;font-style:normal;font-display:swap}
+
+:root{
+  --sans:"IBM Plex Sans",-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+
+:root{
+  color-scheme:light;
+  --bg:#ffffff; --surface:#f9f9f9; --surface-2:#ffffff; --surface-3:#efefef;
+  --border:#e5e5e5; --border-control:#c6c6c6;
+  --text:#0d0d0d; --text-2:#5c5c5c; --text-3:#6b6b6b;
+  --accent:#0d0d0d; --accent-fg:#ffffff;
+  --stage:#f2f2f2; --danger:#b42318;
+  --dock-inset:12px;
+}
+@media(prefers-color-scheme:dark){
+  :root:not([data-theme=light]){
+    color-scheme:dark;
+    --bg:#0f0f0f; --surface:#171717; --surface-2:#212121; --surface-3:#2b2b2b;
+    --border:#2f2f2f; --border-control:#4d4d4d;
+    --text:#ececec; --text-2:#a4a4a4; --text-3:#949494;
+    --accent:#ececec; --accent-fg:#0f0f0f;
+    --stage:#0a0a0a; --danger:#f97066;
+  }
+}
+:root[data-theme=dark]{
+  color-scheme:dark;
+  --bg:#0f0f0f; --surface:#171717; --surface-2:#212121; --surface-3:#2b2b2b;
+  --border:#2f2f2f; --border-control:#4d4d4d;
+  --text:#ececec; --text-2:#a4a4a4; --text-3:#949494;
+  --accent:#ececec; --accent-fg:#0f0f0f;
+  --stage:#0a0a0a; --danger:#f97066;
+}
+
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14px;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+button,input,select{font:inherit}
+button,a,input,select{-webkit-tap-highlight-color:transparent}
+button{cursor:pointer;color:inherit;border:1px solid var(--border-control);background:var(--surface-2);border-radius:7px;padding:9px 13px;transition:background .15s,border-color .15s}
+button:hover{background:var(--surface-3);border-color:var(--text-3)}
+button:disabled{opacity:.35;cursor:not-allowed}
+/* Solid --text focus ring: 19.4:1 light / 13.6:1 dark, well past the 3:1
+   non-text minimum that the hairline control borders themselves do not meet. */
+button:focus-visible,input:focus-visible,select:focus-visible,a:focus-visible{outline:2px solid var(--text);outline-offset:3px}
+select{background:var(--surface-2);color:var(--text);border:1px solid var(--border-control);border-radius:6px;padding:7px;max-width:100%}
+label{font-size:12px}
+input[type=checkbox]{accent-color:var(--accent)}
+.quiet{background:transparent}
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)}
+.eyebrow{font:10px ui-monospace,monospace;letter-spacing:2px;color:var(--text-3)}
+

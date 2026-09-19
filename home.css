@@ -1,0 +1,77 @@
+/* Luxel — 首页
+   ────────────────────────────────────────────────────────────────────────
+   一屏不滚动：header / 海报 / 工具三段纵向排布，海报占剩余空间的大头。
+   海报用 100% → 50% 五级灰把 LUXEL 五个字母排成阶梯 —— 和标志是同一个
+   想法（一个被量化的光单位），最末一级仍保持 3:1 以上对比。
+   高度不足时（横屏手机、矮窗口）放弃一屏约束，改为正常滚动。
+   ──────────────────────────────────────────────────────────────────────── */
+
+body{min-height:100dvh;display:flex;flex-direction:column;overflow:hidden}
+
+/* ── 页眉 ── */
+.top{display:flex;align-items:center;justify-content:space-between;padding:0 34px;height:68px;border-bottom:1px solid var(--border);flex:none}
+.brand{display:flex;align-items:center;gap:11px;color:inherit;text-decoration:none;font-size:20px;font-weight:600;letter-spacing:-.015em}
+.brand-mark{width:22px;height:22px;color:var(--text);display:block;flex:none}
+.top nav{display:flex;align-items:center;gap:18px}
+.top .meta{font:11px var(--mono);color:var(--text-3);letter-spacing:.04em}
+#theme{padding:0;width:32px;height:32px;display:grid;place-items:center;background:transparent;border-color:var(--border);color:var(--text-2)}
+#theme:hover{background:var(--surface-3);color:var(--text)}
+#theme svg{width:16px;height:16px}
+
+/* ── 海报 ── */
+.poster{--gutter:34px;flex:1 1 auto;min-height:0;display:flex;flex-direction:column;justify-content:center;
+  padding:0 var(--gutter);gap:clamp(14px,2.4vh,30px)}
+.poster .eyebrow{font:11px var(--mono);letter-spacing:.22em;text-transform:uppercase;color:var(--text-3)}
+/* 字号由实测定出，不是拍脑袋的 vw：Plex Sans SemiBold 下 "Luxel" 连同
+   -.045em 字距的宽度恰为字号的 2.305 倍（末字母的字距不出墨，除数留 2.32 作余量），除以它即可填满可用宽度。
+   同时受高度约束，免得宽屏矮窗口把下面的工具区顶出视口。高度项里的 372px =
+   页眉 68 + 工具区 154 + eyebrow 15 + tagline 83 + 两个 gap 34 = 354 实测值，另加 18 余量。
+   改动页眉高度、工具卡尺寸或 tagline 行数后需重新量这个常数。 */
+.wordmark{display:flex;line-height:.8;font-weight:600;letter-spacing:-.045em;margin:0;
+  font-size:max(56px, min(
+    calc((100vw - var(--gutter) * 2) / 2.32),
+    calc((100dvh - 372px) / .8)
+  ))}
+/* 五级阶梯：100 / 87.5 / 75 / 62.5 / 50%。末级在两种模式下均 >3:1。 */
+.wordmark span{display:block}
+.wordmark span:nth-child(1){opacity:1}
+.wordmark span:nth-child(2){opacity:.875}
+.wordmark span:nth-child(3){opacity:.75}
+.wordmark span:nth-child(4){opacity:.625}
+.wordmark span:nth-child(5){opacity:.5}
+.tagline{display:flex;align-items:baseline;gap:18px;flex-wrap:wrap;max-width:62ch}
+.tagline .formula{font:13px var(--mono);color:var(--text-2);white-space:nowrap}
+.tagline p{margin:0;font-size:15px;color:var(--text-2);line-height:1.6}
+
+/* ── 工具 ── */
+.tools{flex:none;border-top:1px solid var(--border);background:var(--surface);padding:18px 34px 22px}
+.tools-head{display:flex;align-items:baseline;gap:12px;margin-bottom:14px}
+.tools-head h2{margin:0;font-size:13px;font-weight:600}
+.tools-head .count{font:10px var(--mono);letter-spacing:.12em;color:var(--text-3);text-transform:uppercase}
+.card-row{display:flex;gap:14px;overflow-x:auto;scrollbar-width:thin;padding-bottom:2px}
+.card{position:relative;flex:0 0 clamp(268px,30vw,340px);display:flex;gap:13px;align-items:center;
+  border:1px solid var(--border);border-radius:11px;background:var(--surface-2);
+  padding:10px;text-decoration:none;color:inherit;transition:border-color .15s,background .15s}
+.card:hover{border-color:var(--border-control);background:var(--surface-3)}
+.card img{width:96px;height:56px;object-fit:cover;border-radius:7px;display:block;flex:none;background:var(--stage)}
+.card .body{min-width:0;padding-right:16px}
+.card h3{margin:0 0 3px;font-size:14px;font-weight:600;letter-spacing:-.01em}
+.card p{margin:0;font-size:11.5px;color:var(--text-3);line-height:1.5;
+  overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.card .idx{position:absolute;top:9px;right:11px;font:9.5px var(--mono);color:var(--text-3)}
+
+@media(max-width:740px){
+  .top{padding:0 18px;height:58px}
+  .poster{--gutter:18px}
+  .tools{padding:16px 18px 20px}
+  .top .meta{display:none}
+  .tagline{gap:8px}
+  .tagline p{font-size:13.5px}
+}
+/* 矮窗口：一屏放不下就别硬撑 */
+@media(max-height:520px){
+  body{overflow:auto}
+  .poster{padding-top:34px;padding-bottom:34px;gap:16px}
+  .wordmark{font-size:clamp(56px,13vw,140px)}
+}
+@media(prefers-reduced-motion:reduce){*{transition:none!important}}

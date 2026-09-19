@@ -1,6 +1,11 @@
-# Rheo — Shader Studio
+# Luxel — Shader Tools
 
-本地实时生成式 shader 工作台。原生 WebGL + JavaScript，零 npm 依赖、无 CDN、无远程字体或 API。项目代码 MIT。
+为设计师做的本地实时着色器工具集合。原生 WebGL + JavaScript，零 npm 依赖、无 CDN、无远程 API。项目代码 MIT。
+
+- `/` — 首页，工具索引
+- `/rheo.html` — **Rheo**，实时流动着色器工作台
+
+字体为 IBM Plex（OFL），自托管于 `fonts/`，不走 CDN。Plex Sans 不含汉字，中文回落到系统字体。
 
 ## 本地运行
 
@@ -11,6 +16,9 @@ npm start
 ```
 
 打开 http://localhost:4173 。仅监听 127.0.0.1。更换端口：`PORT=4174 npm start`。
+
+页面样式分三层：`tokens.css`（色彩 token、字体、通用重置，两页共用）、`home.css`（首页）、`style.css`（Rheo）。
+改色请只改 `tokens.css`，见 [docs/BRAND.md](docs/BRAND.md)。
 
 ## 创作
 
@@ -42,7 +50,8 @@ npm start
 - `src/shader.js`：多层折叠场、离屏渲染及后处理。
 - `src/color.js`：标准 sRGB / OKLab 数学变换与多色调色板纹理。
 - `src/model.js`：参数、种子生成、2–8 色校验、导入迁移。
-- `src/app.js`：控件、播放与本地保存。
+- `src/app.js`：Rheo 的控件、播放与本地保存。
+- `src/home.js`：首页主题切换。
 - `server.mjs`：Node 内置模块实现的本地服务器。
 
 ## 验证
@@ -57,7 +66,7 @@ npm test
 
 参数格式现为 version 3，可导入 version 1/2。旧十种形态映射到四类：前六类合并为丝绸，交叉/编织映射为交汇融流，波浪映射为层流漫涌，汇流映射为双涡卷流。保留颜色、种子和其他参数，旧版视觉输出不保证复现。自动保存继续使用 `flux-state-v3`，读取时按参数文件版本迁移。
 
-全部项目代码采用 MIT，npm 依赖及传递依赖均为 0。使用系统字体、浏览器 WebGL、Node 内置模块。Node.js 及其随附组件许可见所安装发行版。原站脚本仅供分析，未作为依赖或项目源文件分发；原站平台 MIT 不被推定为覆盖其所有作品。
+全部项目代码采用 MIT，npm 依赖及传递依赖均为 0。IBM Plex 字体采用 SIL Open Font License 1.1，副本见 `fonts/LICENSE.txt`，随仓库分发但不构成项目代码的一部分。中文回落到系统字体。使用浏览器 WebGL、Node 内置模块。Node.js 及其随附组件许可见所安装发行版。原站脚本仅供分析，未作为依赖或项目源文件分发；原站平台 MIT 不被推定为覆盖其所有作品。
 
 需要 WebGL 硬件加速。折叠场按画面比例限制在 850×650 内，支持时使用半浮点中间纹理；不支持时回退 RGBA8 并在量化前抖色。放大使用无负权重的三次 B 样条重建，最终后处理保持选定分辨率。没有云部署、视频导出或棱镜后处理，也没有声称完全复刻原站。
 
