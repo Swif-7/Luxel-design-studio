@@ -44,9 +44,22 @@ $('texture').onchange=e=>{state.texture=Number(e.target.value);sync();save();};
 $('quality').onchange=e=>{state.quality=Number(e.target.value);sync();save();};$('particle-type').onchange=e=>{state.particleType=Number(e.target.value);sync();save();};for(const [id,key] of [['regional-blur','regionalBlur'],['particles','particles'],['lock-colors','lockColors'],['lock-mode','lockMode']])$(id).onchange=e=>{state[key]=e.target.checked;sync();save();};
 function applySeed(seed){state=generate(seed,state);elapsed=0;sync();save();}
 $('apply-seed').onclick=()=>{const seed=$('seed').value.trim();if(!seed){toast('请输入种子');return;}applySeed(seed);toast('已应用种子');};$('seed').onkeydown=e=>{if(e.key==='Enter')$('apply-seed').click();};$('random').onclick=()=>{const a=new Uint32Array(1);crypto.getRandomValues(a);applySeed(a[0].toString(36));toast('新的流动，已生成');};$('reset').onclick=()=>{state={...defaults,colors:[...defaults.colors]};elapsed=0;sync();save();toast('已恢复初始参数');};$('pause').onclick=()=>{paused=!paused;sync(false);};$('restart').onclick=()=>{elapsed=0;sync(false);};
+// Theme: follows the system until the user picks one, then their choice sticks.
+const darkQuery=matchMedia('(prefers-color-scheme: dark)');
+function paintTheme(){const forced=document.documentElement.dataset.theme;const dark=forced?forced==='dark':darkQuery.matches;
+ $('theme').querySelector('svg').innerHTML=dark
+  ?'<circle cx="12" cy="12" r="4.2"/><path d="M12 3.4v2.1M12 18.5v2.1M3.4 12h2.1M18.5 12h2.1M6 6l1.5 1.5M16.5 16.5 18 18M18 6l-1.5 1.5M7.5 16.5 6 18"/>'
+  :'<path d="M20 13.6A8.2 8.2 0 0 1 10.4 4a8.6 8.6 0 1 0 9.6 9.6z"/>';
+ $('theme').setAttribute('aria-label',dark?'切换到浅色模式':'切换到深色模式');
+ document.querySelector('meta[name=theme-color]').content=dark?'#0f0f0f':'#ffffff';}
+$('theme').onclick=()=>{const forced=document.documentElement.dataset.theme;
+ const next=(forced?forced==='dark':darkQuery.matches)?'light':'dark';
+ document.documentElement.dataset.theme=next;try{localStorage.setItem('rheo-theme',next);}catch{}paintTheme();};
+darkQuery.addEventListener('change',()=>{if(!document.documentElement.dataset.theme)paintTheme();});
+paintTheme();
 $('fullscreen').onclick=async()=>{try{if(document.fullscreenElement)await document.exitFullscreen();else await $('stage').requestFullscreen();}catch{toast('当前浏览器不支持全屏');}};
 function download(blob,name){const a=document.createElement('a');const url=URL.createObjectURL(blob);a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
-$('snapshot').onclick=()=>{if(!renderer||lost){toast('画面尚未就绪');return;}draw();$('canvas').toBlob(blob=>{if(blob){download(blob,'flux-'+hashSeed(state.seed)+'.png');toast('图片已保存');}else toast('图片导出失败');},'image/png');};$('export').onclick=()=>{download(new Blob([JSON.stringify(state,null,2)],{type:'application/json'}),'flux-parameters.json');toast('参数已导出');};$('import-button').onclick=()=>$('import').click();$('import').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{if(f.size>20000)throw Error('参数文件过大');state=validate(JSON.parse(await f.text()));elapsed=0;sync();save();toast('参数已恢复');}catch(error){toast('导入失败：'+error.message);}finally{e.target.value='';}};
+$('snapshot').onclick=()=>{if(!renderer||lost){toast('画面尚未就绪');return;}draw();$('canvas').toBlob(blob=>{if(blob){download(blob,'rheo-'+hashSeed(state.seed)+'.png');toast('图片已保存');}else toast('图片导出失败');},'image/png');};$('export').onclick=()=>{download(new Blob([JSON.stringify(state,null,2)],{type:'application/json'}),'rheo-parameters.json');toast('参数已导出');};$('import-button').onclick=()=>$('import').click();$('import').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{if(f.size>20000)throw Error('参数文件过大');state=validate(JSON.parse(await f.text()));elapsed=0;sync();save();toast('参数已恢复');}catch(error){toast('导入失败：'+error.message);}finally{e.target.value='';}};
 document.addEventListener('keydown',e=>{if(/INPUT|SELECT|TEXTAREA|BUTTON/.test(e.target.tagName)||e.metaKey||e.ctrlKey||e.altKey)return;if(e.key.toLowerCase()==='r')$('random').click();if(e.code==='Space'){e.preventDefault();$('pause').click();}});
 function fail(message){$('error').textContent=message;$('error').hidden=false;}
 function init(){try{renderer=new Renderer($('canvas'));lost=false;$('error').hidden=true;sync();}catch(error){fail('无法渲染：'+error.message);}}
