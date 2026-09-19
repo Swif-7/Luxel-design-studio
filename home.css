@@ -42,16 +42,15 @@ body{height:100dvh;display:flex;overflow:hidden}
 /* 竖排字标：不是把字母逐个堆叠，而是把正常排版整体转 90°。
    用 writing-mode 而非 transform —— 前者参与布局，元素真实占位，
    灰阶条才能靠 flex stretch 与它等高；后者不占位，得另外算尺寸。
-   text-orientation 默认 mixed；再叠一个 rotate(180deg)，让字母逆时针躺倒、
-   自下而上读，L 落在底部。transform 不改变布局盒，所以灰阶条仍靠 stretch 等长。
+   text-orientation 默认 mixed：拉丁字母顺时针躺倒，字顶朝右，自上而下读。
 
    实测 Plex Sans SemiBold 全大写 "LUXEL" 连同 -.02em 字距长 2.875 em。
-   两项约束：长度取视口高的一半（除以 2.875 得字号），厚度不超过视口宽的 16%
+   两项约束：长度取视口高的 38%（除以 2.875 得字号），厚度不超过视口宽的 13%
    —— 后者在窄屏自动收住，不必逐断点写死 px 上限（写死会让字标在高视口
    显小、矮视口显大，实测波动达 19%–62%）。 */
-.wordmark{margin:0;writing-mode:vertical-rl;transform:rotate(180deg);line-height:1;
+.wordmark{margin:0;writing-mode:vertical-rl;line-height:1;
   font-weight:600;letter-spacing:-.02em;
-  font-size:min(calc(50vh / 2.875), 16vw)}
+  font-size:min(calc(38vh / 2.875), 13vw)}
 .wordmark span:nth-child(1){opacity:1}
 .wordmark span:nth-child(2){opacity:.875}
 .wordmark span:nth-child(3){opacity:.75}
@@ -61,9 +60,9 @@ body{height:100dvh;display:flex;overflow:hidden}
 .formula{position:absolute;right:var(--pad);bottom:30px;
   font:10px var(--mono);color:var(--text-3);letter-spacing:.08em;white-space:nowrap}
 
-/* 灰阶条：16 级自下而上由实到空，与翻转后的字标同向（深色都在底部）。
+/* 灰阶条：16 级自上而下由实到空，与字标同向（深色都在顶部）。
    与字标精确等长 —— 两者是同一 flex 行的兄弟，stretch 对齐即可。 */
-.wedge{flex:none;width:clamp(10px,1.5vw,18px);display:flex;flex-direction:column-reverse}
+.wedge{flex:none;width:clamp(10px,1.5vw,18px);display:flex;flex-direction:column}
 .wedge i{flex:1 1 0;background:currentColor;display:block}
 
 /* 工具：画面正中，尺寸不随版面变化 */
