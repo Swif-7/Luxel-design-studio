@@ -31,9 +31,8 @@ main{max-width:1500px;margin:auto;padding:22px 24px 40px;display:flex;flex-direc
 /* ── 两套主题 ＋ 中间的 link ── */
 .board{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:stretch}
 .linkbar{width:clamp(72px,7vw,120px);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;position:relative}
-/* 连线：两段伸向左右两张卡。断开时用透明留出同样的间距，版面不跳动。 */
-.wire{flex:1;width:1px;min-height:18px;background:var(--border-control)}
-.linkbar[data-linked=false] .wire{background:transparent}
+/* 连线只有一条：自按钮向左右各伸一段，接上两张卡。
+   断开时改为虚线而不是隐藏，位置不变，版面不会跳。 */
 .linkbar::before,.linkbar::after{content:"";position:absolute;top:50%;width:calc(50% - 21px);height:1px;background:var(--border-control)}
 .linkbar::before{left:0}.linkbar::after{right:0}
 .linkbar[data-linked=false]::before,.linkbar[data-linked=false]::after{background:repeating-linear-gradient(90deg,var(--border) 0 3px,transparent 3px 7px)}
@@ -115,9 +114,19 @@ input[type=range]{width:100%;height:3px;margin:9px 0 13px;display:block;accent-c
 .primary span{float:right;border:1px solid currentColor;font-size:11px;padding:1px 7px;border-radius:var(--r-pill);opacity:.55}
 .ghost{width:100%;background:transparent;border-color:var(--border);color:var(--text-2);font-size:12px;padding:9px}
 
-/* ── 字体条 ── */
-.type-strip{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr))}
-.type-cell{padding:15px 20px;border-right:1px solid var(--border);min-width:0}
+/* ── 字体卡：字重控件和样本在同一张卡里 ──
+   控件贴着它影响的东西，而不是和配色挤在一个控制台里。 */
+.type-card{display:grid;grid-template-columns:minmax(260px,320px) minmax(0,1fr);
+  border-radius:var(--r-panel);background:var(--surface);overflow:hidden}
+.type-controls-wrap{padding:18px 22px;border-right:1px solid var(--border)}
+.type-controls-wrap h3{margin:0 0 12px;font-size:11px;font-weight:600;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--text-3)}
+.type-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:0 20px}
+.type-preview{display:flex;flex-direction:column;min-width:0}
+.type-head{display:flex;align-items:baseline;gap:12px;padding:14px 20px;border-bottom:1px solid var(--border)}
+.type-head h2{margin:0;font-size:12px;font-weight:600;letter-spacing:.12em;text-transform:uppercase}
+.type-strip{flex:1;display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr))}
+.type-cell{padding:14px 20px;border-right:1px solid var(--border);min-width:0}
 .type-cell:last-child{border-right:0}
 .type-cell .sample{display:block;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .type-cell .meta{display:block;margin-top:7px;font:11px var(--mono);color:var(--text-3)}
@@ -132,11 +141,13 @@ input[type=range]{width:100%;height:3px;margin:9px 0 13px;display:block;accent-c
   main{padding:16px 16px 32px;gap:16px}
   /* 窄屏改为上下叠，link 转成横向连线 */
   .board{grid-template-columns:1fr}
-  .linkbar{width:auto;height:64px;flex-direction:row}
-  .wire{flex:1;width:auto;height:1px;min-height:0;min-width:16px}
-  .linkbar::before,.linkbar::after{display:none}
-  .link-label{position:static;margin-left:10px}
+  /* 窄屏两卡上下叠，横线收短一些仍然贴在按钮两侧 */
+  .linkbar{width:auto;height:66px;flex-direction:row;gap:10px}
+  .linkbar::before,.linkbar::after{width:clamp(28px,16vw,90px)}
+  .link-label{position:static}
   .group.grow{grid-column:auto}
+  .type-card{grid-template-columns:1fr}
+  .type-controls-wrap{border-right:0;border-bottom:1px solid var(--border)}
   .type-cell{border-right:0;border-bottom:1px solid var(--border)}
   .type-cell:last-child{border-bottom:0}
 }

@@ -8,7 +8,7 @@
 
 <div class="board">
 <section class="sheet" id="light-sheet"><header><h2>浅色</h2><span id="light-state" class="sheet-state"></span></header><div id="light-rows" class="rows"></div></section>
-<div class="linkbar"><span class="wire"></span><button id="link" aria-pressed="true" aria-label="深色随浅色自动规划"><span aria-hidden="true">⇄</span></button><span class="wire"></span><span id="link-label" class="link-label"></span></div>
+<div class="linkbar"><button id="link" aria-pressed="true" aria-label="深色随浅色自动规划"><span aria-hidden="true">⇄</span></button><span id="link-label" class="link-label"></span></div>
 <section class="sheet" id="dark-sheet"><header><h2>深色</h2><span id="dark-state" class="sheet-state"></span></header><div id="dark-rows" class="rows"></div></section>
 </div>
 
@@ -28,7 +28,6 @@
 </div>
 
 <div class="group"><h3>中性色</h3><div id="neutral-controls" class="stack"></div></div>
-<div class="group"><h3>字重与字阶</h3><div id="type-controls" class="stack"></div></div>
 
 <div class="group actions"><h3>导出</h3>
 <button id="copy" class="primary">⧉ &nbsp; 复制规范 <span>MD</span></button>
@@ -36,7 +35,7 @@
 </div>
 </section>
 
-<section class="sheet type-sheet"><header><h2>字体</h2><span class="sheet-state" id="type-state"></span></header><div id="type-rows" class="type-strip"></div></section>
+<section class="type-card"><div class="type-controls-wrap"><h3>字重与字阶</h3><div id="type-controls" class="type-grid"></div></div><div class="type-preview"><div class="type-head"><h2>样本</h2><span class="sheet-state" id="type-state"></span></div><div id="type-rows" class="type-strip"></div></div></section>
 </main>
 <div id="toast" role="status"></div>
 <script type="module" src="/src/rubric.js"></script>
