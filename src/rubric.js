@@ -105,12 +105,12 @@ function rowsFor(tokens, checks) {
   }).join('');
 }
 
-// 把一套 token 挂成卡片自己的局部变量，卡内取色一律走这些，与站点主题无关
+// 把一套 token 挂成卡片自己的局部变量，卡内取色一律走这些，与站点主题无关。
+// 框线不在其中 —— 它属于工具外壳，固定用中性灰，见 rubric.css 的 --hairline。
 function dress(sheet, t) {
   sheet.style.setProperty('--sheet-bg', t.bg);
   sheet.style.setProperty('--sheet-text', t.text);
   sheet.style.setProperty('--sheet-dim', t['text-2']);
-  sheet.style.setProperty('--sheet-border', t.border);
 }
 
 function render() {

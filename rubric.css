@@ -10,22 +10,32 @@
 .type-sheet{grid-column:1/-1}
 
 /* 每张卡用它自己那套 token 渲染，所以看到的是主题的实际样子，不只是数值表。
-   卡内一律用 --sheet-* 取色，与站点当前主题无关。 */
-.sheet{container-type:inline-size;border-radius:var(--r-panel);overflow:hidden;
+   卡内一律用 --sheet-* 取色，与站点当前主题无关。
+
+   但卡框和行分隔线是工具自己的外壳，不属于被预览的规范，所以一律用中性灰。
+   若取生成出来的 --border，框线会跟着色相走，看上去像规范的一部分；
+   那个 token 长什么样，左边色块那一列已经在展示了。
+   用不透明的中性值而非半透明灰：半透明压在带色相的底色上会继承底色的偏色，
+   深卡的线会被染蓝。两张卡的底色明度是固定的（色度只改色相倾向，不改明暗），
+   所以各给一个定值即可。 */
+#light-sheet{--hairline:#e3e3e3}
+#dark-sheet{--hairline:#2d2d2d}
+.sheet{--hairline:#8080803d;
+  container-type:inline-size;border-radius:var(--r-panel);overflow:hidden;
   background:var(--sheet-bg,var(--bg));color:var(--sheet-text,var(--text));
-  box-shadow:inset 0 0 0 1px var(--sheet-border,var(--border))}
+  box-shadow:inset 0 0 0 1px var(--hairline)}
 .sheet>header{display:flex;align-items:baseline;gap:12px;padding:14px 20px;
-  border-bottom:1px solid var(--sheet-border,var(--border))}
+  border-bottom:1px solid var(--hairline)}
 .sheet>header h2{margin:0;font-size:12px;font-weight:600;letter-spacing:.12em;text-transform:uppercase}
 .sheet-state{font:10px var(--mono);color:var(--sheet-dim,var(--text-3));letter-spacing:.06em;margin-left:auto}
 
 .rows{display:flex;flex-direction:column}
 .row{display:grid;grid-template-columns:38px minmax(0,1fr) auto;
   align-items:center;gap:13px;padding:8px 20px;
-  border-bottom:1px solid var(--sheet-border,var(--border))}
+  border-bottom:1px solid var(--hairline)}
 .row:last-child{border-bottom:0}
 /* 色块自己不画边框：浅色系的块在白底上会看不见，靠 inset 阴影兜一条极淡的界 */
-.row .chip{width:38px;height:26px;border-radius:var(--r-card);box-shadow:inset 0 0 0 1px #8888882e}
+.row .chip{width:38px;height:26px;border-radius:var(--r-card);box-shadow:inset 0 0 0 1px var(--hairline)}
 .row .name{font:12px var(--mono);color:var(--sheet-text,var(--text));min-width:0;overflow:hidden;text-overflow:ellipsis}
 .row .role{font-size:12px;color:var(--sheet-dim,var(--text-2));min-width:0;display:none}
 .row .value{display:flex;align-items:center;gap:8px;justify-self:end;white-space:nowrap}
