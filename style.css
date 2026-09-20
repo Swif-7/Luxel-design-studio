@@ -79,7 +79,6 @@ main{display:grid;grid-template-columns:minmax(0,1fr) 330px;max-width:1800px;mar
 
 /* ── Preset strip: always reachable, never scrolls under the preview ───── */
 .gallery{padding:14px 0 2px}
-#pink-study{white-space:nowrap}
 .presets{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
 .preset{padding:0;background:var(--surface-2);border:1px solid var(--border);overflow:hidden;text-align:left;border-radius:var(--r-card)}
 .preset:hover{border-color:var(--border-control);background:var(--surface-2)}
@@ -259,7 +258,6 @@ aside>.control-section:last-of-type{border-bottom:0}
 }
 @media(max-width:480px){
   .preview-dock{padding-left:12px;padding-right:12px}
-  #pink-study{padding:5px 7px;font-size:10px}
   .transport .quiet{padding:7px 5px}
 }
 /* Landscape phones: a pinned dock would leave no room for the panel. */
@@ -270,3 +268,6 @@ aside>.control-section:last-of-type{border-bottom:0}
 @media(prefers-reduced-motion:reduce){
   *{transition:none!important}
 }
+
+#export-progress{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:25;display:flex;align-items:center;gap:14px;max-width:calc(100vw - 32px);padding:14px 20px;border:1px solid var(--border-control);border-radius:var(--r-panel);background:var(--surface);color:var(--text);box-shadow:0 6px 24px #0003;font-size:12px}
+#export-progress[hidden]{display:none}#export-progress progress{width:90px;accent-color:var(--text)}

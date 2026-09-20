@@ -226,6 +226,7 @@ uniform sampler2D blur2,blur3,blur4,blur5,blur6;
 uniform sampler2D glyphAtlas,glyphLookup;
 uniform float glyphCount,asciiOpacity,asciiSize,asciiSpacing,asciiRate,asciiDensity;
 uniform vec2 fieldSize;
+uniform float blurBase;
 uniform vec2 resolution;
 uniform float blur,regionalBlur;
 uniform float time,seed,texture,textureStrength,textureScale,particles,particleType,density,particleSize;
@@ -264,7 +265,7 @@ vec3 reconstruct(vec2 uv){
        +texture2D(field,vec2(hi.x,hi.y)).rgb*right.x*right.y;
 }
 vec3 diffuseField(vec2 uv,float radius){
- float level=clamp(log2(max(radius,3.2)/3.2),0.,4.);
+ float level=clamp(log2(max(radius,blurBase)/blurBase),0.,4.);
  if(level<1.)return mix(texture2D(blur2,uv).rgb,texture2D(blur3,uv).rgb,level);
  if(level<2.)return mix(texture2D(blur3,uv).rgb,texture2D(blur4,uv).rgb,level-1.);
  if(level<3.)return mix(texture2D(blur4,uv).rgb,texture2D(blur5,uv).rgb,level-2.);
@@ -282,7 +283,7 @@ vec3 surface(vec2 uv){
    // A dense positive-weight pyramid also avoids the repeated edge copies
    // produced by a wide, sparse 3x3 kernel in the former Blend focus pass.
    float radius=amount*(regionalBlur>.5?.13:.11)*fieldSize.y*region;
-   color=mix(color,diffuseField(uv,radius),smoothstep(0.,3.2,radius));
+   color=mix(color,diffuseField(uv,radius),smoothstep(0.,blurBase,radius));
  }
  return color;
 }
@@ -343,7 +344,8 @@ void main(){
 }`;
 const hexRGB=hex=>[1,3,5].map(i=>parseInt(hex.slice(i,i+2),16)/255);
 export class Renderer {
- constructor(canvas){
+ constructor(canvas,{fullResolution=false}={}){
+  this.fullResolution=fullResolution;
   this.canvas=canvas;const gl=this.gl=canvas.getContext('webgl',{alpha:false,preserveDrawingBuffer:true,antialias:false});
   if(!gl)throw Error('此浏览器无法启动 WebGL，请开启硬件加速。');
   const program=(source,names,vertexSource=vertex)=>{
@@ -358,22 +360,22 @@ export class Renderer {
   this.main=program(materialSource,['inkOnly','texture','textureStrength','textureScale','lowPrecision','resolution','time','seed','mode','glow','scale','detail','distortion','width','softness','angle','colorFlow','offsetX','offsetY','background','palette']);
   this.blurPass=program(blurFragment,['resolution','source','sourceTexel']);
   this.tintPass=program(tintFragment,['resolution','source','nearLo','nearHi','farLo','farHi','levelMix','background','strength']);
-  this.post=program(post,['blur2','blur3','blur4','blur5','blur6','mode','scale','angle','offsetX','offsetY','detail','distortion','asciiRate','asciiDensity','glyphLookup','asciiOpacity','asciiSize','asciiSpacing','glyphAtlas','glyphCount','blur','regionalBlur','fieldSize','resolution','time','seed','texture','textureStrength','textureScale','particles','particleType','density','particleSize','background','primary','field']);
+  this.post=program(post,['blurBase','blur2','blur3','blur4','blur5','blur6','mode','scale','angle','offsetX','offsetY','detail','distortion','asciiRate','asciiDensity','glyphLookup','asciiOpacity','asciiSize','asciiSpacing','glyphAtlas','glyphCount','blur','regionalBlur','fieldSize','resolution','time','seed','texture','textureStrength','textureScale','particles','particleType','density','particleSize','background','primary','field']);
   this.buffer=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,this.buffer);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,3,-1,-1,3]),gl.STATIC_DRAW);
   const makeTexture=()=>{const texture=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,texture);for(const param of [gl.TEXTURE_MIN_FILTER,gl.TEXTURE_MAG_FILTER])gl.texParameteri(gl.TEXTURE_2D,param,gl.LINEAR);for(const param of [gl.TEXTURE_WRAP_S,gl.TEXTURE_WRAP_T])gl.texParameteri(gl.TEXTURE_2D,param,gl.CLAMP_TO_EDGE);return texture;};
   const half=gl.getExtension('OES_texture_half_float');
   const halfLinear=gl.getExtension('OES_texture_half_float_linear');
   gl.getExtension('EXT_color_buffer_half_float');
   this.fieldType=half&&halfLinear?half.HALF_FLOAT_OES:gl.UNSIGNED_BYTE;
-  this.blurLevels=Array.from({length:6},()=>makeTexture());this.blurFbo=gl.createFramebuffer();
-  this.inkSource=makeTexture();this.sourceField=makeTexture();this.inkLevels=Array.from({length:8},()=>makeTexture());
+  this.blurLevels=Array.from({length:10},()=>makeTexture());this.blurFbo=gl.createFramebuffer();
+  this.inkSource=makeTexture();this.sourceField=makeTexture();this.inkLevels=Array.from({length:11},()=>makeTexture());
   this.field=makeTexture();this.palette=makeTexture();this.glyphLookup=makeTexture();gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.NEAREST);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.NEAREST);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,1,1,0,gl.RGBA,gl.UNSIGNED_BYTE,new Uint8Array(4));this.glyphAtlas=makeTexture();this.glyphKey='';this.glyphCount=1;gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,1,1,0,gl.RGBA,gl.UNSIGNED_BYTE,new Uint8Array(4));this.fbo=gl.createFramebuffer();this.size='';this.paletteKey='';
  }
  draw(state,time,width,height){
   const gl=this.gl;
   if(this.canvas.width!==width||this.canvas.height!==height){this.canvas.width=width;this.canvas.height=height;}
   // Expensive folding runs at capped resolution; postprocessing remains full resolution.
-  const factor=Math.min(1,850/width,650/height),fw=Math.max(1,Math.round(width*factor)),fh=Math.max(1,Math.round(height*factor));
+  const factor=(this.fullResolution?1:Math.min(1,850/width,650/height)),fw=Math.max(1,Math.round(width*factor)),fh=Math.max(1,Math.round(height*factor));
   gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,this.field);
   if(this.size!==fw+'x'+fh){
    gl.bindFramebuffer(gl.FRAMEBUFFER,this.fbo);
@@ -437,7 +439,7 @@ export class Renderer {
    bind(this.main,Math.ceil(fw/2),Math.ceil(fh/2));gl.uniform1f(this.main.uniforms.inkOnly,1);gl.drawArrays(gl.TRIANGLES,0,3);
    pyramid(this.inkSource,Math.ceil(fw/2),Math.ceil(fh/2),this.inkLevels);
    const radius=fh*Math.min(2,Math.max(.5,state.scale))*(.05+state.backgroundSpread*.08);
-   const level=r=>Math.max(0,Math.min(6.999,Math.log2(Math.max(3.2,r)/3.2)));
+   const level=r=>Math.max(0,Math.min(this.inkLevels.length-1.001,Math.log2(Math.max(3.2,r)/3.2)));
    const near=level(radius*.45),far=level(radius);
    gl.bindFramebuffer(gl.FRAMEBUFFER,this.fbo);bind(this.tintPass,fw,fh);
    const textures=[this.sourceField,this.inkLevels[Math.floor(near)],this.inkLevels[Math.ceil(near)],this.inkLevels[Math.floor(far)],this.inkLevels[Math.ceil(far)]];
@@ -447,7 +449,8 @@ export class Renderer {
    gl.uniform2f(this.tintPass.uniforms.levelMix,near%1,far%1);gl.uniform1f(this.tintPass.uniforms.strength,state.backgroundTint);
    gl.drawArrays(gl.TRIANGLES,0,3);
   }
-  if(state.blur>0)pyramid(this.field,fw,fh,this.blurLevels);
+  const blurOffset=this.fullResolution?Math.max(0,Math.min(4,Math.ceil(Math.log2(fh/400)))):0;
+  if(state.blur>0)pyramid(this.field,fw,fh,this.blurLevels.slice(0,6+blurOffset));
   // The tint pass reused atlas units; restore them before drawing any glyphs.
   gl.activeTexture(gl.TEXTURE2);gl.bindTexture(gl.TEXTURE_2D,this.glyphAtlas);
   gl.activeTexture(gl.TEXTURE3);gl.bindTexture(gl.TEXTURE_2D,this.glyphLookup);
@@ -455,8 +458,9 @@ export class Renderer {
   for(const n of ['mode','scale','angle','offsetX','offsetY','detail','distortion','asciiRate','asciiDensity','asciiOpacity','asciiSize','asciiSpacing','blur','regionalBlur','texture','textureStrength','textureScale','particles','particleType','density','particleSize'])gl.uniform1f(this.post.uniforms[n],Number(state[n]));
   // Palette is no longer read in the post pass; reuse unit 1 and stay within
   // WebGL 1's guaranteed eight fragment texture units, including ASCII.
+  gl.uniform1f(this.post.uniforms.blurBase,3.2*2**blurOffset);
   for(let i=1;i<6;i++){
-   const unit=i===1?1:i+2;gl.activeTexture(gl.TEXTURE0+unit);gl.bindTexture(gl.TEXTURE_2D,this.blurLevels[i]);gl.uniform1i(this.post.uniforms['blur'+(i+1)],unit);
+   const unit=i===1?1:i+2;gl.activeTexture(gl.TEXTURE0+unit);gl.bindTexture(gl.TEXTURE_2D,this.blurLevels[i+blurOffset]);gl.uniform1i(this.post.uniforms['blur'+(i+1)],unit);
   }
   gl.drawArrays(gl.TRIANGLES,0,3);
 

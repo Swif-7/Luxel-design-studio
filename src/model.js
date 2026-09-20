@@ -7,7 +7,8 @@ export const palettes=[
  ['#ffffff','#20d9e5','#70bcea','#b6edff'],
  ['#fffaf5','#ff995e','#ffd35c','#f47d9b'],
  ['#fdfaff','#e998ec','#977cf0','#63c6ec','#f4b4de'],
- ['#080c13','#55e1c4','#60a4ff','#d799ff']
+ ['#080c13','#55e1c4','#60a4ff','#d799ff'],
+ ['#fff4f2','#ee79b6','#fb9299','#ffc077','#c6a4e9','#f899cd']
 ];
 export const defaults={version:3,seed:'silk-001',mode:0,background:'#fffdfd',primary:'#ff80b1',accent:'#9a87ed',colors:palettes[0].slice(1),glow:1.25,scale:1.1,offsetX:0,offsetY:0,detail:4.2,distortion:1.15,speed:1,width:1,softness:.8,backgroundTint:1,backgroundSpread:1.3,angle:24,colorFlow:.5,blur:0,regionalBlur:true,texture:0,asciiOpacity:1,asciiSize:1.5,asciiSpacing:1,asciiRate:1,asciiDensity:1,asciiGroup:'latin',asciiCustom:'流光01ABC+-',textureStrength:.55,textureScale:1,particles:false,particleType:0,density:25,particleSize:1.2,quality:1.5,lockColors:true,lockMode:true};
 export const ranges={asciiRate:[0,4],asciiDensity:[0,1],asciiOpacity:[0,1],asciiSize:[.5,3],asciiSpacing:[.85,2],glow:[.2,2.5],scale:[.25,3],offsetX:[-1.5,1.5],offsetY:[-1.5,1.5],detail:[1,7],distortion:[0,2],speed:[0,2],density:[0,100],particleSize:[.4,3],width:[.3,2],softness:[.1,2],backgroundTint:[0,2],backgroundSpread:[.5,3],angle:[-90,90],colorFlow:[0,2],blur:[0,100],textureStrength:[0,1],textureScale:[.5,3]};
@@ -48,7 +49,7 @@ export function randomizePalette(seed,current=defaults){
 
 // Original parameter study based on the user-supplied pink/coral image.
 export const pinkStudy={...defaults,seed:'prism',mode:0,
- background:'#fff4f2',colors:['#ee79b6','#fb9299','#ffc077','#c6a4e9','#f899cd'],
+ background:palettes[5][0],colors:palettes[5].slice(1),
  primary:'#ee79b6',accent:'#fb9299',scale:1.35,offsetX:.18,offsetY:-.42,width:1.1,softness:1.5,
  glow:1.5,backgroundTint:.85,backgroundSpread:1.4,detail:5.8,
  distortion:1.2,angle:10,speed:1,colorFlow:.24};

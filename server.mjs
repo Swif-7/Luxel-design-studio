@@ -3,10 +3,10 @@ import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 const root = new URL('./', import.meta.url);
 const allowed = new Set(['index.html', 'rheo.html', 'tokens.css', 'style.css', 'home.css',
-  'src/export.js', 'LICENSE', 'src/app.js', 'src/home.js', 'src/model.js', 'src/color.js', 'src/shader.js', 'src/glyphs.js',
+  'src/media.js', 'src/export.js', 'LICENSE', 'src/app.js', 'src/home.js', 'src/model.js', 'src/color.js', 'src/shader.js', 'src/glyphs.js',
   'favicon.svg', 'png/rheo-card.png',
   'fonts/IBMPlexSans-Regular.woff2', 'fonts/IBMPlexSans-SemiBold.woff2', 'fonts/IBMPlexMono-Regular.woff2',
-  'tests/render.html']);
+  'tests/media.html', 'tests/render.html']);
 const types = { html: 'text/html', css: 'text/css', js: 'text/javascript', svg: 'image/svg+xml', png: 'image/png', woff2: 'font/woff2' };
 http.createServer(async (req, res) => {
   try {
