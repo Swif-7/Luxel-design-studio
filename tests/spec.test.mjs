@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import {buildTheme, audit, contrast, adaptAccent, toMarkdown, hexToLch, harmonyIssues, recommend, deltaE} from '../src/spec.js';
 
 const params = {hue: 250, chroma: 2, contrast: 1, accents: ['#3b5bdb', '#e8590c']};
-const type = {body: 400, strong: 600, heading: 650, size: 15, scale: 1.6};
+const type = [{label:'正文',weight:400,size:15,mono:false},{label:'强调',weight:600,size:15,mono:false},
+  {label:'标题',weight:650,size:24,mono:false},{label:'等宽',weight:400,size:14,mono:true}];
 
 test('两套主题产出完整且合法的 token', () => {
   for (const theme of ['light', 'dark']) {
@@ -47,6 +48,7 @@ test('Markdown 含两套表格、字重与规则，未达标时给出告警', ()
   assert.match(md, /### 浅色/); assert.match(md, /### 深色/);
   assert.match(md, /\| `--accent` \| `#/);
   assert.match(md, /字重/); assert.match(md, /实现规则/);
+  assert.match(md, /\| 等宽 \| 400 \| 14px \| 等宽 \|/, '每一行都应直接给出字重与字号');
   assert.equal((md.match(/\| `--/g) || []).length, 26, '两套各 13 个 token');
 
   // 造一个必然不达标的配色，告警必须出现

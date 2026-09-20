@@ -117,22 +117,22 @@ input[type=range]{width:100%;height:3px;margin:9px 0 13px;display:block;accent-c
 .primary span{float:right;border:1px solid currentColor;font-size:11px;padding:1px 7px;border-radius:var(--r-pill);opacity:.55}
 .ghost{width:100%;background:transparent;border-color:var(--border);color:var(--text-2);font-size:12px;padding:9px}
 
-/* ── 字体卡：字重控件和样本在同一张卡里 ──
-   控件贴着它影响的东西，而不是和配色挤在一个控制台里。 */
-.type-card{display:grid;grid-template-columns:minmax(260px,320px) minmax(0,1fr);
-  border-radius:var(--r-panel);background:var(--surface);overflow:hidden}
-.type-controls-wrap{padding:18px 22px;border-right:1px solid var(--border)}
-.type-controls-wrap h3{margin:0 0 12px;font-size:11px;font-weight:600;letter-spacing:.1em;
-  text-transform:uppercase;color:var(--text-3)}
-.type-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:0 20px}
-.type-preview{display:flex;flex-direction:column;min-width:0}
+/* ── 字体卡：每个样本自带控制它的两个滑块 ──
+   原先控件集中在左栏，而等宽行没有滑块、标题字号又是推导出来的，
+   看不出哪个滑块管哪一行。现在滑块就在它作用的样本下面。 */
+.type-card{border-radius:var(--r-panel);background:var(--surface);overflow:hidden}
 .type-head{display:flex;align-items:baseline;gap:12px;padding:14px 20px;border-bottom:1px solid var(--border)}
 .type-head h2{margin:0;font-size:12px;font-weight:600;letter-spacing:.12em;text-transform:uppercase}
-.type-strip{flex:1;display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr))}
-.type-cell{padding:14px 20px;border-right:1px solid var(--border);min-width:0}
+.type-strip{display:grid;grid-template-columns:repeat(auto-fit,minmax(215px,1fr))}
+.type-cell{padding:16px 20px 12px;border-right:1px solid var(--border);min-width:0}
 .type-cell:last-child{border-right:0}
-.type-cell .sample{display:block;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.type-cell .meta{display:block;margin-top:7px;font:11px var(--mono);color:var(--text-3)}
+.type-cell .sample{display:block;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  line-height:1.35;min-height:1.35em}
+.type-cell .meta{display:block;margin:8px 0 12px;font:10px var(--mono);letter-spacing:.1em;
+  text-transform:uppercase;color:var(--text-3)}
+.type-cell .range-field{margin-top:2px}
+.type-cell .range-head{font-size:11px}
+.type-cell input[type=range]{margin:7px 0 10px}
 
 #toast{position:fixed;bottom:24px;left:50%;transform:translate(-50%,20px);padding:12px 24px;background:var(--accent);
   color:var(--accent-fg);border-radius:var(--r-pill);opacity:0;transition:.2s;pointer-events:none;z-index:40;
@@ -149,8 +149,6 @@ input[type=range]{width:100%;height:3px;margin:9px 0 13px;display:block;accent-c
   .linkbar::before,.linkbar::after{width:clamp(28px,16vw,90px)}
   .link-label{position:static}
   .group.grow{grid-column:auto}
-  .type-card{grid-template-columns:1fr}
-  .type-controls-wrap{border-right:0;border-bottom:1px solid var(--border)}
   .type-cell{border-right:0;border-bottom:1px solid var(--border)}
   .type-cell:last-child{border-bottom:0}
 }

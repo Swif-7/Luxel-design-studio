@@ -222,14 +222,11 @@ ${table(dark, dc)}
 
 ## 字体
 
-| 用途 | 字重 | 字号 |
-|---|---|---|
-| 正文 | ${type.body} | ${type.size}px |
-| 强调 | ${type.strong} | ${type.size}px |
-| 标题 | ${type.heading} | ${Math.round(type.size * type.scale)}px |
-| 等宽 | ${type.body} | ${type.size - 1}px |
+| 用途 | 字重 | 字号 | 字族 |
+|---|---|---|---|
+${type.map(r => `| ${r.label} | ${r.weight} | ${r.size}px | ${r.mono ? '等宽' : '比例'} |`).join('\n')}
 
-字号按 ${type.scale} 倍逐级放大。机器值（ID、色值、时间、数字读数）一律等宽字体，人读文案一律比例字体。
+机器值（ID、色值、时间、数字读数）一律等宽字体，人读文案一律比例字体。
 
 ## 实现规则
 

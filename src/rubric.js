@@ -4,13 +4,25 @@ import {buildTheme, audit, adaptAccent, toMarkdown, roleOf,
         harmonyIssues, recommend} from './spec.js';
 
 const $ = id => document.getElementById(id);
-const STORE = 'luxel-rubric-v2';
+const STORE = 'luxel-rubric-v3';
 const PALETTE = ['#3b5bdb', '#e8590c', '#2f9e44', '#c2255c', '#7048e8', '#0c8599'];
 
+/* 字体四行，每行自己的字重与字号。
+   原先等宽行没有任何滑块、标题字号由「基准 × 字阶」推导，滑块和样本对不上号；
+   现在每个样本格里就放着控制它的那两个滑块。 */
+const TYPE_ROWS = [
+  {key: 'body', label: '正文', mono: false},
+  {key: 'strong', label: '强调', mono: false},
+  {key: 'heading', label: '标题', mono: false},
+  {key: 'mono', label: '等宽', mono: true},
+];
 const defaults = {
   hue: 250, chroma: 2, contrast: 1, count: 1, linked: true,
   accents: ['#3b5bdb'],
-  body: 400, strong: 600, heading: 650, size: 15, scale: 1.6,
+  bodyWeight: 400, bodySize: 15,
+  strongWeight: 600, strongSize: 15,
+  headingWeight: 650, headingSize: 24,
+  monoWeight: 400, monoSize: 14,
 };
 let state = {...defaults, accents: [...defaults.accents]};
 try {
@@ -44,11 +56,6 @@ const sliders = [
   ['hue', '色相', 0, 360, 1, 'neutral-controls', v => Math.round(v) + '°'],
   ['chroma', '色度', 0, 10, .1, 'neutral-controls', v => v.toFixed(1)],
   ['contrast', '对比强度', .6, 1.3, .01, 'neutral-controls', v => v.toFixed(2) + '×'],
-  ['body', '正文字重', 300, 600, 50, 'type-controls', v => String(v)],
-  ['strong', '强调字重', 400, 800, 50, 'type-controls', v => String(v)],
-  ['heading', '标题字重', 400, 800, 50, 'type-controls', v => String(v)],
-  ['size', '基准字号', 13, 18, 1, 'type-controls', v => v + 'px'],
-  ['scale', '字阶比例', 1.2, 2, .05, 'type-controls', v => v.toFixed(2) + '×'],
 ];
 for (const [key, label, min, max, step, parent] of sliders) {
   const field = document.createElement('div');
@@ -117,6 +124,11 @@ function rowsFor(tokens, checks) {
   }).join('');
 }
 
+const typeSlider = (id, label, min, max, step, value, shown) =>
+  `<div class="range-field"><div class="range-head"><label for="${id}">${label}</label>`
+  + `<output for="${id}">${shown}</output></div>`
+  + `<input type="range" id="${id}" min="${min}" max="${max}" step="${step}" value="${value}"></div>`;
+
 function render() {
   for (const [key] of sliders) { $(key).value = state[key]; $(key + '-value').textContent = format[key](state[key]); }
   const mode = modeOf();
@@ -162,15 +174,18 @@ function render() {
   $('dark-state').textContent = state.linked ? '由浅色推算' : '单独设定';
 
   const sample = '设计规范 Design Spec';
-  $('type-state').textContent = `${state.size}PX · ${state.scale.toFixed(2)}×`;
-  $('type-rows').innerHTML = [
-    ['正文', state.body, state.size, 'var(--sans)'],
-    ['强调', state.strong, state.size, 'var(--sans)'],
-    ['标题', state.heading, Math.round(state.size * state.scale), 'var(--sans)'],
-    ['等宽', state.body, state.size - 1, 'var(--mono)'],
-  ].map(([name, weight, size, family]) =>
-    `<div class="type-cell"><span class="sample" style="font-weight:${weight};font-size:${size}px;font-family:${family}">${sample}</span>`
-    + `<span class="meta">${name} · ${weight} · ${size}px</span></div>`).join('');
+  $('type-rows').innerHTML = TYPE_ROWS.map(({key, label, mono}) => {
+    const weight = state[key + 'Weight'], size = state[key + 'Size'];
+    const family = mono ? 'var(--mono)' : 'var(--sans)';
+    return `<div class="type-cell">`
+      + `<span class="sample" style="font-weight:${weight};font-size:${size}px;font-family:${family}">${sample}</span>`
+      + `<span class="meta">${label}</span>`
+      + typeSlider(key + 'Weight', '字重', 300, 800, 50, weight, String(weight))
+      + typeSlider(key + 'Size', '字号', 11, 40, 1, size, size + 'px')
+      + `</div>`;
+  }).join('');
+  for (const input of $('type-rows').querySelectorAll('input[type=range]'))
+    input.addEventListener('input', e => { state[e.target.id] = Number(e.target.value); render(); save(); });
 
   const failed = [...lc.map(c => ({...c, theme: '浅'})), ...dc.map(c => ({...c, theme: '深'}))].filter(c => !c.pass);
   const parts = [];
@@ -192,7 +207,8 @@ function markdown() {
   return toMarkdown({
     params: {accents: state.accents},
     light, dark,
-    type: {body: state.body, strong: state.strong, heading: state.heading, size: state.size, scale: state.scale},
+    type: TYPE_ROWS.map(r => ({label: r.label, mono: r.mono,
+      weight: state[r.key + 'Weight'], size: state[r.key + 'Size']})),
   });
 }
 $('copy').onclick = async () => {
