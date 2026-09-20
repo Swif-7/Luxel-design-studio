@@ -4,6 +4,7 @@
 
 - `/` — 首页，工具索引
 - `/rheo.html` — **Rheo**，实时流动着色器工作台
+- `/rubric.html` — **Rubric**，用滑块与取色整理配色和字重，一键复制成可交给 agent 的 UI 规范
 
 字体为 IBM Plex（OFL），自托管于 `fonts/`，不走 CDN。Plex Sans 不含汉字，中文回落到系统字体。
 
@@ -55,6 +56,8 @@ npm start
 - `src/model.js`：参数、种子生成、2–8 色校验、导入迁移。
 - `src/app.js`：Rheo 的控件、播放与本地保存。
 - `src/home.js`：首页主题切换，以及工具卡上复用 `Renderer` 跑的实时缩略图（交汇融流）。
+- `src/spec.js`：Rubric 的纯逻辑 —— 由参数生成两套主题、算对比度、导出 Markdown，不碰 DOM。
+- `src/rubric.js`：Rubric 的控件、渲染与剪贴板。
 - `server.mjs`：Node 内置模块实现的本地服务器。
 
 ## 验证

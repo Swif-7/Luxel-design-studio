@@ -19,7 +19,7 @@ export function labToRgb(lab) {
   return labToLinear(lab).map(v=>Math.max(0,Math.min(1,encode(v))));
 }
 // Reduce chroma rather than clip RGB channels, preserving the chosen hue.
-function lchToHex(L,C,hue) {
+export function lchToHex(L,C,hue) {
   const angle=hue*Math.PI/180;
   const at=chroma=>[L,chroma*Math.cos(angle),chroma*Math.sin(angle)];
   let low=0,high=C;

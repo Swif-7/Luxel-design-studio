@@ -104,6 +104,10 @@ body{height:100dvh;display:flex;overflow:hidden}
 .thumb img{width:100%;height:auto;aspect-ratio:3/2;object-fit:cover;display:block}
 .is-empty .thumb{display:grid;place-items:center;aspect-ratio:3/2;background:var(--surface)}
 .is-empty .slot{font:13px var(--mono);letter-spacing:.14em;color:var(--text-3)}
+/* Rubric 卡没有实时画面，用它自己产出的东西当缩略图：一条色阶。 */
+.thumb-rubric{display:grid;place-items:center;aspect-ratio:3/2;background:var(--surface)}
+.swatches{display:flex;gap:7px}
+.swatches i{width:26px;height:38px;border-radius:var(--r-card);box-shadow:inset 0 0 0 1px #8888881f}
 .is-empty h2,.is-empty p{color:var(--text-3)}
 .thumb canvas{position:absolute;inset:0;width:100%;height:100%;display:block;
   opacity:0;transition:opacity .4s}

@@ -1,0 +1,63 @@
+/* Rubric — 为 agent 生成 UI 设计规范
+   ────────────────────────────────────────────────────────────────────────
+   复用 style.css 的两栏外壳、面板与控件，这里只写规范表本身。
+   表按截图那样一行一个 token：色块、名称、用途、对比度，不达标的在对比度
+   旁边挂一个感叹号 —— 告警贴着出问题的那一行，而不是汇总到别处。
+   ──────────────────────────────────────────────────────────────────────── */
+
+.sheets{display:flex;flex-direction:column;gap:20px;padding-bottom:6px}
+.sheet{border:1px solid var(--border);border-radius:var(--r-panel);overflow:hidden;background:var(--bg)}
+.sheet>header{display:flex;align-items:baseline;gap:12px;padding:15px 22px;border-bottom:1px solid var(--border)}
+.sheet>header h2{margin:0;font-size:12px;font-weight:600;letter-spacing:.12em;text-transform:uppercase}
+.sheet-state{font:10px var(--mono);color:var(--text-3);letter-spacing:.06em;margin-left:auto}
+
+.rows{display:flex;flex-direction:column}
+.row{display:grid;grid-template-columns:44px minmax(0,1fr) minmax(0,1fr) auto;
+  align-items:center;gap:16px;padding:9px 22px;border-bottom:1px solid var(--border)}
+.row:last-child{border-bottom:0}
+/* 色块自己不画边框：浅色系的块在白底上会看不见，靠 inset 阴影兜一条极淡的界 */
+.row .chip{width:44px;height:30px;border-radius:var(--r-card);box-shadow:inset 0 0 0 1px #8888881f}
+.row .name{font:12.5px var(--mono);color:var(--text)}
+.row .role{font-size:12.5px;color:var(--text-2);min-width:0}
+.row .value{display:flex;align-items:center;gap:9px;justify-self:end;white-space:nowrap}
+.row .hex{font:12px var(--mono);color:var(--text-3);text-transform:uppercase}
+.row .ratio{font:11.5px var(--mono);color:var(--text-2)}
+.row .ratio.low{color:var(--danger)}
+.warn{width:17px;height:17px;flex:none;display:grid;place-items:center;border-radius:var(--r-pill);
+  background:var(--danger);color:#fff;font:11px/1 var(--sans);font-weight:700;cursor:help}
+
+.type-rows .row{grid-template-columns:minmax(0,1fr) auto}
+.type-rows .sample{font-size:15px;color:var(--text);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.type-rows .value{font:11.5px var(--mono);color:var(--text-3)}
+
+/* ── 面板控件 ── */
+.segment{display:flex;gap:6px;padding:4px;background:var(--surface-2);
+  border:1px solid var(--border);border-radius:var(--r-pill)}
+.seg{flex:1;padding:8px 0;font-size:12.5px;background:transparent;border-color:transparent;color:var(--text-2)}
+.seg[aria-checked=true]{background:var(--accent);border-color:var(--accent);color:var(--accent-fg);font-weight:600}
+.accent-row{margin-top:12px}
+.accent{display:flex;align-items:center;gap:12px;font-size:12px;color:var(--text-2);cursor:pointer}
+.accent span{flex:none;width:44px}
+.accent input[type=color]{width:52px;height:30px;border-radius:var(--r-pill);cursor:pointer;flex:none}
+.accent code{font:11.5px var(--mono);color:var(--text-3)}
+
+.link-toggle{display:flex;align-items:center;gap:9px;width:100%;margin-top:14px;
+  font-size:12.5px;text-align:left;background:var(--surface-2);color:var(--text-2)}
+.link-toggle[aria-pressed=true]{background:var(--accent);border-color:var(--accent);color:var(--accent-fg)}
+.link-icon{font-size:14px;line-height:1}
+.link-toggle[aria-pressed=false] .link-icon{opacity:.5}
+
+.panel-footer{justify-content:flex-start;font-size:11.5px;margin-bottom:12px}
+.panel-footer .bad{color:var(--danger)}
+.panel-footer .good{color:var(--text-2)}
+
+@media(max-width:900px){
+  .sheets{padding:16px 20px 20px}
+  .row{grid-template-columns:36px minmax(0,1fr) auto;gap:12px;padding:9px 16px}
+  .row .role{display:none}
+  .row .chip{width:36px;height:26px}
+  .sheet>header{padding:13px 16px}
+}
+@media(max-width:560px){
+  .row .hex{display:none}
+}

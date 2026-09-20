@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Rubric — Luxel</title><meta name="description" content="用滑块和取色整理配色与字重，一键复制成可直接交给 agent 的 UI 设计规范。"><meta name="theme-color" content="#ffffff"><link rel="icon" href="/favicon.svg?v=3"><link rel="stylesheet" href="/tokens.css"><link rel="stylesheet" href="/style.css"><link rel="stylesheet" href="/rubric.css"><script>try{var t=localStorage.getItem("rheo-theme");if(t)document.documentElement.dataset.theme=t}catch(e){}</script></head>
+<body>
+<header><a class="brand" href="/" aria-label="返回 Luxel 首页"><svg class="brand-mark" viewBox="0 0 64 64" fill="currentColor" aria-hidden="true"><rect x="12" y="12" width="20" height="20"/><rect x="32" y="12" width="20" height="20" fill-opacity=".62"/><rect x="12" y="32" width="20" height="20" fill-opacity=".38"/><rect x="32" y="32" width="20" height="20" fill-opacity=".16"/></svg> Luxel <span class="brand-sub">RUBRIC · UI SPEC</span></a><div class="header-right"><button id="theme" aria-label="切换深浅模式"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"></svg></button></div></header>
+<main>
+<section class="workspace">
+<h1 class="sr-only">Rubric — 为 agent 生成 UI 设计规范</h1>
+<div class="sheets">
+<section class="sheet"><header><h2>浅色</h2><span id="light-state" class="sheet-state"></span></header><div id="light-rows" class="rows"></div></section>
+<section class="sheet"><header><h2>深色</h2><span id="dark-state" class="sheet-state"></span></header><div id="dark-rows" class="rows"></div></section>
+<section class="sheet"><header><h2>字体</h2></header><div id="type-rows" class="rows type-rows"></div></section>
+</div>
+</section>
+
+<aside>
+<div class="panel-heading"><h2>规范参数</h2><button id="reset" class="text-button">重置</button></div>
+
+<section class="control-section"><div class="section-heading"><h3>模式</h3></div>
+<div class="segment" role="radiogroup" aria-label="配色模式">
+<button class="seg" data-mode="mono" role="radio" aria-checked="true">单色</button>
+<button class="seg" data-mode="duo" role="radio" aria-checked="false">双色</button>
+</div>
+<div class="accent-row"><label class="accent" for="accent"><span>主强调</span><input id="accent" type="color" value="#3b5bdb"><code id="accent-hex">#3B5BDB</code></label></div>
+<div class="accent-row" id="accent2-row" hidden><label class="accent" for="accent2"><span>次强调</span><input id="accent2" type="color" value="#e8590c"><code id="accent2-hex">#E8590C</code></label></div>
+<button id="link" class="link-toggle" aria-pressed="true"><span class="link-icon" aria-hidden="true">⇄</span><span id="link-label">深色随浅色自动规划</span></button>
+<p class="control-hint" id="link-hint">开启时深色由浅色的同一组参数重算，层级关系保持一致。关闭后可单独指定深色的强调色。</p>
+</section>
+
+<section class="control-section"><div class="section-heading"><h3>中性色</h3></div><div id="neutral-controls" class="control-grid"></div>
+<p class="control-hint">色相与色度决定灰阶的倾向，对比强度整体拉开或收紧正文与底色的距离。</p></section>
+
+<section class="control-section"><div class="section-heading"><h3>字重与字阶</h3></div><div id="type-controls" class="control-grid"></div></section>
+
+<div class="panel-footer"><span id="audit-summary">—</span></div>
+<button id="copy" class="primary">⧉ &nbsp; 复制规范 <span>MD</span></button>
+</aside>
+</main>
+<div id="toast" role="status"></div>
+<script type="module" src="/src/rubric.js"></script>
+</body></html>
