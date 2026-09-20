@@ -27,7 +27,8 @@ body{height:100dvh;display:flex;overflow:hidden}
 /* 工具条：选中项把对应卡片推到堆叠最前，未选中的留在后方。 */
 .tool-list{display:flex;flex-direction:column;gap:6px}
 .tool-btn{padding:7px 0 6px;width:50px;display:flex;flex-direction:column;align-items:center;gap:5px;
-  background:transparent;border-color:transparent;border-radius:9px;color:var(--text-3)}
+  background:transparent;border-color:transparent;border-radius:9px;color:var(--text-3);
+  transition:background .18s, color .18s, border-color .18s}
 .tool-btn svg{width:19px;height:19px}
 .tool-name{font:8.5px var(--mono);letter-spacing:.1em;text-transform:uppercase;line-height:1}
 .tool-btn:hover{background:var(--surface-3);border-color:transparent;color:var(--text-2)}
@@ -77,15 +78,23 @@ body{height:100dvh;display:flex;overflow:hidden}
 .tool-card{position:absolute;top:0;left:0;width:100%;
   display:flex;flex-direction:column;gap:10px;text-decoration:none;color:inherit;
   transform-origin:center left;
-  transform:translateX(calc(var(--d) * var(--step))) scale(calc(1 - var(--d) * .05));
+  transform:translateX(calc(var(--d) * var(--step)))
+            translateY(calc(var(--d) * -5px))
+            scale(calc(1 - var(--d) * .05));
   opacity:calc(1 - var(--d) * .28);
   z-index:calc(10 - var(--d));
-  transition:transform .38s cubic-bezier(.22,.7,.3,1), opacity .38s}
+  /* 错峰：延迟按新深度递增，所以进到最前的那张先动，后面的依次落位，
+     堆叠像被推了一下而不是整体平移。z-index 不可过渡，切换瞬间就换层，
+     于是离开的卡是「滑到背后」而不是「从前面横穿」。 */
+  transition:transform .46s cubic-bezier(.2,.8,.2,1),
+             opacity .46s cubic-bezier(.2,.8,.2,1);
+  transition-delay:calc(var(--d) * 30ms)}
 /* 卡片本身没有底色（保持无框的观感），所以前卡遮不住后卡的文字。
    非最前者只留缩略图 —— 缩略图是不透明的，能正常相互遮挡，
    读起来就是一摞只露出边缘的卡。 */
 .tool-card[data-front=false]{pointer-events:none}
-.tool-card[data-front=false] .body{opacity:0;transition:opacity .2s}
+.tool-card[data-front=false] .body{opacity:0;transition:opacity .16s}
+.tool-card[data-front=true] .body{opacity:1;transition:opacity .3s ease .2s}
 /* 缩略图：静态 PNG 打底，WebGL 就绪后淡入盖在上面。
    WebGL 不可用或用户偏好减少动态时，PNG 就是最终形态，不会留白。 */
 .thumb{position:relative;display:block;border-radius:10px;overflow:hidden;
