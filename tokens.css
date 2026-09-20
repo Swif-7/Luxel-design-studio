@@ -24,6 +24,7 @@
      pill  可点的东西 —— 按钮、输入、下拉、色标、开关
      card  承载内容的小块 —— 预设卡、菜单项、缩略图
      panel 大面板 —— 画面、浮层、工具栏 */
+  --chevron:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 10'%3E%3Cpath d='M2 4l3 3 3-3' fill='none' stroke='%23000' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   --r-pill:999px;
   --r-card:14px;
   --r-panel:20px;
@@ -67,7 +68,27 @@ button:disabled{opacity:.35;cursor:not-allowed}
 /* Solid --text focus ring: 19.4:1 light / 13.6:1 dark, well past the 3:1
    non-text minimum that the hairline control borders themselves do not meet. */
 button:focus-visible,input:focus-visible,select:focus-visible,a:focus-visible{outline:2px solid var(--text);outline-offset:3px}
-select{background:var(--surface-2);color:var(--text);border:1px solid var(--border-control);border-radius:var(--r-pill);padding:7px 12px;max-width:100%}
+/* 原生 select 在 macOS 上由系统绘制，会无视 border-radius —— 必须关掉
+   appearance 才吃得到胶囊圆角，代价是原生箭头消失，得自己补。
+   箭头用 mask 而非 background-image：mask 让它取 currentColor，
+   深浅两套主题下自动跟随，不必备两份图。 */
+select{appearance:none;-webkit-appearance:none;
+  background:var(--surface-2);color:var(--text);border:1px solid var(--border-control);
+  border-radius:var(--r-pill);padding:7px 30px 7px 14px;max-width:100%}
+.select-row,.quality-label{position:relative}
+.select-row::after,.quality-label::after{
+  content:"";position:absolute;right:13px;top:50%;width:10px;height:10px;margin-top:-5px;
+  pointer-events:none;color:var(--text-3);background:currentColor;
+  -webkit-mask:var(--chevron) center/10px 10px no-repeat;
+          mask:var(--chevron) center/10px 10px no-repeat}
+
+/* 色块铺满胶囊：padding 与 border 会把颜色挤在中间，改用 inset 阴影当描边，
+   它画在色块之上、不占盒内空间。原生 swatch 自带内边距与边框，一并清掉。 */
+input[type=color]{padding:0;border:0;overflow:hidden;
+  box-shadow:inset 0 0 0 1px var(--border-control)}
+input[type=color]::-webkit-color-swatch-wrapper{padding:0}
+input[type=color]::-webkit-color-swatch{border:0;border-radius:var(--r-pill)}
+input[type=color]::-moz-color-swatch{border:0;border-radius:var(--r-pill)}
 label{font-size:12px}
 input[type=checkbox]{accent-color:var(--accent)}
 .quiet{background:transparent}
