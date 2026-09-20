@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 import {glyphGroups,glyphsFor} from './glyphs.js';
 import {harmoniousPalette} from './color.js';
-export const modes=['丝绸流动 · Silk','交汇融流 · Blend','双涡卷流 · Vortex','层流漫涌 · Drift'];
+export const modes=['潮汐铺展 · Tide','交汇融流 · Blend','双涡卷流 · Vortex','层流漫涌 · Drift'];
 export const palettes=[
  ['#fffdfd','#ff80b1','#9a87ed','#66c6ed','#a0efcf','#ffc185'],
  ['#ffffff','#20d9e5','#70bcea','#b6edff'],

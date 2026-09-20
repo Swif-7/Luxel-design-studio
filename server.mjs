@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 const root = new URL('./', import.meta.url);
 const allowed = new Set(['index.html', 'rheo.html', 'tokens.css', 'style.css', 'home.css',
-  'src/app.js', 'src/home.js', 'src/model.js', 'src/color.js', 'src/shader.js', 'src/glyphs.js',
+  'src/export.js', 'LICENSE', 'src/app.js', 'src/home.js', 'src/model.js', 'src/color.js', 'src/shader.js', 'src/glyphs.js',
   'favicon.svg', 'png/rheo-card.png',
   'fonts/IBMPlexSans-Regular.woff2', 'fonts/IBMPlexSans-SemiBold.woff2', 'fonts/IBMPlexMono-Regular.woff2',
   'tests/render.html']);
@@ -13,7 +13,7 @@ http.createServer(async (req, res) => {
     const path = new URL(req.url, 'http://localhost').pathname.slice(1) || 'index.html';
     if (!allowed.has(path)) { res.writeHead(404); res.end('Not found'); return; }
     const data = await readFile(fileURLToPath(new URL(path, root)));
-    const ext = path.split('.').pop(), type = types[ext];
+    const ext = path.split('.').pop(), type = types[ext] || 'text/plain';
     const binary = ext === 'png' || ext === 'woff2';
     res.writeHead(200, {'Content-Type': binary ? type : `${type}; charset=utf-8`, 'Cache-Control': 'no-store'}); res.end(data);
   } catch { res.writeHead(500); res.end('Unable to read asset'); }

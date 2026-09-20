@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-// Independently authored iterative ribbon field; reference implementation is not bundled.
+// Independently authored advected pigment fields; reference implementation is not bundled.
 import {glyphsFor,createGlyphAtlas,glyphDensityLookup} from './glyphs.js';
 import {palettePixels} from './color.js';
 export const vertex=`attribute vec2 position;void main(){gl_Position=vec4(position,0.,1.);}`;
@@ -9,19 +9,17 @@ float flowClock(float kind,float phase){return kind>2.5?time*(.34+.07*sin(phase*
 vec2 materialMap(vec2 uv){
  float phase=seed*.01371,kind=mode;
  if(kind<.5){
-   float t=time*.65+phase;
-   float breathe=sin(time*.73+phase)*.04+sin(time*.43)*.025;
-   vec2 p=turn(angle*.01745329)*((uv-vec2(offsetX,offsetY))/scale-vec2(-.58,.14))*(1.+breathe);
-   float theta=2.14+.006*sin(phase),c=cos(theta),s=sin(theta);
-   mat2 fold=mat2(c,s,-.96,c);
-   // Follow the same first six deformations as the layered silk pigment.
-   for(int j=0;j<6;j++){
-     float layer=float(j)*.016;
-     p.x-=sin(p.y*.47+t+layer)*.13*distortion;
-     p.y-=sin(p.x*2.45-t*.88+layer)*.027*distortion;
-     p=fold*p*.952;
+   // Broad tidal fronts, folded by an area-preserving sequence of shears.
+   // Unlike the former iterative silk, this retains an actual pigment edge.
+   vec2 q=turn(angle*.01745329)*(uv-vec2(offsetX,offsetY))/scale;
+   float clock=time*.38+phase*.21;
+   float strength=.35+distortion*.4;
+   for(int k=0;k<3;k++){
+     float i=float(k);
+     q.y+=strength*.42*sin(q.x*(1.7+detail*.08)+clock+i*1.8);
+     q.x+=strength*.32*sin(q.y*2.4-clock*.71+i*1.3);
    }
-   return p;
+   return q;
  }
  vec2 q=turn(angle*.01745329)*(uv-vec2(offsetX,offsetY))/scale;
  float clock=flowClock(kind,phase);
@@ -65,9 +63,9 @@ vec2 materialMap(vec2 uv){
 export const fragment=`
 precision highp float;
 uniform vec2 resolution;
-uniform float lowPrecision;
+uniform float lowPrecision,inkOnly;
 uniform float texture,textureStrength,textureScale;
-uniform float time,seed,mode,glow,scale,detail,distortion,width,softness,angle,colorFlow,backgroundTint,backgroundSpread,offsetX,offsetY;
+uniform float time,seed,mode,glow,scale,detail,distortion,width,softness,angle,colorFlow,offsetX,offsetY;
 uniform vec3 background;
 uniform highp sampler2D palette;
 ${flowMap}
@@ -79,55 +77,28 @@ float materialGrain(vec2 p){
 void main(){
  vec2 uv=(gl_FragCoord.xy-.5*resolution)/resolution.y;
  float phase=seed*.01371;
- float t=time*.65+phase;
- float breathe=sin(time*.73+phase)*.04+sin(time*.43)*.025;
- vec2 p=turn(angle*.01745329)*((uv-vec2(offsetX,offsetY))/scale-vec2(-.58,.14));
- p*=1.+breathe;
- vec2 grainCoordinate=p;
+ vec2 grainCoordinate=vec2(0.);
  float kind=mode;
- if(kind>1.5&&kind<2.5){float r=length(p);p=turn(.7*sin(r*1.8+t*.2))*p;}
- if(kind>3.5&&kind<4.5)p+=.13*vec2(sin(p.y*3.+t),cos(p.x*2.4-t*.7));
- // All scales share their path, clock and palette sample. The background is
- // the outer skirt of the same ribbon, never an unrelated screen gradient.
- vec3 pigment=vec3(0.),shoulderPigment=vec3(0.),auraPigment=vec3(0.);
- float mass=0.,shoulderMass=0.,auraMass=0.;
- float count=40.+detail*6.;
- float theta=2.14+.006*sin(phase)+kind*.002;
- float c=cos(theta),s=sin(theta);
- mat2 fold=mat2(c,s,-(.96+kind*.003),c);
- float feather=.0032;
- float breadth=1.8/width;
+ // Shape and color share one advected pigment field.
+ vec3 pigment=vec3(0.);
+ float mass=0.;
  if(kind<.5){
- for(int j=0;j<84;j++){
-   float layer=float(j);
-   if(layer>=count)break;
-   float phaseLayer=layer*.016;
-   p.x-=sin(p.y*.47+t+phaseLayer)*.13*distortion;
-   p.y-=sin(p.x*2.45-t*.88+phaseLayer)*.027*distortion;
-   p=fold*p*(.952+kind*.0007);
-   if(j==5)grainCoordinate=p;
-   vec2 delta=(p-vec2(.37+breathe,.015*sin(t*.6)))*vec2(breadth,.17);
-   float distance2=dot(delta,delta);
-   float shape=1./(1.+distance2/feather);
-   float shoulder=1./(1.+distance2/(feather*(3.+backgroundSpread*5.)));
-   float aura=1./(1.+distance2/(feather*(12.+backgroundSpread*34.)));
-   if(kind>.5&&kind<1.5){
-     vec2 echo=delta-vec2(.29,.04);float e=dot(echo,echo);
-     shape+=.45/(1.+e/feather);
-     shoulder+=.45/(1.+e/(feather*(3.+backgroundSpread*5.)));
-     aura+=.45/(1.+e/(feather*(12.+backgroundSpread*34.)));
-   }
-   float envelope=exp(-length(p)*.28)*(1.-smoothstep(count-8.,count,layer));
-   float weight=shape*.245*envelope;
-   float shoulderWeight=shoulder*.065*envelope;
-   float auraWeight=aura*.024*envelope;
-   float phaseColor=layer*.055+length(p)*1.1+time*colorFlow*.35+phase*.17;
-   float position=.5+.5*sin(phaseColor);
-   vec3 dye=texture2D(palette,vec2(position,.5)).rgb;
-   pigment+=dye*weight;mass+=weight;
-   shoulderPigment+=dye*shoulderWeight;shoulderMass+=shoulderWeight;
-   auraPigment+=dye*auraWeight;auraMass+=auraWeight;
- }
+   vec2 q=materialMap(uv);
+   grainCoordinate=q;
+   float clock=time*.38+phase*.21;
+   float front=q.y+.14*sin(q.x*2.1-clock*.43)+.08*sin(phase);
+   float feather=.014+softness*.015;
+#ifdef MATERIAL_DERIVATIVES
+   feather=max(feather,fwidth(front)*1.2);
+#endif
+   float tail=.32*width;
+   float crest=smoothstep(-feather,feather,front);
+   float body=crest*exp(-max(front,0.)/tail);
+   vec2 material=(uv-vec2(offsetX,offsetY))/scale;
+   float envelope=exp(-pow(length(material)/1.65,4.));
+   float colorPosition=.5+.5*sin(q.x*.95+front*3.2/width+phase*.17+time*colorFlow*.35);
+   vec3 dye=texture2D(palette,vec2(colorPosition,.5)).rgb;
+   mass=body*3.4*envelope;pigment=dye*mass;
  }else{
    // One material flow map acts on every pigment layer. Alternating shears
    // and radius-preserving twists stretch and fold areas, rather than moving
@@ -151,38 +122,43 @@ void main(){
      vec2 d=q-center;
      float orientation=kind<1.5?(pool-1.)*.75:(kind<2.5?pool*1.8:phase*.31+pool*1.4+.3*sin(clock*.3+pool));
      d=turn(orientation)*d;
-     d.y+=sheet*.018;
+     d.y+=sheet*(kind<1.5?.018:.002);
      vec2 radii=kind>2.5?vec2(.65+.08*sin(pool+phase),.28+.06*cos(pool*2.+phase)):vec2(.48,.62);
      radii*=vec2(1.,width);
      float distance2=dot(d/radii,d/radii);
-     float body=exp(-distance2*1.6);
-     float shoulder=exp(-distance2/(1.1+backgroundSpread*.8));
-     float aura=exp(-distance2/(3.+backgroundSpread*2.));
+     float body;
+     if(kind<1.5){body=exp(-distance2*1.6);}else{
+       // A leading edge and a long dissolving wake, not a symmetric tube.
+       // The shared flow map bends this entire dyed area into eddies/currents.
+       float front=d.y+.11*sin(d.x*2.2+pool*1.7+clock*.37);
+       float feather=.008+softness*.01;
+#ifdef MATERIAL_DERIVATIVES
+       feather=max(feather,fwidth(front)*1.2);
+#endif
+       float wake=(kind<2.5?.34:.28)*width;
+       body=smoothstep(-feather,feather,front)*exp(-max(front,0.)/wake)
+         *exp(-pow(abs(d.x)/(kind<2.5?.75:.95),4.));
+     }
      // Screen-space envelope is in subject coordinates, so size controls the
-     // whole composition including its soft skirt without scaling the offset.
+     // pigment composition without scaling the offset.
      float envelope=exp(-pow(length(material)/1.35,4.));
      float weight=body*.88*envelope;
-     float shoulderWeight=shoulder*.13*envelope;
-     float auraWeight=aura*.048*envelope;
      float colorPosition=.5+.5*sin(pool*1.9+q.x*1.65+q.y*.8+sheet*.16+phase*.17+time*colorFlow*.35);
      vec3 dye=texture2D(palette,vec2(colorPosition,.5)).rgb;
      pigment+=dye*weight;mass+=weight;
-     shoulderPigment+=dye*shoulderWeight;shoulderMass+=shoulderWeight;
-     auraPigment+=dye*auraWeight;auraMass+=auraWeight;
    }
  }
 
  vec3 dye=pigment/max(mass,.00001);
- vec3 shoulderDye=shoulderPigment/max(shoulderMass,.00001);
- vec3 auraDye=auraPigment/max(auraMass,.00001);
- // Softness changes only the body transfer curve, not the field radii.
+ // Softness controls the pigment shoulder, not the surrounding aura radius.
  // Summing first keeps individual folds from becoming thin contour lines.
  float bodyDensity=max(mass-.34,0.);
  float edgePower=mix(1.65,1.,clamp((softness-.1)/1.9,0.,1.));
  float opacity=1.-exp(-pow(bodyDensity,edgePower)*glow*1.6);
- vec3 result=mix(background,auraDye,1.-exp(-auraMass*backgroundTint*.72));
- result=mix(result,shoulderDye,1.-exp(-shoulderMass*backgroundTint*.85));
- result=mix(result,dye,opacity);
+ if(inkOnly>.5){gl_FragColor=vec4(dye*opacity,opacity);return;}
+ // The source field contains only pigment. Background diffusion is generated
+ // from these actual pixels in the post pass, outside the body's envelope.
+ vec3 result=mix(background,dye,opacity);
  // Pigment grain lives in the same material coordinates as the color field.
  // No independent clock, random frame swaps, or sliding screen-space overlay.
  if(texture>.5&&texture<1.5){
@@ -207,9 +183,46 @@ void main(){
  float glassDistance=1.-smoothstep(.45,1.8,mass);
  gl_FragColor=vec4(result,glassDistance);
 }`;
+// Repeated low-resolution filtering gives a dense blur footprint without
+// sparse, widely spaced taps producing displaced copies of a ribbon edge.
+const blurFragment=`
+precision highp float;
+uniform sampler2D source;
+uniform vec2 resolution,sourceTexel;
+void main(){
+ vec2 uv=gl_FragCoord.xy/resolution;
+ vec4 color=vec4(0.);
+ for(int y=-1;y<=1;y++)for(int x=-1;x<=1;x++){
+   float wx=x==0?2.:1.,wy=y==0?2.:1.;
+   color+=texture2D(source,uv+vec2(float(x),float(y))*sourceTexel*2.)*(wx*wy/16.);
+ }
+ gl_FragColor=color;
+}`;
+// Diffuse premultiplied dye and its coverage separately. Empty samples contain
+// transparent black, never the user's background; unpremultiplication recovers
+// the neighboring dye hue before a separate optical-density falloff is applied.
+const tintFragment=`
+precision highp float;
+uniform sampler2D source,nearLo,nearHi,farLo,farHi;
+uniform vec2 resolution,levelMix;
+uniform vec3 background;
+uniform float strength;
+void main(){
+ vec2 uv=gl_FragCoord.xy/resolution;
+ vec4 body=texture2D(source,uv);
+ vec4 nearInk=mix(texture2D(nearLo,uv),texture2D(nearHi,uv),levelMix.x);
+ vec4 farInk=mix(texture2D(farLo,uv),texture2D(farHi,uv),levelMix.y);
+ vec4 ink=mix(nearInk,farInk,.65);
+ vec3 dye=ink.rgb/max(ink.a,.0001);
+ float coverage=1.-exp(-ink.a*strength*5.);
+ // Background stays fully dyed, but foreground shoulders reject the haze.
+ // A steeper continuous depth mask preserves their local contrast for focus.
+ gl_FragColor=vec4(mix(body.rgb,clamp(dye,0.,1.),coverage*pow(body.a,4.)),body.a);
+}`;
 const post=`
 precision highp float;
 uniform highp sampler2D field;
+uniform sampler2D blur2,blur3,blur4,blur5,blur6;
 uniform sampler2D glyphAtlas,glyphLookup;
 uniform float glyphCount,asciiOpacity,asciiSize,asciiSpacing,asciiRate,asciiDensity;
 uniform vec2 fieldSize;
@@ -217,6 +230,21 @@ uniform vec2 resolution;
 uniform float blur,regionalBlur;
 uniform float time,seed,texture,textureStrength,textureScale,particles,particleType,density,particleSize;
 uniform vec3 background,primary;
+uniform float mode,scale,angle,offsetX,offsetY,detail,distortion;
+${flowMap}
+float focusDistance(vec2 uv){
+ float shoulder=texture2D(field,uv).a;
+ if(mode>.5&&mode<1.5)return shoulder;
+ // Depth follows the advected material, so focus travels with the folds and
+ // respects subject scale/translation. Coverage remains a separate quantity
+ // in field.a for the fixed character display.
+ vec2 point=(uv-.5)*vec2(resolution.x/resolution.y,1.);
+ vec2 q=materialMap(point);
+ float phase=seed*.01371;
+ float fold=sin(q.y*3.1+q.x*1.7+phase*.13);
+ float recession=smoothstep(-.25,.65,fold);
+ return clamp(shoulder*mix(.65,1.7,recession),0.,1.);
+}
 float hash(vec2 p){return fract(sin(dot(p,vec2(12.9898,78.233))+seed)*43758.5453);}
 // Cubic B-spline reconstruction has positive weights: no ringing/overshoot
 // around pale moving edges. Four bilinear fetches integrate sixteen texels.
@@ -235,21 +263,26 @@ vec3 reconstruct(vec2 uv){
        +texture2D(field,vec2(lo.x,hi.y)).rgb*left.x*right.y
        +texture2D(field,vec2(hi.x,hi.y)).rgb*right.x*right.y;
 }
+vec3 diffuseField(vec2 uv,float radius){
+ float level=clamp(log2(max(radius,3.2)/3.2),0.,4.);
+ if(level<1.)return mix(texture2D(blur2,uv).rgb,texture2D(blur3,uv).rgb,level);
+ if(level<2.)return mix(texture2D(blur3,uv).rgb,texture2D(blur4,uv).rgb,level-1.);
+ if(level<3.)return mix(texture2D(blur4,uv).rgb,texture2D(blur5,uv).rgb,level-2.);
+ return mix(texture2D(blur5,uv).rgb,texture2D(blur6,uv).rgb,level-3.);
+}
 vec3 surface(vec2 uv){
  vec3 color=reconstruct(uv);
  // Normalized radius makes the control independent of pixel ratio/quality.
- // A symmetric positive kernel cannot introduce ringing at color boundaries.
+ // Positive filter weights avoid reconstruction overshoot at boundaries.
  if(blur>0.){
-   float region=regionalBlur>.5?texture2D(field,uv).a:1.;
+   // Protect the touching ridge, then bring the receding shoulder out of focus
+   // sooner. The full-frame blur response is independent of this depth curve.
+   float region=regionalBlur>.5?pow(focusDistance(uv),.7):1.;
    float amount=blur*.01;
-   vec2 stride=vec2(resolution.y/resolution.x,1.)*amount*.085*region;
-   vec3 soft=vec3(0.);
-   for(int y=-1;y<=1;y++)for(int x=-1;x<=1;x++){
-     float wx=x==0?2.:1.;
-     float wy=y==0?2.:1.;
-     soft+=texture2D(field,uv+vec2(float(x),float(y))*stride).rgb*(wx*wy/16.);
-   }
-   color=mix(color,soft,smoothstep(0.,.12,region)*smoothstep(0.,.08,amount));
+   // A dense positive-weight pyramid also avoids the repeated edge copies
+   // produced by a wide, sparse 3x3 kernel in the former Blend focus pass.
+   float radius=amount*(regionalBlur>.5?.13:.11)*fieldSize.y*region;
+   color=mix(color,diffuseField(uv,radius),smoothstep(0.,3.2,radius));
  }
  return color;
 }
@@ -266,7 +299,7 @@ float glyphInk(float glyph,vec2 local){
 void main(){
  vec2 point=gl_FragCoord.xy;vec2 uv=point/resolution;vec3 color=surface(uv);
  float cell=max(2.,textureScale*7.);
- if(texture>1.5&&texture<2.5){vec2 center=(floor(point/cell)+.5)*cell/resolution;color=mix(color,texture2D(field,center).rgb,textureStrength);}
+ if(texture>1.5&&texture<2.5){vec2 center=(floor(point/cell)+.5)*cell/resolution;color=mix(color,surface(center),textureStrength);}
  float coverage=clamp(length(color-background)*1.1,0.,1.);
  if(texture>2.5&&texture<3.5){vec2 f=fract(point/cell)-.5;float mask=1.-smoothstep(.24,.36,length(f));color=mix(color,mix(background,color,mask),textureStrength*coverage);}
  if(texture>3.5&&texture<4.5){vec2 grid=floor(point/max(2.,textureScale*3.));float pattern=mod(grid.x+grid.y*2.,4.)/4.;vec3 ink=background-color;vec3 quantized=floor(ink*7.+pattern)/7.;color=mix(color,background-quantized,textureStrength*coverage);}
@@ -322,14 +355,18 @@ export class Renderer {
    return {program:p,position:gl.getAttribLocation(p,'position'),uniforms:Object.fromEntries(names.map(n=>[n,gl.getUniformLocation(p,n)]))};
   };
   const materialSource=gl.getExtension('OES_standard_derivatives')?'#extension GL_OES_standard_derivatives : enable\n#define MATERIAL_DERIVATIVES\n'+fragment:fragment;
-  this.main=program(materialSource,['texture','textureStrength','textureScale','lowPrecision','resolution','time','seed','mode','glow','scale','detail','distortion','width','softness','angle','colorFlow','backgroundTint','backgroundSpread','offsetX','offsetY','background','palette']);
-  this.post=program(post,['asciiRate','asciiDensity','glyphLookup','asciiOpacity','asciiSize','asciiSpacing','glyphAtlas','glyphCount','blur','regionalBlur','fieldSize','resolution','time','seed','texture','textureStrength','textureScale','particles','particleType','density','particleSize','background','primary','field']);
+  this.main=program(materialSource,['inkOnly','texture','textureStrength','textureScale','lowPrecision','resolution','time','seed','mode','glow','scale','detail','distortion','width','softness','angle','colorFlow','offsetX','offsetY','background','palette']);
+  this.blurPass=program(blurFragment,['resolution','source','sourceTexel']);
+  this.tintPass=program(tintFragment,['resolution','source','nearLo','nearHi','farLo','farHi','levelMix','background','strength']);
+  this.post=program(post,['blur2','blur3','blur4','blur5','blur6','mode','scale','angle','offsetX','offsetY','detail','distortion','asciiRate','asciiDensity','glyphLookup','asciiOpacity','asciiSize','asciiSpacing','glyphAtlas','glyphCount','blur','regionalBlur','fieldSize','resolution','time','seed','texture','textureStrength','textureScale','particles','particleType','density','particleSize','background','primary','field']);
   this.buffer=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,this.buffer);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,3,-1,-1,3]),gl.STATIC_DRAW);
   const makeTexture=()=>{const texture=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,texture);for(const param of [gl.TEXTURE_MIN_FILTER,gl.TEXTURE_MAG_FILTER])gl.texParameteri(gl.TEXTURE_2D,param,gl.LINEAR);for(const param of [gl.TEXTURE_WRAP_S,gl.TEXTURE_WRAP_T])gl.texParameteri(gl.TEXTURE_2D,param,gl.CLAMP_TO_EDGE);return texture;};
   const half=gl.getExtension('OES_texture_half_float');
   const halfLinear=gl.getExtension('OES_texture_half_float_linear');
   gl.getExtension('EXT_color_buffer_half_float');
   this.fieldType=half&&halfLinear?half.HALF_FLOAT_OES:gl.UNSIGNED_BYTE;
+  this.blurLevels=Array.from({length:6},()=>makeTexture());this.blurFbo=gl.createFramebuffer();
+  this.inkSource=makeTexture();this.sourceField=makeTexture();this.inkLevels=Array.from({length:8},()=>makeTexture());
   this.field=makeTexture();this.palette=makeTexture();this.glyphLookup=makeTexture();gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.NEAREST);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.NEAREST);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,1,1,0,gl.RGBA,gl.UNSIGNED_BYTE,new Uint8Array(4));this.glyphAtlas=makeTexture();this.glyphKey='';this.glyphCount=1;gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,1,1,0,gl.RGBA,gl.UNSIGNED_BYTE,new Uint8Array(4));this.fbo=gl.createFramebuffer();this.size='';this.paletteKey='';
  }
  draw(state,time,width,height){
@@ -345,6 +382,20 @@ export class Renderer {
     this.fieldType=gl.UNSIGNED_BYTE;
     if(!allocate())throw Error('离屏渲染缓冲区不可用');
    }
+   let bw=fw,bh=fh;
+   for(const texture of this.blurLevels){
+    bw=Math.max(1,Math.ceil(bw/2));bh=Math.max(1,Math.ceil(bh/2));
+    gl.bindTexture(gl.TEXTURE_2D,texture);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,bw,bh,0,gl.RGBA,this.fieldType,null);
+   }
+   for(const [texture,w,h] of [[this.sourceField,fw,fh],[this.inkSource,Math.ceil(fw/2),Math.ceil(fh/2)]]){
+    gl.bindTexture(gl.TEXTURE_2D,texture);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,w,h,0,gl.RGBA,this.fieldType,null);
+   }
+   bw=Math.ceil(fw/2);bh=Math.ceil(fh/2);
+   for(const texture of this.inkLevels){
+    bw=Math.max(1,Math.ceil(bw/2));bh=Math.max(1,Math.ceil(bh/2));
+    gl.bindTexture(gl.TEXTURE_2D,texture);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,bw,bh,0,gl.RGBA,this.fieldType,null);
+   }
+   gl.bindTexture(gl.TEXTURE_2D,this.field);
    this.size=fw+'x'+fh;
   }
   gl.activeTexture(gl.TEXTURE1);gl.bindTexture(gl.TEXTURE_2D,this.palette);
@@ -363,13 +414,52 @@ export class Renderer {
   }
   gl.activeTexture(gl.TEXTURE3);gl.bindTexture(gl.TEXTURE_2D,this.glyphLookup);
   const bind=(p,w,h)=>{gl.useProgram(p.program);gl.bindBuffer(gl.ARRAY_BUFFER,this.buffer);gl.enableVertexAttribArray(p.position);gl.vertexAttribPointer(p.position,2,gl.FLOAT,false,0,0);gl.viewport(0,0,w,h);gl.uniform2f(p.uniforms.resolution,w,h);gl.uniform1f(p.uniforms.time,time);gl.uniform1f(p.uniforms.seed,state.seedValue);gl.uniform3fv(p.uniforms.background,hexRGB(state.background));};
-  gl.bindFramebuffer(gl.FRAMEBUFFER,this.fbo);bind(this.main,fw,fh);gl.uniform1f(this.main.uniforms.lowPrecision,this.fieldType===gl.UNSIGNED_BYTE?1:0);
-  for(const n of ['texture','textureStrength','textureScale','mode','glow','scale','detail','distortion','width','softness','angle','colorFlow','backgroundTint','backgroundSpread','offsetX','offsetY'])gl.uniform1f(this.main.uniforms[n],state[n]);
+  const tintEnabled=state.backgroundTint>0;
+  gl.bindFramebuffer(gl.FRAMEBUFFER,tintEnabled?this.blurFbo:this.fbo);
+  if(tintEnabled)gl.framebufferTexture2D(gl.FRAMEBUFFER,gl.COLOR_ATTACHMENT0,gl.TEXTURE_2D,this.sourceField,0);
+  bind(this.main,fw,fh);gl.uniform1f(this.main.uniforms.inkOnly,0);gl.uniform1f(this.main.uniforms.lowPrecision,this.fieldType===gl.UNSIGNED_BYTE?1:0);
+  for(const n of ['texture','textureStrength','textureScale','mode','glow','scale','detail','distortion','width','softness','angle','colorFlow','offsetX','offsetY'])gl.uniform1f(this.main.uniforms[n],state[n]);
   gl.uniform1i(this.main.uniforms.palette,1);gl.drawArrays(gl.TRIANGLES,0,3);
+  const pyramid=(source,sw,sh,levels)=>{
+   gl.bindFramebuffer(gl.FRAMEBUFFER,this.blurFbo);gl.activeTexture(gl.TEXTURE0);
+   for(const texture of levels){
+    const bw=Math.max(1,Math.ceil(sw/2)),bh=Math.max(1,Math.ceil(sh/2));
+    gl.framebufferTexture2D(gl.FRAMEBUFFER,gl.COLOR_ATTACHMENT0,gl.TEXTURE_2D,texture,0);
+    bind(this.blurPass,bw,bh);gl.bindTexture(gl.TEXTURE_2D,source);
+    gl.uniform1i(this.blurPass.uniforms.source,0);gl.uniform2f(this.blurPass.uniforms.sourceTexel,1/sw,1/sh);
+    gl.drawArrays(gl.TRIANGLES,0,3);source=texture;sw=bw;sh=bh;
+   }
+  };
+  if(tintEnabled){
+   // A half-resolution dye-only pass supplies actual opacity, independent of
+   // the geometric depth alpha used by focus and character placement.
+   gl.framebufferTexture2D(gl.FRAMEBUFFER,gl.COLOR_ATTACHMENT0,gl.TEXTURE_2D,this.inkSource,0);
+   bind(this.main,Math.ceil(fw/2),Math.ceil(fh/2));gl.uniform1f(this.main.uniforms.inkOnly,1);gl.drawArrays(gl.TRIANGLES,0,3);
+   pyramid(this.inkSource,Math.ceil(fw/2),Math.ceil(fh/2),this.inkLevels);
+   const radius=fh*Math.min(2,Math.max(.5,state.scale))*(.05+state.backgroundSpread*.08);
+   const level=r=>Math.max(0,Math.min(6.999,Math.log2(Math.max(3.2,r)/3.2)));
+   const near=level(radius*.45),far=level(radius);
+   gl.bindFramebuffer(gl.FRAMEBUFFER,this.fbo);bind(this.tintPass,fw,fh);
+   const textures=[this.sourceField,this.inkLevels[Math.floor(near)],this.inkLevels[Math.ceil(near)],this.inkLevels[Math.floor(far)],this.inkLevels[Math.ceil(far)]];
+   ['source','nearLo','nearHi','farLo','farHi'].forEach((name,i)=>{
+    gl.activeTexture(gl.TEXTURE0+i);gl.bindTexture(gl.TEXTURE_2D,textures[i]);gl.uniform1i(this.tintPass.uniforms[name],i);
+   });
+   gl.uniform2f(this.tintPass.uniforms.levelMix,near%1,far%1);gl.uniform1f(this.tintPass.uniforms.strength,state.backgroundTint);
+   gl.drawArrays(gl.TRIANGLES,0,3);
+  }
+  if(state.blur>0)pyramid(this.field,fw,fh,this.blurLevels);
+  // The tint pass reused atlas units; restore them before drawing any glyphs.
+  gl.activeTexture(gl.TEXTURE2);gl.bindTexture(gl.TEXTURE_2D,this.glyphAtlas);
+  gl.activeTexture(gl.TEXTURE3);gl.bindTexture(gl.TEXTURE_2D,this.glyphLookup);
   gl.bindFramebuffer(gl.FRAMEBUFFER,null);bind(this.post,width,height);gl.uniform2f(this.post.uniforms.fieldSize,fw,fh);gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,this.field);gl.uniform1i(this.post.uniforms.field,0);gl.uniform1i(this.post.uniforms.glyphAtlas,2);gl.uniform1i(this.post.uniforms.glyphLookup,3);gl.uniform1f(this.post.uniforms.glyphCount,this.glyphCount);gl.uniform3fv(this.post.uniforms.primary,hexRGB(state.colors[0]));
-  for(const n of ['asciiRate','asciiDensity','asciiOpacity','asciiSize','asciiSpacing','blur','regionalBlur','texture','textureStrength','textureScale','particles','particleType','density','particleSize'])gl.uniform1f(this.post.uniforms[n],Number(state[n]));
+  for(const n of ['mode','scale','angle','offsetX','offsetY','detail','distortion','asciiRate','asciiDensity','asciiOpacity','asciiSize','asciiSpacing','blur','regionalBlur','texture','textureStrength','textureScale','particles','particleType','density','particleSize'])gl.uniform1f(this.post.uniforms[n],Number(state[n]));
+  // Palette is no longer read in the post pass; reuse unit 1 and stay within
+  // WebGL 1's guaranteed eight fragment texture units, including ASCII.
+  for(let i=1;i<6;i++){
+   const unit=i===1?1:i+2;gl.activeTexture(gl.TEXTURE0+unit);gl.bindTexture(gl.TEXTURE_2D,this.blurLevels[i]);gl.uniform1i(this.post.uniforms['blur'+(i+1)],unit);
+  }
   gl.drawArrays(gl.TRIANGLES,0,3);
 
  }
- destroy(){const gl=this.gl;gl.deleteProgram(this.main.program);gl.deleteProgram(this.post.program);gl.deleteBuffer(this.buffer);gl.deleteTexture(this.field);gl.deleteTexture(this.palette);gl.deleteTexture(this.glyphAtlas);gl.deleteTexture(this.glyphLookup);gl.deleteFramebuffer(this.fbo);}
+ destroy(){const gl=this.gl;gl.deleteProgram(this.tintPass.program);gl.deleteTexture(this.sourceField);gl.deleteTexture(this.inkSource);for(const texture of this.inkLevels)gl.deleteTexture(texture);gl.deleteProgram(this.main.program);gl.deleteProgram(this.blurPass.program);for(const texture of this.blurLevels)gl.deleteTexture(texture);gl.deleteFramebuffer(this.blurFbo);gl.deleteProgram(this.post.program);gl.deleteBuffer(this.buffer);gl.deleteTexture(this.field);gl.deleteTexture(this.palette);gl.deleteTexture(this.glyphAtlas);gl.deleteTexture(this.glyphLookup);gl.deleteFramebuffer(this.fbo);}
 }
