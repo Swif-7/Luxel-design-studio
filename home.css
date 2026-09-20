@@ -99,8 +99,10 @@ body{height:100dvh;display:flex;overflow:hidden}
 /* 缩略图：静态 PNG 打底，WebGL 就绪后淡入盖在上面。
    WebGL 不可用或用户偏好减少动态时，PNG 就是最终形态，不会留白。 */
 .thumb{position:relative;display:block;border-radius:var(--r-card);overflow:hidden;
-  background:var(--stage);transition:opacity .15s}
-.tool-card[data-front=true]:hover .thumb{opacity:.82}
+  background:var(--stage);transition:filter .18s,transform .18s}
+/* 悬停不能降不透明度：前卡一透，堆在后面那张就从它底下显出来了。
+   改用滤镜和微抬 —— 两者都不牺牲遮挡。 */
+.tool-card[data-front=true]:hover .thumb{filter:brightness(.94) saturate(1.06);transform:translateY(-2px)}
 .thumb img{width:100%;height:auto;aspect-ratio:3/2;object-fit:cover;display:block}
 .is-empty .thumb{display:grid;place-items:center;aspect-ratio:3/2;background:var(--surface)}
 .is-empty .slot{font:13px var(--mono);letter-spacing:.14em;color:var(--text-3)}
