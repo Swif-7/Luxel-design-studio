@@ -13,7 +13,7 @@
 
    全页唯一的分隔线是左栏的右边线（原顶部栏那条，现在立起来了）。
    灰阶条与字标同高：两者是 .masthead 这个 flex 行的兄弟，stretch 对齐即可，
-   不需要任何计算。字标的五级灰正是条上十六级里的五级。
+   不需要任何计算。字标本身为单色，灰阶只由条子承担。
    ──────────────────────────────────────────────────────────────────────── */
 
 body{height:100dvh;display:flex;overflow:hidden}
@@ -51,11 +51,6 @@ body{height:100dvh;display:flex;overflow:hidden}
 .wordmark{margin:0;writing-mode:vertical-rl;line-height:1;
   font-weight:600;letter-spacing:-.02em;
   font-size:min(calc(38vh / 2.875), 13vw)}
-.wordmark span:nth-child(1){opacity:1}
-.wordmark span:nth-child(2){opacity:.875}
-.wordmark span:nth-child(3){opacity:.75}
-.wordmark span:nth-child(4){opacity:.625}
-.wordmark span:nth-child(5){opacity:.5}
 /* 公式落在右下角，与左下的说明构成对角 —— 四角各有一处落点。 */
 .formula{position:absolute;right:var(--pad);bottom:30px;
   font:10px var(--mono);color:var(--text-3);letter-spacing:.08em;white-space:nowrap}
@@ -69,9 +64,15 @@ body{height:100dvh;display:flex;overflow:hidden}
 .tools{display:flex;gap:20px;align-items:flex-start}
 .card{flex:none;width:clamp(180px,20vw,250px);display:flex;flex-direction:column;gap:10px;
   text-decoration:none;color:inherit}
-.card img{width:100%;height:auto;aspect-ratio:3/2;object-fit:cover;display:block;
-  border-radius:10px;background:var(--stage);transition:opacity .15s}
-.card:hover img{opacity:.82}
+/* 缩略图：静态 PNG 打底，WebGL 就绪后淡入盖在上面。
+   WebGL 不可用或用户偏好减少动态时，PNG 就是最终形态，不会留白。 */
+.thumb{position:relative;display:block;border-radius:10px;overflow:hidden;
+  background:var(--stage);transition:opacity .15s}
+.card:hover .thumb{opacity:.82}
+.thumb img{width:100%;height:auto;aspect-ratio:3/2;object-fit:cover;display:block}
+.thumb canvas{position:absolute;inset:0;width:100%;height:100%;display:block;
+  opacity:0;transition:opacity .4s}
+.thumb.live canvas{opacity:1}
 .card .body{display:flex;flex-direction:column;gap:3px}
 .card h2{margin:0;font-size:14px;font-weight:600;letter-spacing:-.01em}
 .card p{margin:0;font-size:11.5px;color:var(--text-3);line-height:1.45}

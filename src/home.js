@@ -1,4 +1,9 @@
-// 首页只需要主题切换；与 app.js 共用 rheo-theme 这个键，两页切换不会来回跳。
+// 首页脚本：主题切换 ＋ 工具卡上的实时缩略图。
+// 与 app.js 共用 rheo-theme 这个键，两页之间切换不会来回跳。
+import { Renderer } from './shader.js';
+import { defaults, hashSeed } from './model.js';
+
+/* ── 主题 ───────────────────────────────────────────────────────────── */
 const themeButton = document.getElementById('theme');
 const darkQuery = matchMedia('(prefers-color-scheme: dark)');
 
@@ -21,3 +26,45 @@ themeButton.onclick = () => {
 };
 darkQuery.addEventListener('change', () => { if (!document.documentElement.dataset.theme) paintTheme(); });
 paintTheme();
+
+/* ── 工具卡缩略图：跑 Rheo 的「交汇融流」 ───────────────────────────────
+   静态 PNG 始终在底下。只有 WebGL 初始化成功才给容器加 .live 把画布淡入，
+   所以任何失败路径（无 WebGL、着色器编译失败、上下文丢失）都自然退回静态图。
+   缩略图只有一两百像素，质量倍率压到 1，避免为一张卡片付高分辨率的代价。 */
+const BLEND_MODE = 1;                                   // 交汇融流 · Blend
+const thumb = document.querySelector('.thumb');
+const canvas = document.getElementById('thumb-canvas');
+const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+if (thumb && canvas) {
+  const state = { ...defaults, mode: BLEND_MODE, particles: false,
+                  seedValue: hashSeed(defaults.seed) % 10000 };
+  let renderer, elapsed = 0, last = 0, lost = false;
+
+  const paint = () => {
+    const rect = canvas.getBoundingClientRect();
+    if (!rect.width || !rect.height) return;
+    const ratio = Math.min(devicePixelRatio || 1, 1.5);
+    renderer.draw(state, elapsed,
+      Math.max(1, Math.round(rect.width * ratio)),
+      Math.max(1, Math.round(rect.height * ratio)));
+  };
+
+  const frame = (now) => {
+    const delta = last ? Math.min((now - last) / 1000, 0.1) : 0;
+    last = now;
+    if (!document.hidden && !lost) { elapsed += delta * state.speed; paint(); }
+    requestAnimationFrame(frame);
+  };
+
+  try {
+    renderer = new Renderer(canvas);
+    canvas.addEventListener('webglcontextlost', (e) => { e.preventDefault(); lost = true; thumb.classList.remove('live'); });
+    canvas.addEventListener('webglcontextrestored', () => { lost = false; thumb.classList.add('live'); });
+    paint();                       // 先画一帧再淡入，避免露出空画布
+    thumb.classList.add('live');
+    if (!still) requestAnimationFrame(frame);
+  } catch {
+    // 静态 PNG 已经在位，无需处理
+  }
+}

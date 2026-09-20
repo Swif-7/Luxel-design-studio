@@ -51,7 +51,7 @@ npm start
 - `src/color.js`：标准 sRGB / OKLab 数学变换与多色调色板纹理。
 - `src/model.js`：参数、种子生成、2–8 色校验、导入迁移。
 - `src/app.js`：Rheo 的控件、播放与本地保存。
-- `src/home.js`：首页主题切换。
+- `src/home.js`：首页主题切换，以及工具卡上复用 `Renderer` 跑的实时缩略图（交汇融流）。
 - `server.mjs`：Node 内置模块实现的本地服务器。
 
 ## 验证
