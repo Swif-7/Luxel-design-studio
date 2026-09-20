@@ -23,10 +23,14 @@ body{height:100dvh;display:flex;overflow:hidden}
   justify-content:space-between;padding:18px 0;border-right:1px solid var(--border)}
 .brand{display:block;color:inherit;text-decoration:none}
 .brand-mark{width:22px;height:22px;color:var(--text);display:block}
-/* 竖排说明文字：自下而上读，是左栏的惯例方向 */
-.rail-text{writing-mode:vertical-rl;transform:rotate(180deg);
-  font:10px var(--mono);letter-spacing:.24em;text-transform:uppercase;color:var(--text-3);
-  white-space:nowrap;overflow:hidden}
+
+/* 工具条：选中项把对应卡片推到堆叠最前，未选中的留在后方。 */
+.tool-list{display:flex;flex-direction:column;gap:6px}
+.tool-btn{padding:0;width:34px;height:34px;display:grid;place-items:center;
+  background:transparent;border-color:transparent;border-radius:8px;color:var(--text-3)}
+.tool-btn svg{width:19px;height:19px}
+.tool-btn:hover{background:var(--surface-3);border-color:transparent;color:var(--text-2)}
+.tool-btn[aria-pressed=true]{background:var(--accent);border-color:var(--accent);color:var(--accent-fg)}
 #theme{flex:none;padding:0;width:30px;height:30px;display:grid;place-items:center;
   background:transparent;border-color:var(--border);color:var(--text-2)}
 #theme:hover{background:var(--surface-3);color:var(--text)}
@@ -60,22 +64,39 @@ body{height:100dvh;display:flex;overflow:hidden}
 .wedge{flex:none;width:clamp(10px,1.5vw,18px);display:flex;flex-direction:column}
 .wedge i{flex:1 1 0;background:currentColor;display:block}
 
-/* 工具：画面正中，尺寸不随版面变化 */
-.tools{display:flex;gap:20px;align-items:flex-start}
-.card{flex:none;width:clamp(180px,20vw,250px);display:flex;flex-direction:column;gap:10px;
-  text-decoration:none;color:inherit}
+/* 卡片堆叠：选中的在最前，其余按列表顺序循环叠在后方，像安卓的近期应用。
+   deck 的高度必须写死 —— 所有卡片都是绝对定位，没有一张在常规流里撑开容器。
+   数值 = 缩略图（宽 / 1.5）＋ 间距 10 ＋ 文字块 46。 */
+.deck{--cw:clamp(180px,20vw,250px);position:relative;
+  width:var(--cw);height:calc(var(--cw) / 1.5 + 56px)}
+.tool-card{position:absolute;top:0;left:0;width:100%;
+  display:flex;flex-direction:column;gap:10px;text-decoration:none;color:inherit;
+  transform-origin:center left;
+  transform:translateX(calc(var(--d) * 17px)) scale(calc(1 - var(--d) * .055));
+  opacity:calc(1 - var(--d) * .28);
+  z-index:calc(10 - var(--d));
+  transition:transform .38s cubic-bezier(.22,.7,.3,1), opacity .38s}
+/* 卡片本身没有底色（保持无框的观感），所以前卡遮不住后卡的文字。
+   非最前者只留缩略图 —— 缩略图是不透明的，能正常相互遮挡，
+   读起来就是一摞只露出边缘的卡。 */
+.tool-card[data-front=false]{pointer-events:none}
+.tool-card[data-front=false] .body{opacity:0;transition:opacity .2s}
 /* 缩略图：静态 PNG 打底，WebGL 就绪后淡入盖在上面。
    WebGL 不可用或用户偏好减少动态时，PNG 就是最终形态，不会留白。 */
 .thumb{position:relative;display:block;border-radius:10px;overflow:hidden;
   background:var(--stage);transition:opacity .15s}
-.card:hover .thumb{opacity:.82}
+.tool-card[data-front=true]:hover .thumb{opacity:.82}
 .thumb img{width:100%;height:auto;aspect-ratio:3/2;object-fit:cover;display:block}
+.is-empty .thumb{display:grid;place-items:center;aspect-ratio:3/2;
+  background:var(--surface);box-shadow:inset 0 0 0 1px var(--border)}
+.is-empty .slot{font:13px var(--mono);letter-spacing:.14em;color:var(--text-3)}
+.is-empty h2,.is-empty p{color:var(--text-3)}
 .thumb canvas{position:absolute;inset:0;width:100%;height:100%;display:block;
   opacity:0;transition:opacity .4s}
 .thumb.live canvas{opacity:1}
-.card .body{display:flex;flex-direction:column;gap:3px}
-.card h2{margin:0;font-size:14px;font-weight:600;letter-spacing:-.01em}
-.card p{margin:0;font-size:11.5px;color:var(--text-3);line-height:1.45}
+.tool-card .body{display:flex;flex-direction:column;gap:3px}
+.tool-card h2{margin:0;font-size:14px;font-weight:600;letter-spacing:-.01em}
+.tool-card p{margin:0;font-size:11.5px;color:var(--text-3);line-height:1.45}
 
 /* 说明：画面左下，与工具卡拉开层级 */
 .blurb{position:absolute;left:var(--pad);bottom:30px;margin:0;max-width:34ch;

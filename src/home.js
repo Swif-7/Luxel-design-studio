@@ -27,19 +27,43 @@ themeButton.onclick = () => {
 darkQuery.addEventListener('change', () => { if (!document.documentElement.dataset.theme) paintTheme(); });
 paintTheme();
 
-/* ── 工具卡缩略图：跑 Rheo 的「交汇融流」 ───────────────────────────────
+/* ── 工具堆叠 ────────────────────────────────────────────────────────
+   左栏是 PS 式工具条：点中谁，谁就到堆叠最前，其余按列表顺序循环叠在后方。
+   深度用 (i - active + n) % n 算，所以未选中的始终保持相对次序，不会在
+   切换时互相跳位。--d 交给 CSS 做位移、缩放、透明度和层级。 */
+const buttons = [...document.querySelectorAll('.tool-btn')];
+const cards = [...document.querySelectorAll('.tool-card')];
+let active = 0;
+
+function select(next) {
+  active = next;
+  buttons.forEach((b, i) => b.setAttribute('aria-pressed', String(i === active)));
+  cards.forEach((c, i) => {
+    const depth = (i - active + cards.length) % cards.length;
+    c.style.setProperty('--d', depth);
+    c.dataset.front = String(depth === 0);
+  });
+  // 只有 Rheo 在最前时才跑着色器，卡片被压在后面没必要占 GPU
+  if (renderer) running = cards[active] === rheoCard;
+}
+
+buttons.forEach((b, i) => { b.onclick = () => select(i); });
+
+/* ── Rheo 卡片上的实时缩略图：跑「交汇融流」 ───────────────────────────
    静态 PNG 始终在底下。只有 WebGL 初始化成功才给容器加 .live 把画布淡入，
    所以任何失败路径（无 WebGL、着色器编译失败、上下文丢失）都自然退回静态图。
-   缩略图只有一两百像素，质量倍率压到 1，避免为一张卡片付高分辨率的代价。 */
+   缩略图只有一两百像素，质量倍率压到 1.5，避免为一张卡片付高分辨率的代价。 */
 const BLEND_MODE = 1;                                   // 交汇融流 · Blend
-const thumb = document.querySelector('.thumb');
+const thumb = document.querySelector('.tool-card .thumb');
 const canvas = document.getElementById('thumb-canvas');
+const rheoCard = canvas ? canvas.closest('.tool-card') : null;
 const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+let renderer, running = true;
 
 if (thumb && canvas) {
   const state = { ...defaults, mode: BLEND_MODE, particles: false,
                   seedValue: hashSeed(defaults.seed) % 10000 };
-  let renderer, elapsed = 0, last = 0, lost = false;
+  let elapsed = 0, last = 0, lost = false;
 
   const paint = () => {
     const rect = canvas.getBoundingClientRect();
@@ -53,7 +77,7 @@ if (thumb && canvas) {
   const frame = (now) => {
     const delta = last ? Math.min((now - last) / 1000, 0.1) : 0;
     last = now;
-    if (!document.hidden && !lost) { elapsed += delta * state.speed; paint(); }
+    if (!document.hidden && !lost && running) { elapsed += delta * state.speed; paint(); }
     requestAnimationFrame(frame);
   };
 
@@ -68,3 +92,5 @@ if (thumb && canvas) {
     // 静态 PNG 已经在位，无需处理
   }
 }
+
+select(0);
