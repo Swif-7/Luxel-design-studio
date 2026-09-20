@@ -5,30 +5,51 @@
    旁边挂一个感叹号 —— 告警贴着出问题的那一行，而不是汇总到别处。
    ──────────────────────────────────────────────────────────────────────── */
 
-.sheets{display:flex;flex-direction:column;gap:20px;padding-bottom:6px}
-.sheet{border:1px solid var(--border);border-radius:var(--r-panel);overflow:hidden;background:var(--bg)}
-.sheet>header{display:flex;align-items:baseline;gap:12px;padding:15px 22px;border-bottom:1px solid var(--border)}
+/* 两张主题卡左右并排，字体条横贯底部 —— 竖排时要来回滚动才能对比两套主题。 */
+.sheets{display:grid;grid-template-columns:1fr 1fr;gap:18px;padding-bottom:6px;align-items:start}
+.type-sheet{grid-column:1/-1}
+
+/* 每张卡用它自己那套 token 渲染，所以看到的是主题的实际样子，不只是数值表。
+   卡内一律用 --sheet-* 取色，与站点当前主题无关。 */
+.sheet{container-type:inline-size;border-radius:var(--r-panel);overflow:hidden;
+  background:var(--sheet-bg,var(--bg));color:var(--sheet-text,var(--text));
+  box-shadow:inset 0 0 0 1px var(--sheet-border,var(--border))}
+.sheet>header{display:flex;align-items:baseline;gap:12px;padding:14px 20px;
+  border-bottom:1px solid var(--sheet-border,var(--border))}
 .sheet>header h2{margin:0;font-size:12px;font-weight:600;letter-spacing:.12em;text-transform:uppercase}
-.sheet-state{font:10px var(--mono);color:var(--text-3);letter-spacing:.06em;margin-left:auto}
+.sheet-state{font:10px var(--mono);color:var(--sheet-dim,var(--text-3));letter-spacing:.06em;margin-left:auto}
 
 .rows{display:flex;flex-direction:column}
-.row{display:grid;grid-template-columns:44px minmax(0,1fr) minmax(0,1fr) auto;
-  align-items:center;gap:16px;padding:9px 22px;border-bottom:1px solid var(--border)}
+.row{display:grid;grid-template-columns:38px minmax(0,1fr) auto;
+  align-items:center;gap:13px;padding:8px 20px;
+  border-bottom:1px solid var(--sheet-border,var(--border))}
 .row:last-child{border-bottom:0}
 /* 色块自己不画边框：浅色系的块在白底上会看不见，靠 inset 阴影兜一条极淡的界 */
-.row .chip{width:44px;height:30px;border-radius:var(--r-card);box-shadow:inset 0 0 0 1px #8888881f}
-.row .name{font:12.5px var(--mono);color:var(--text)}
-.row .role{font-size:12.5px;color:var(--text-2);min-width:0}
-.row .value{display:flex;align-items:center;gap:9px;justify-self:end;white-space:nowrap}
-.row .hex{font:12px var(--mono);color:var(--text-3);text-transform:uppercase}
-.row .ratio{font:11.5px var(--mono);color:var(--text-2)}
+.row .chip{width:38px;height:26px;border-radius:var(--r-card);box-shadow:inset 0 0 0 1px #8888882e}
+.row .name{font:12px var(--mono);color:var(--sheet-text,var(--text));min-width:0;overflow:hidden;text-overflow:ellipsis}
+.row .role{font-size:12px;color:var(--sheet-dim,var(--text-2));min-width:0;display:none}
+.row .value{display:flex;align-items:center;gap:8px;justify-self:end;white-space:nowrap}
+.row .hex{font:11px var(--mono);color:var(--sheet-dim,var(--text-3));text-transform:uppercase}
+.row .ratio{font:11px var(--mono);color:var(--sheet-dim,var(--text-2))}
 .row .ratio.low{color:var(--danger)}
-.warn{width:17px;height:17px;flex:none;display:grid;place-items:center;border-radius:var(--r-pill);
-  background:var(--danger);color:#fff;font:11px/1 var(--sans);font-weight:700;cursor:help}
+.warn{width:16px;height:16px;flex:none;display:grid;place-items:center;border-radius:var(--r-pill);
+  background:var(--danger);color:#fff;font:10px/1 var(--sans);font-weight:700;cursor:help}
 
-.type-rows .row{grid-template-columns:minmax(0,1fr) auto}
-.type-rows .sample{font-size:15px;color:var(--text);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.type-rows .value{font:11.5px var(--mono);color:var(--text-3)}
+/* 卡够宽时才让出「用途」列 —— 依卡宽而非视口宽，因为并排后每张只有一半。 */
+@container (min-width:430px){
+  .row{grid-template-columns:38px minmax(0,1fr) minmax(0,1.1fr) auto}
+  .row .role{display:block}
+}
+@container (max-width:330px){
+  .row .hex{display:none}
+}
+
+/* 字体条：四种规格横向铺开，一眼看全字重差异 */
+.type-strip{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr))}
+.type-cell{padding:15px 20px;border-right:1px solid var(--border);min-width:0}
+.type-cell:last-child{border-right:0}
+.type-cell .sample{display:block;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.type-cell .meta{display:block;margin-top:7px;font:11px var(--mono);color:var(--text-3)}
 
 /* ── 面板控件 ── */
 .segment{display:flex;gap:6px;padding:4px;background:var(--surface-2);
@@ -52,12 +73,7 @@
 .panel-footer .good{color:var(--text-2)}
 
 @media(max-width:900px){
-  .sheets{padding:16px 20px 20px}
-  .row{grid-template-columns:36px minmax(0,1fr) auto;gap:12px;padding:9px 16px}
-  .row .role{display:none}
-  .row .chip{width:36px;height:26px}
-  .sheet>header{padding:13px 16px}
-}
-@media(max-width:560px){
-  .row .hex{display:none}
+  .sheets{grid-template-columns:1fr;padding:16px 20px 20px}
+  .type-cell{border-right:0;border-bottom:1px solid var(--border)}
+  .type-cell:last-child{border-bottom:0}
 }

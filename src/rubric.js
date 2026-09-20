@@ -105,6 +105,14 @@ function rowsFor(tokens, checks) {
   }).join('');
 }
 
+// 把一套 token 挂成卡片自己的局部变量，卡内取色一律走这些，与站点主题无关
+function dress(sheet, t) {
+  sheet.style.setProperty('--sheet-bg', t.bg);
+  sheet.style.setProperty('--sheet-text', t.text);
+  sheet.style.setProperty('--sheet-dim', t['text-2']);
+  sheet.style.setProperty('--sheet-border', t.border);
+}
+
 function render() {
   for (const [key] of sliders) { $(key).value = state[key]; $(key + '-value').textContent = format[key](state[key]); }
   for (const button of document.querySelectorAll('.seg'))
@@ -119,18 +127,22 @@ function render() {
   const lc = audit(light), dc = audit(dark);
   $('light-rows').innerHTML = rowsFor(light, lc);
   $('dark-rows').innerHTML = rowsFor(dark, dc);
+  // 每张卡套上自己那套颜色，于是它本身就是这套主题的预览
+  dress($('light-sheet'), light);
+  dress($('dark-sheet'), dark);
   $('light-state').textContent = `${Object.keys(light).length} TOKENS`;
   $('dark-state').textContent = state.linked ? '由浅色推算' : '单独设定';
 
-  const sample = '设计规范 Design Spec 0123';
+  const sample = '设计规范 Design Spec';
+  $('type-state').textContent = `${state.size}PX · ${state.scale.toFixed(2)}×`;
   $('type-rows').innerHTML = [
     ['正文', state.body, state.size, 'var(--sans)'],
     ['强调', state.strong, state.size, 'var(--sans)'],
     ['标题', state.heading, Math.round(state.size * state.scale), 'var(--sans)'],
     ['等宽', state.body, state.size - 1, 'var(--mono)'],
   ].map(([name, weight, size, family]) =>
-    `<div class="row"><span class="sample" style="font-weight:${weight};font-size:${size}px;font-family:${family}">${name} · ${sample}</span>`
-    + `<span class="value">${weight} / ${size}px</span></div>`).join('');
+    `<div class="type-cell"><span class="sample" style="font-weight:${weight};font-size:${size}px;font-family:${family}">${sample}</span>`
+    + `<span class="meta">${name} · ${weight} · ${size}px</span></div>`).join('');
 
   // 两套主题的 token 同名，汇总里必须标出是哪一套，否则只会看到重复的名字
   const failed = [...lc.map(c => ({...c, theme: '浅'})), ...dc.map(c => ({...c, theme: '深'}))]
