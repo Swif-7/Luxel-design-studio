@@ -12,7 +12,11 @@ test('standalone HTML contains a compilable renderer with no imports or remote a
  const runtime=html.match(/<script>([\s\S]*?)<\/script>/)[1];
  assert.doesNotThrow(()=>new vm.Script(runtime));
  assert.doesNotMatch(runtime,/^import |^export /m);
- assert.doesNotMatch(html,/<(?:script|link)[^>]*(?:src|href)=/);
+ // 要守的是「导出文件不发网络请求」，不是「不许出现 href」。
+ // 内联的 data: URI 不产生请求，所以放行它，其余一律拒绝。
+ const refs=[...html.matchAll(/<(?:script|link)[^>]*(?:src|href)="([^"]*)"/g)].map(m=>m[1]);
+ assert.ok(refs.every(ref=>ref.startsWith('data:')),'导出文件引用了外部资源：'+refs.filter(r=>!r.startsWith('data:')).join(', '));
+ assert.match(html,/<link rel="icon" href="data:image\/svg\+xml,/);
  assert.match(runtime,/let elapsed=12.5,paused=true/);
  assert.match(html,/Permission is hereby granted/);
 });
