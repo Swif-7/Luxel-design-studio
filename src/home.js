@@ -49,6 +49,46 @@ function select(next) {
 
 buttons.forEach((b, i) => { b.onclick = () => select(i); });
 
+/* 轮播：深度已经是取模算的，所以越界绕回不需要额外判断，
+   step 只管把下标加减后取模即可。 */
+const step = (dir) => select((active + dir + cards.length) % cards.length);
+
+/* 滚轮 / 触控板：一次手势只走一格。触控板的惯性滚动会连发几十个事件，
+   不设节流会一路滑到底。取 X / Y 里绝对值大的那个，横竖两种手势都认。 */
+const stage = document.querySelector('.stage');
+let wheelAt = -Infinity;   // 不能用 0：页面刚加载时 performance.now() 可能还不到节流阈值，第一次滚动会被吞掉
+stage.addEventListener('wheel', (e) => {
+  const delta = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+  if (Math.abs(delta) < 2) return;
+  e.preventDefault();
+  const now = performance.now();
+  if (now - wheelAt < 340) return;
+  wheelAt = now;
+  step(delta > 0 ? 1 : -1);
+}, { passive: false });
+
+/* 触摸横扫：手机上没有滚轮，补一个。40px 以上才算一次切换。 */
+const deck = document.querySelector('.deck');
+let startX = null;
+deck.addEventListener('pointerdown', (e) => { startX = e.clientX; });
+deck.addEventListener('pointerup', (e) => {
+  if (startX === null) return;
+  const dx = e.clientX - startX;
+  startX = null;
+  if (Math.abs(dx) > 40) step(dx < 0 ? 1 : -1);
+});
+deck.addEventListener('pointercancel', () => { startX = null; });
+
+/* 键盘：工具条获得焦点后用方向键走 */
+document.querySelector('.tool-list').addEventListener('keydown', (e) => {
+  const back = e.key === 'ArrowUp' || e.key === 'ArrowLeft';
+  const fwd = e.key === 'ArrowDown' || e.key === 'ArrowRight';
+  if (!back && !fwd) return;
+  e.preventDefault();
+  step(fwd ? 1 : -1);
+  buttons[active].focus();
+});
+
 /* ── Rheo 卡片上的实时缩略图：跑「交汇融流」 ───────────────────────────
    静态 PNG 始终在底下。只有 WebGL 初始化成功才给容器加 .live 把画布淡入，
    所以任何失败路径（无 WebGL、着色器编译失败、上下文丢失）都自然退回静态图。

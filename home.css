@@ -19,16 +19,17 @@
 body{height:100dvh;display:flex;overflow:hidden}
 
 /* ── 左侧竖栏：全页唯一保留的分隔 ── */
-.rail{flex:none;width:58px;display:flex;flex-direction:column;align-items:center;
+.rail{flex:none;width:66px;display:flex;flex-direction:column;align-items:center;
   justify-content:space-between;padding:18px 0;border-right:1px solid var(--border)}
 .brand{display:block;color:inherit;text-decoration:none}
 .brand-mark{width:22px;height:22px;color:var(--text);display:block}
 
 /* 工具条：选中项把对应卡片推到堆叠最前，未选中的留在后方。 */
 .tool-list{display:flex;flex-direction:column;gap:6px}
-.tool-btn{padding:0;width:34px;height:34px;display:grid;place-items:center;
-  background:transparent;border-color:transparent;border-radius:8px;color:var(--text-3)}
+.tool-btn{padding:7px 0 6px;width:50px;display:flex;flex-direction:column;align-items:center;gap:5px;
+  background:transparent;border-color:transparent;border-radius:9px;color:var(--text-3)}
 .tool-btn svg{width:19px;height:19px}
+.tool-name{font:8.5px var(--mono);letter-spacing:.1em;text-transform:uppercase;line-height:1}
 .tool-btn:hover{background:var(--surface-3);border-color:transparent;color:var(--text-2)}
 .tool-btn[aria-pressed=true]{background:var(--accent);border-color:var(--accent);color:var(--accent-fg)}
 #theme{flex:none;padding:0;width:30px;height:30px;display:grid;place-items:center;
@@ -65,14 +66,18 @@ body{height:100dvh;display:flex;overflow:hidden}
 .wedge i{flex:1 1 0;background:currentColor;display:block}
 
 /* 卡片堆叠：选中的在最前，其余按列表顺序循环叠在后方，像安卓的近期应用。
+   深度循环取模，所以滚动到末尾会绕回开头 —— 轮播是深度算法的副产物，
+   不需要额外的边界判断。
+   层间位移随视口收缩：deck 宽度只等于一张卡，扇出的部分是溢出它的，
+   固定 32px 在 360px 宽的屏上会把最后一张顶出右缘。
    deck 的高度必须写死 —— 所有卡片都是绝对定位，没有一张在常规流里撑开容器。
    数值 = 缩略图（宽 / 1.5）＋ 间距 10 ＋ 文字块 46。 */
-.deck{--cw:clamp(180px,20vw,250px);position:relative;
+.deck{--cw:clamp(180px,20vw,250px);--step:clamp(14px,3.2vw,32px);position:relative;touch-action:pan-y;cursor:grab;
   width:var(--cw);height:calc(var(--cw) / 1.5 + 56px)}
 .tool-card{position:absolute;top:0;left:0;width:100%;
   display:flex;flex-direction:column;gap:10px;text-decoration:none;color:inherit;
   transform-origin:center left;
-  transform:translateX(calc(var(--d) * 17px)) scale(calc(1 - var(--d) * .055));
+  transform:translateX(calc(var(--d) * var(--step))) scale(calc(1 - var(--d) * .05));
   opacity:calc(1 - var(--d) * .28);
   z-index:calc(10 - var(--d));
   transition:transform .38s cubic-bezier(.22,.7,.3,1), opacity .38s}
