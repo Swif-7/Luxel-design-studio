@@ -19,6 +19,14 @@
 :root{
   --sans:"IBM Plex Sans",-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;
   --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+
+  /* 圆角只有三级，按「这东西是什么」而不是「它多大」来选：
+     pill  可点的东西 —— 按钮、输入、下拉、色标、开关
+     card  承载内容的小块 —— 预设卡、菜单项、缩略图
+     panel 大面板 —— 画面、浮层、工具栏 */
+  --r-pill:999px;
+  --r-card:14px;
+  --r-panel:20px;
 }
 
 :root{
@@ -53,13 +61,13 @@
 body{margin:0;background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14px;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
 button,input,select{font:inherit}
 button,a,input,select{-webkit-tap-highlight-color:transparent}
-button{cursor:pointer;color:inherit;border:1px solid var(--border-control);background:var(--surface-2);border-radius:7px;padding:9px 13px;transition:background .15s,border-color .15s}
+button{cursor:pointer;color:inherit;border:1px solid var(--border-control);background:var(--surface-2);border-radius:var(--r-pill);padding:9px 15px;transition:background .15s,border-color .15s,color .15s}
 button:hover{background:var(--surface-3);border-color:var(--text-3)}
 button:disabled{opacity:.35;cursor:not-allowed}
 /* Solid --text focus ring: 19.4:1 light / 13.6:1 dark, well past the 3:1
    non-text minimum that the hairline control borders themselves do not meet. */
 button:focus-visible,input:focus-visible,select:focus-visible,a:focus-visible{outline:2px solid var(--text);outline-offset:3px}
-select{background:var(--surface-2);color:var(--text);border:1px solid var(--border-control);border-radius:6px;padding:7px;max-width:100%}
+select{background:var(--surface-2);color:var(--text);border:1px solid var(--border-control);border-radius:var(--r-pill);padding:7px 12px;max-width:100%}
 label{font-size:12px}
 input[type=checkbox]{accent-color:var(--accent)}
 .quiet{background:transparent}

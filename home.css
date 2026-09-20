@@ -11,7 +11,7 @@
      │ ☾  │  一句话说明                │  │
      └────┴───────────────────────────┴──┘
 
-   全页唯一的分隔线是左栏的右边线（原顶部栏那条，现在立起来了）。
+   全页没有任何分隔线：左栏是一根浮起的胶囊柱，靠底色而非描边与画面区分。
    灰阶条与字标同高：两者是 .masthead 这个 flex 行的兄弟，stretch 对齐即可，
    不需要任何计算。字标本身为单色，灰阶只由条子承担。
    ──────────────────────────────────────────────────────────────────────── */
@@ -19,27 +19,28 @@
 body{height:100dvh;display:flex;overflow:hidden}
 
 /* ── 左侧竖栏：全页唯一保留的分隔 ── */
-.rail{flex:none;width:66px;display:flex;flex-direction:column;align-items:center;
-  justify-content:space-between;padding:18px 0;border-right:1px solid var(--border)}
+.rail{flex:none;width:64px;margin:14px 0 14px 14px;padding:16px 0;
+  display:flex;flex-direction:column;align-items:center;justify-content:space-between;
+  background:var(--surface);border-radius:var(--r-panel)}
 .brand{display:block;color:inherit;text-decoration:none}
 .brand-mark{width:22px;height:22px;color:var(--text);display:block}
 
 /* 工具条：选中项把对应卡片推到堆叠最前，未选中的留在后方。 */
 .tool-list{display:flex;flex-direction:column;gap:6px}
-.tool-btn{padding:7px 0 6px;width:50px;display:flex;flex-direction:column;align-items:center;gap:5px;
-  background:transparent;border-color:transparent;border-radius:9px;color:var(--text-3);
+.tool-btn{padding:8px 0 7px;width:48px;display:flex;flex-direction:column;align-items:center;gap:5px;
+  background:transparent;border-color:transparent;border-radius:var(--r-pill);color:var(--text-3);
   transition:background .18s, color .18s, border-color .18s}
 .tool-btn svg{width:19px;height:19px}
 .tool-name{font:8.5px var(--mono);letter-spacing:.1em;text-transform:uppercase;line-height:1}
 .tool-btn:hover{background:var(--surface-3);border-color:transparent;color:var(--text-2)}
 .tool-btn[aria-pressed=true]{background:var(--accent);border-color:var(--accent);color:var(--accent-fg)}
-#theme{flex:none;padding:0;width:30px;height:30px;display:grid;place-items:center;
-  background:transparent;border-color:var(--border);color:var(--text-2)}
+#theme{flex:none;padding:0;width:34px;height:34px;display:grid;place-items:center;
+  background:var(--surface-2);border-color:transparent;color:var(--text-2)}
 #theme:hover{background:var(--surface-3);color:var(--text)}
 #theme svg{width:15px;height:15px}
 
 /* ── 画面 ── */
-.stage{--pad:34px;flex:1 1 0;min-width:0;position:relative;
+.stage{--pad:30px;flex:1 1 0;min-width:0;position:relative;
   display:flex;flex-direction:column;justify-content:center;align-items:center;
   padding:30px var(--pad)}
 
@@ -97,12 +98,11 @@ body{height:100dvh;display:flex;overflow:hidden}
 .tool-card[data-front=true] .body{opacity:1;transition:opacity .3s ease .2s}
 /* 缩略图：静态 PNG 打底，WebGL 就绪后淡入盖在上面。
    WebGL 不可用或用户偏好减少动态时，PNG 就是最终形态，不会留白。 */
-.thumb{position:relative;display:block;border-radius:10px;overflow:hidden;
+.thumb{position:relative;display:block;border-radius:var(--r-card);overflow:hidden;
   background:var(--stage);transition:opacity .15s}
 .tool-card[data-front=true]:hover .thumb{opacity:.82}
 .thumb img{width:100%;height:auto;aspect-ratio:3/2;object-fit:cover;display:block}
-.is-empty .thumb{display:grid;place-items:center;aspect-ratio:3/2;
-  background:var(--surface);box-shadow:inset 0 0 0 1px var(--border)}
+.is-empty .thumb{display:grid;place-items:center;aspect-ratio:3/2;background:var(--surface)}
 .is-empty .slot{font:13px var(--mono);letter-spacing:.14em;color:var(--text-3)}
 .is-empty h2,.is-empty p{color:var(--text-3)}
 .thumb canvas{position:absolute;inset:0;width:100%;height:100%;display:block;
