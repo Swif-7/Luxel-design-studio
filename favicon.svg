@@ -1,12 +1,15 @@
 <!-- Luxel 阶梯格：一个像素格，格内的光被量化。
-     favicon 用三格简化版 —— 四级灰在 16px 下会糊成一团（见 docs/BRAND.md 最小尺寸）。 -->
+     16px 下用三格简化版（四级灰会糊成一团，见 docs/BRAND.md 最小尺寸）。
+     底色取强调色实色而非页面底色：标签栏本身是浅灰的，白底加淡边等于隐形。
+     深色模式整体反相，两种标签栏下都是高对比。
+     注意：XML 注释内不得出现连续两个 ASCII 连字符，故此处不写 CSS 变量名。 -->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
 <style>
- .bg{fill:#fff;stroke:#e5e5e5;stroke-width:2}.c{fill:#0d0d0d}
- @media(prefers-color-scheme:dark){.bg{fill:#171717;stroke:#2f2f2f}.c{fill:#ececec}}
+ .bg{fill:#0d0d0d}.c{fill:#ffffff}
+ @media(prefers-color-scheme:dark){.bg{fill:#ececec}.c{fill:#0f0f0f}}
 </style>
-<rect class="bg" x="1" y="1" width="62" height="62" rx="14"/>
-<rect class="c" x="14" y="14" width="18" height="18"/>
-<rect class="c" x="32" y="14" width="18" height="18" fill-opacity=".45"/>
-<rect class="c" x="14" y="32" width="18" height="18" fill-opacity=".45"/>
+<rect class="bg" width="64" height="64" rx="15"/>
+<rect class="c" x="11" y="11" width="20" height="20"/>
+<rect class="c" x="33" y="11" width="20" height="20" fill-opacity=".55"/>
+<rect class="c" x="11" y="33" width="20" height="20" fill-opacity=".55"/>
 </svg>
