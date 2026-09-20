@@ -4,7 +4,6 @@
      header ........... brand bar, scrolls away with the page
      main ............. grid [ .workspace | aside 330px ]
        .workspace
-         .workspace-heading  scrolls away above the dock
          .preview-dock       sticky — stage + transport + preset strip
        aside                 parameter panel, sections 01–05
    The dock carries the preset strip so nothing can scroll underneath it;
@@ -22,7 +21,7 @@
    ──────────────────────────────────────────────────────────────────────── */
 
 /* ── Header ────────────────────────────────────────────────────────────── */
-header{height:80px;padding:0 34px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border)}
+header{height:64px;padding:0 34px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border)}
 .brand{display:flex;align-items:center;gap:11px;color:inherit;text-decoration:none;font-size:25px;letter-spacing:-.01em;font-weight:650}
 .brand-mark{width:26px;height:26px;color:var(--text);display:block;flex:none}
 .brand-sub{font:11px var(--mono);letter-spacing:2px;margin:6px 0 0 15px;color:var(--text-3)}
@@ -35,17 +34,16 @@ header{height:80px;padding:0 34px;display:flex;align-items:center;justify-conten
 
 /* ── Shell ─────────────────────────────────────────────────────────────── */
 main{display:grid;grid-template-columns:minmax(0,1fr) 330px;max-width:1800px;margin:auto}
-/* stretch keeps the sticky dock pinned for the full height of the panel */
-.workspace{padding:31px 34px 20px;min-width:0;align-self:stretch}
-.workspace-heading{margin-bottom:22px}
-h1{font-size:28px;font-weight:550;letter-spacing:-.015em;margin:10px 0 0}
-h1 span{color:var(--text-3)}
-.lede{margin:9px 0 0;font-size:13px;color:var(--text-2)}
+/* stretch keeps the sticky dock pinned for the full height of the panel.
+   340px = 页眉 64 ＋ workspace 上边距 14 ＋ dock 上边距 8 ＋ 播放栏与预设条 ~250 ＋ 余量，
+   取这个上限是为了让整个 dock 在未滚动时就装得下 —— 标题移除腾出的空间用在
+   「不用滚就能看到预设条」上，比单纯把画面放大更有用。 */
+.workspace{padding:14px 34px 18px;min-width:0;align-self:stretch}
 
 /* ── Preview dock: stage + transport + preset strip travel together ────── */
 .preview-dock{position:sticky;top:var(--dock-inset);z-index:10;background:var(--bg);padding-top:8px}
 .stage{position:relative;overflow:hidden;border:1px solid var(--border);border-radius:12px;aspect-ratio:1.76;background:var(--stage)}
-.preview-dock .stage:not(:fullscreen){width:100%;max-height:calc(100dvh - 310px)}
+.preview-dock .stage:not(:fullscreen){width:100%;max-height:calc(100dvh - 340px)}
 .stage canvas{display:block;width:100%;height:100%}
 /* Canvas-relative, not theme-relative: defaults suit a dark shader background,
    .light-canvas (app.js, by shader background luminance) flips them. */
@@ -92,7 +90,9 @@ h1 span{color:var(--text-3)}
 .preset.active{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
 .preset.active .preset-label{background:var(--accent);color:var(--accent-fg);font-weight:600}
 .preset.active .preset-label small{color:var(--accent-fg);opacity:.6}
-.preset img{width:100%;height:auto;aspect-ratio:3;object-fit:cover;display:block}
+/* 高度上限：缩略图按 aspect-ratio 随栏宽长高，宽屏下预设条会越来越厚，
+   把上面 340px 那个常数顶破。封顶后 1920 宽下也能一屏装完。 */
+.preset img{width:100%;height:auto;aspect-ratio:3;max-height:100px;object-fit:cover;display:block}
 .preset-label{display:flex;align-items:center;justify-content:space-between;padding:7px 9px;font-size:12px;color:var(--text-2)}
 .preset-label small{color:var(--text-3);font:9px var(--mono)}
 
@@ -173,12 +173,15 @@ input[type=range]{width:100%;height:3px;margin:15px 0 2px;display:block;accent-c
 
 /* ── Breakpoints ───────────────────────────────────────────────────────── */
 @media(min-width:1500px){
-  .workspace{padding:40px 50px}
+  .workspace{padding:14px 50px 22px}
   .presets{gap:15px}
+  /* 这个断点自带更大的预设条间距与下边距，比基准多占约 14px，
+     画面上限相应再收一点，否则一屏仍装不下。 */
+  .preview-dock .stage:not(:fullscreen){max-height:calc(100dvh - 354px)}
 }
 @media(max-width:1100px){
   main{grid-template-columns:minmax(0,1fr) 290px}
-  .workspace{padding:28px 22px}
+  .workspace{padding:12px 22px 16px}
   aside{padding:27px 18px}
   .brand-sub{display:none}
   .transport{gap:8px}
@@ -186,12 +189,11 @@ input[type=range]{width:100%;height:3px;margin:15px 0 2px;display:block;accent-c
 }
 /* One column: the dock spans the page and stays pinned above the panel. */
 @media(max-width:900px){
-  html{scroll-padding-top:calc(clamp(120px,28dvh,280px) + 190px)}
+  html{scroll-padding-top:calc(clamp(120px,30dvh,300px) + 186px)}
   main{display:block}
   .workspace{display:contents}
-  .workspace-heading{margin:24px 20px 16px}
   .preview-dock{--dock-inset:0;padding:10px 20px 0;box-shadow:0 10px 22px #0000001f}
-  .preview-dock .stage:not(:fullscreen){height:clamp(120px,28dvh,280px);max-height:none;aspect-ratio:auto}
+  .preview-dock .stage:not(:fullscreen){height:clamp(120px,30dvh,300px);max-height:none;aspect-ratio:auto}
   .transport{padding:10px 0;gap:6px}
   .transport>div{gap:6px}
   .gallery{padding:11px 0 10px}
@@ -201,9 +203,8 @@ input[type=range]{width:100%;height:3px;margin:15px 0 2px;display:block;accent-c
   .stage-caption .eyebrow{display:none}
 }
 @media(max-width:740px){
-  header{height:65px;padding:0 18px}
+  header{height:56px;padding:0 18px}
   .local{display:none}
-  .workspace-heading{margin:20px 16px 14px}
   h1{font-size:24px}
   .preview-dock{padding-left:16px;padding-right:16px}
   aside{padding:25px 22px}
@@ -230,8 +231,6 @@ input[type=range]{width:100%;height:3px;margin:15px 0 2px;display:block;accent-c
 }
 @media(max-width:480px){
   .preview-dock{padding-left:12px;padding-right:12px}
-  .workspace-heading{margin-right:12px;margin-left:12px}
-  .workspace-heading h1{font-size:20px}
   #pink-study{padding:5px 7px;font-size:10px}
   .transport .quiet{padding:7px 5px}
 }
