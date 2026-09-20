@@ -1,4 +1,4 @@
-<!doctype html><html lang="zh"><meta charset="utf-8"><title>Flux rendering checks</title><style>body{font:16px monospace;background:#141414;color:white}canvas{width:320px}pre{white-space:pre-wrap}</style><h1>GPU render checks</h1><canvas id="canvas"></canvas><div id="studies" style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px"></div><pre id="results">Running…</pre><script type="module">
+<!doctype html><html lang="zh"><meta charset="utf-8"><title>Rheo 渲染检查 · Luxel</title><link rel="icon" href="/favicon.svg?v=3"><style>body{font:16px monospace;background:#141414;color:white}canvas{width:320px}pre{white-space:pre-wrap}</style><h1>GPU 渲染检查</h1><canvas id="canvas"></canvas><div id="studies" style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px"></div><pre id="results">Running…</pre><script type="module">
 import {Renderer} from '/src/shader.js';import {glyphGroups,createGlyphAtlas,glyphDensityLookup} from '/src/glyphs.js';import {defaults,hashSeed,pinkStudy,modes} from '/src/model.js';
 // Repeatable visual QA: same seed/time for sharp, selective and uniform blur.
 // /tests/render.html?depth-study&seed=aurora&time=3

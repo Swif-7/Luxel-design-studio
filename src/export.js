@@ -19,7 +19,7 @@ function frame(now){const delta=last?Math.min((now-last)/1000,.1):0;last=now;
  requestAnimationFrame(frame);}
 requestAnimationFrame(frame);`;
  return `<!doctype html>
-<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Rheo · 流动作品</title>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Rheo · 流动作品</title><link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2064%2064'%3E%3Cstyle%3E.bg%7Bfill:#0d0d0d%7D.c%7Bfill:#fff%7D%40media(prefers-color-scheme:dark)%7B.bg%7Bfill:#ececec%7D.c%7Bfill:#0f0f0f%7D%7D%3C/style%3E%3Crect%20class='bg'%20width='64'%20height='64'%20rx='15'/%3E%3Crect%20class='c'%20x='11'%20y='11'%20width='20'%20height='20'/%3E%3Crect%20class='c'%20x='33'%20y='11'%20width='20'%20height='20'%20fill-opacity='.55'/%3E%3Crect%20class='c'%20x='11'%20y='33'%20width='20'%20height='20'%20fill-opacity='.55'/%3E%3C/svg%3E">
 <style>html,body{margin:0;width:100%;height:100%;overflow:hidden;background:${state.background}}canvas{display:block;width:100%;height:100%}button{position:fixed;bottom:20px;right:20px;padding:9px 16px;border:1px solid #8885;border-radius:8px;background:#ffffffc9;color:#222;cursor:pointer;font:14px system-ui}#error{position:fixed;inset:40% 10% auto;padding:20px;background:#fff;color:#222;font:16px system-ui}</style></head>
 <body><canvas id="canvas" aria-label="流动视觉效果"></canvas><button id="play">暂停</button><p id="error" role="alert" hidden></p>
 <script id="rheo-parameters" type="application/json">${scriptJSON(state)}</script>
