@@ -32,13 +32,19 @@ const DARK = {bg: .17, surface: .215, 'surface-2': .255, 'surface-3': .305,
   border: .30, 'border-strong': .43, text: .93, 'text-2': .73, 'text-3': .66};
 const TEXT_KEYS = ['text', 'text-2', 'text-3'];
 
-export const ROLES = {
+const BASE_ROLES = {
   bg: '页面底', surface: '面板 / 卡片', 'surface-2': '输入框 / 按钮', 'surface-3': '悬停',
   border: '分隔线', 'border-strong': '控件描边',
   text: '正文', 'text-2': '次级文字', 'text-3': '元信息',
   accent: '主操作 / 激活', 'accent-fg': '强调色上的文字',
-  'accent-2': '次要强调', 'accent-2-fg': '次要强调上的文字',
 };
+export function roleOf(key) {
+  if (BASE_ROLES[key]) return BASE_ROLES[key];
+  const m = key.match(/^accent-(\d+)(-fg)?$/);
+  if (m) return m[2] ? `强调 ${m[1]} 上的文字` : `强调色 ${m[1]}`;
+  return '';
+}
+export const ROLES = new Proxy({}, {get: (_, key) => roleOf(String(key))});
 
 /* 在给定色相色度上扫明度，找刚好够到目标对比度的那一个。
    达标者优先；都达标时取最接近目标的，避免冲过头把颜色洗白或压死。 */
@@ -62,7 +68,9 @@ export function adaptAccent(hex, theme, bg, target = 4.5) {
 }
 
 export function buildTheme(params, theme) {
-  const {hue, chroma, contrast: spread, accent, accent2, duo} = params;
+  const {hue, chroma, contrast: spread} = params;
+  // accents 是数组：单色一个，双色两个，多色 n 个。第一个永远是主强调。
+  const accents = params.accents || [params.accent];
   const base = theme === 'dark' ? DARK : LIGHT;
   const out = {};
   for (const [key, L] of Object.entries(base)) {
@@ -77,12 +85,11 @@ export function buildTheme(params, theme) {
      色相、色度、对比强度怎么动它都自洽，不会悄悄掉到标准以下。 */
   out['border-strong'] = solveForContrast(hue, chroma / 100, out['surface-2'], 3.05,
     theme === 'dark' ? .62 : .60);
-  out.accent = adaptAccent(accent, theme, out.bg, 4.5);
-  out['accent-fg'] = contrast('#ffffff', out.accent) >= contrast('#0d0d0d', out.accent) ? '#ffffff' : '#0d0d0d';
-  if (duo) {
-    out['accent-2'] = adaptAccent(accent2, theme, out.bg, 4.5);
-    out['accent-2-fg'] = contrast('#ffffff', out['accent-2']) >= contrast('#0d0d0d', out['accent-2']) ? '#ffffff' : '#0d0d0d';
-  }
+  accents.forEach((hex, i) => {
+    const key = i === 0 ? 'accent' : `accent-${i + 1}`;
+    out[key] = adaptAccent(hex, theme, out.bg, 4.5);
+    out[key + '-fg'] = contrast('#ffffff', out[key]) >= contrast('#0d0d0d', out[key]) ? '#ffffff' : '#0d0d0d';
+  });
   return out;
 }
 
@@ -97,10 +104,85 @@ export function audit(tokens) {
     {key: 'accent-fg', ratio: contrast(tokens['accent-fg'], tokens.accent), need: 4.5, kind: '文本'},
     {key: 'accent', ratio: on('accent', 'bg', 'surface'), need: 3, kind: '非文本'},
   ];
-  if (tokens['accent-2']) rows.push(
-    {key: 'accent-2-fg', ratio: contrast(tokens['accent-2-fg'], tokens['accent-2']), need: 4.5, kind: '文本'},
-    {key: 'accent-2', ratio: on('accent-2', 'bg', 'surface'), need: 3, kind: '非文本'});
+  for (const key of Object.keys(tokens).filter(k => /^accent-\d+$/.test(k))) rows.push(
+    {key: key + '-fg', ratio: contrast(tokens[key + '-fg'], tokens[key]), need: 4.5, kind: '文本'},
+    {key, ratio: on(key, 'bg', 'surface'), need: 3, kind: '非文本'});
   return rows.map(r => ({...r, ratio: Math.round(r.ratio * 100) / 100, pass: r.ratio >= r.need}));
+}
+
+/* ── 配色关系 ────────────────────────────────────────────────────────
+   只报三种能说清「为什么不好」的情况，不做笼统的审美评判。
+   每条都给出可执行的修法，因为规范是要交给 agent 落地的。 */
+const hueGap = (a, b) => {const d = Math.abs(a - b) % 360; return d > 180 ? 360 - d : d;};
+// OKLab 欧氏距离，约等于感知色差
+export function deltaE(a, b) {
+  const x = hexToLab(a), y = hexToLab(b);
+  return Math.hypot(x[0] - y[0], x[1] - y[1], x[2] - y[2]);
+}
+
+export function harmonyIssues(accents) {
+  const lch = accents.map(hexToLch);
+  const issues = [];
+  for (let i = 0; i < accents.length; i++) {
+    for (let j = i + 1; j < accents.length; j++) {
+      const a = lch[i], b = lch[j], dh = hueGap(a.h, b.h), dL = Math.abs(a.L - b.L);
+      const pair = [i, j];
+      if (dh >= 7 && dh <= 28)
+        issues.push({pair, kind: '色相过近', text:
+          `两色色相只差 ${Math.round(dh)}°，读起来像没调准而不是有意为之。要么统一成同一色相靠明度区分，要么拉开到 40° 以上。`});
+      else if (a.C > .085 && b.C > .085 && dh >= 150 && dL < .1)
+        issues.push({pair, kind: '边缘振动', text:
+          `两个高饱和的近互补色明度只差 ${dL.toFixed(2)}，相邻时边界会发抖。把其中一个的明度拉开，或降低其饱和度。`});
+      // 用 OKLab 色差而不是亮度对比：强调色都被拉到对底色约 4.5，彼此亮度本就接近，
+      // 拿亮度判「能否区分」会把蓝和橙也算成一样。色差才反映看不看得出不同。
+      if (deltaE(accents[i], accents[j]) < .055)
+        issues.push({pair, kind: '彼此难分', text:
+          `两色的感知差异只有 ${deltaE(accents[i], accents[j]).toFixed(3)}，并排出现时几乎分不出来。换一个色相或拉开明度。`});
+    }
+  }
+  return issues;
+}
+
+// 某个明度上这个色相最多能有多艳：借 lchToHex 自带的色域收敛，给足色度让它夹回来
+const maxChromaAt = (L, h) => hexToLch(lchHex({L, C: .4, h})).C;
+
+/* 以主强调色为基准的配色建议。
+   不能照搬原色的明度 —— 同一色度在不同色相上未必可达：蓝可以又暗又艳，
+   黄在同样的暗度下会被色域夹成脏橄榄色。所以每个目标色相自己挑一个
+   能撑住相近色度的明度，只在同分时才偏向贴近原色明度。 */
+export function recommend(baseHex) {
+  const {L, h} = hexToLch(baseHex);
+  // 无彩度的基色转色相不会有任何变化，七个推荐会全是同一个灰。
+  // 这种情况下给一个可用的色度，让推荐真的是颜色。
+  const C = Math.max(hexToLch(baseHex).C, .16);
+  return [
+    ['互补', 180], ['分裂互补', 150], ['分裂互补', 210],
+    ['三分', 120], ['三分', 240], ['邻近', 32], ['邻近', -32],
+  ].map(([label, delta]) => {
+    const hue = (h + delta + 360) % 360;
+    let best = null;
+    for (let i = 30; i <= 88; i++) {
+      const cand = i / 100;
+      const reach = Math.min(C, maxChromaAt(cand, hue));
+      const score = reach - Math.abs(cand - L) * .05;
+      if (!best || score > best.score) best = {score, L: cand, C: reach};
+    }
+    // 近互补且两边都艳时，明度必须错开 —— 否则推出来的组合会正好撞上
+    // 「边缘振动」那条告警，等于自荐一个自己要警告的配色。
+    const near = Math.abs(delta) >= 150 && Math.abs(delta) <= 210;
+    if (near && best.C > .085 && C > .085 && Math.abs(best.L - L) < .12) {
+      const up = Math.min(.88, L + .14), down = Math.max(.3, L - .14);
+      const pick = maxChromaAt(up, hue) >= maxChromaAt(down, hue) ? up : down;
+      best = {L: pick, C: Math.min(C, maxChromaAt(pick, hue))};
+    }
+    // 最后兜一道：推荐色不能落进「彼此难分」的范围，否则就是自荐一个要被警告的配色
+    let hex = lchHex({L: best.L, C: best.C, h: hue});
+    for (let step = 1; step <= 6 && deltaE(baseHex, hex) < .07; step++) {
+      const away = best.L >= L ? Math.min(.9, best.L + step * .05) : Math.max(.28, best.L - step * .05);
+      hex = lchHex({L: away, C: Math.min(C, maxChromaAt(away, hue)), h: hue});
+    }
+    return {label, delta, hex};
+  });
 }
 
 /* ── Markdown ────────────────────────────────────────────────────────
@@ -119,13 +201,14 @@ export function toMarkdown({params, light, dark, type}) {
   const lc = audit(light), dc = audit(dark);
   // 同名 token 分属两套主题，告警必须带上是哪一套
   const failed = [...lc.map(c => ({...c, theme: '浅色'})), ...dc.map(c => ({...c, theme: '深色'}))].filter(c => !c.pass);
+  const issues = harmonyIssues(params.accents);
   return `# UI 设计规范
 
 由 Luxel Rubric 生成。把本文件内容贴进项目的 \`agent.md\`，让 agent 按此实现界面。
 
 ## 色彩
 
-模式：${params.duo ? '双色' : '单色'}${params.duo ? `（主强调 \`${params.accent.toUpperCase()}\`，次强调 \`${params.accent2.toUpperCase()}\`）` : `（强调色 \`${params.accent.toUpperCase()}\`）`}
+模式：${['单色', '双色', '多色'][Math.min(params.accents.length, 3) - 1]}（${params.accents.map((c, i) => `${i ? '强调 ' + (i + 1) : '主强调'} \`${c.toUpperCase()}\``).join('，')}）
 
 ### 浅色
 
@@ -155,6 +238,6 @@ ${table(dark, dc)}
 3. 正文类文字对底色至少 4.5:1，大字与非文本元素至少 3:1。
 4. 焦点态用 \`--text\` 实色描边，不要只靠改变底色表示焦点。
 5. 激活 / 选中状态不能只用颜色区分，同时改变填充或字重，保证色觉障碍下仍可分辨。
-${failed.length ? `\n> ⚠ 本规范有 ${failed.length} 处未达标：${failed.map(c => `${c.theme} \`--${c.key}\`(${c.ratio})`).join('、')}。落地前请调整。` : '\n所有组合均满足 WCAG AA。'}
+${issues.length ? `\n### 配色关系\n\n${issues.map(i => `- **${i.kind}**（强调 ${i.pair[0] + 1} 与 强调 ${i.pair[1] + 1}）：${i.text}`).join('\n')}\n` : ''}${failed.length ? `\n> ⚠ 本规范有 ${failed.length} 处未达标：${failed.map(c => `${c.theme} \`--${c.key}\`(${c.ratio})`).join('、')}。落地前请调整。` : '\n所有组合均满足 WCAG AA。'}
 `;
 }

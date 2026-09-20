@@ -1,18 +1,22 @@
 // SPDX-License-Identifier: MIT
-// Rubric 的界面层。所有配色数学在 spec.js，这里只负责控件、渲染和复制。
-import {buildTheme, audit, adaptAccent, toMarkdown, ROLES, contrast} from './spec.js';
+// Rubric 的界面层。配色数学全在 spec.js，这里只管控件、渲染和复制。
+import {buildTheme, audit, adaptAccent, toMarkdown, roleOf,
+        harmonyIssues, recommend} from './spec.js';
 
 const $ = id => document.getElementById(id);
-const STORE = 'luxel-rubric-v1';
+const STORE = 'luxel-rubric-v2';
+const PALETTE = ['#3b5bdb', '#e8590c', '#2f9e44', '#c2255c', '#7048e8', '#0c8599'];
 
 const defaults = {
-  hue: 250, chroma: 2, contrast: 1, duo: false, linked: true,
-  accent: '#3b5bdb', accentDark: '#5275ec',
-  accent2: '#e8590c', accent2Dark: '#d65415',
+  hue: 250, chroma: 2, contrast: 1, count: 1, linked: true,
+  accents: ['#3b5bdb'],
   body: 400, strong: 600, heading: 650, size: 15, scale: 1.6,
 };
-let state = {...defaults};
-try { const saved = localStorage.getItem(STORE); if (saved) state = {...defaults, ...JSON.parse(saved)}; } catch {}
+let state = {...defaults, accents: [...defaults.accents]};
+try {
+  const saved = localStorage.getItem(STORE);
+  if (saved) { const p = JSON.parse(saved); state = {...defaults, ...p, accents: [...(p.accents || defaults.accents)]}; }
+} catch {}
 
 /* ── 主题切换，与其它页共用同一个键 ────────────────────────────────── */
 const darkQuery = matchMedia('(prefers-color-scheme: dark)');
@@ -46,7 +50,7 @@ const sliders = [
   ['size', '基准字号', 13, 18, 1, 'type-controls', v => v + 'px'],
   ['scale', '字阶比例', 1.2, 2, .05, 'type-controls', v => v.toFixed(2) + '×'],
 ];
-for (const [key, label, min, max, step, parent, fmt] of sliders) {
+for (const [key, label, min, max, step, parent] of sliders) {
   const field = document.createElement('div');
   field.className = 'range-field';
   field.innerHTML = `<div class="range-head"><label for="${key}">${label}</label><output id="${key}-value" for="${key}"></output></div>`
@@ -56,78 +60,102 @@ for (const [key, label, min, max, step, parent, fmt] of sliders) {
 }
 const format = Object.fromEntries(sliders.map(([key, , , , , , fmt]) => [key, fmt]));
 
-/* ── 模式与联动 ─────────────────────────────────────────────────────── */
-for (const button of document.querySelectorAll('.seg'))
-  button.onclick = () => { state.duo = button.dataset.mode === 'duo'; render(); save(); };
-
-// 联动即「深色的强调色由浅色推算」。关掉后深色那两个色值变成独立可改的。
-$('link').onclick = () => {
-  state.linked = !state.linked;
-  if (state.linked) syncDark();
-  render(); save();
-};
-function syncDark() {
-  const dark = themes().dark;
-  state.accentDark = adaptAccent(state.accent, 'dark', dark.bg, 4.5);
-  state.accent2Dark = adaptAccent(state.accent2, 'dark', dark.bg, 4.5);
+/* ── 模式与数量 ─────────────────────────────────────────────────────
+   单色 1 个强调色，双色 2 个，多色由输入框决定 2–6 个。
+   增减时保留已选的颜色，只补齐或截断，免得切一下模式配色就全没了。 */
+function setCount(n) {
+  n = Math.max(1, Math.min(6, Math.round(n) || 1));
+  state.count = n;
+  while (state.accents.length < n) state.accents.push(PALETTE[state.accents.length % PALETTE.length]);
+  state.accents.length = n;
 }
-for (const [id, key] of [['accent', 'accent'], ['accent2', 'accent2']])
-  $(id).addEventListener('input', e => {
-    state[key] = e.target.value;
-    if (state.linked) syncDark();
+const modeOf = () => state.count === 1 ? 'mono' : state.count === 2 ? 'duo' : 'multi';
+for (const button of document.querySelectorAll('.seg'))
+  button.onclick = () => {
+    const mode = button.dataset.mode;
+    setCount(mode === 'mono' ? 1 : mode === 'duo' ? 2 : Math.max(3, state.count));
     render(); save();
-  });
+  };
+$('count').addEventListener('input', e => { setCount(Number(e.target.value)); render(); save(); });
 
-$('reset').onclick = () => { state = {...defaults}; render(); save(); toast('已恢复默认规范'); };
+$('link').onclick = () => { state.linked = !state.linked; render(); save(); };
+$('reset').onclick = () => { state = {...defaults, accents: [...defaults.accents]}; render(); save(); toast('已恢复默认规范'); };
 
-/* ── 生成两套主题 ───────────────────────────────────────────────────── */
+/* ── 生成两套主题 ───────────────────────────────────────────────────
+   联动时深色由浅色的强调色推算；断开时深色保留自己那份，各调各的。 */
 function themes() {
-  const base = {hue: state.hue, chroma: state.chroma, contrast: state.contrast, duo: state.duo};
-  const light = buildTheme({...base, accent: state.accent, accent2: state.accent2}, 'light');
-  // 未联动时深色用自己的强调色；adaptAccent 仍会把它拉到够对比度的明度
-  const darkAccent = state.linked ? state.accent : state.accentDark;
-  const darkAccent2 = state.linked ? state.accent2 : state.accent2Dark;
-  const dark = buildTheme({...base, accent: darkAccent, accent2: darkAccent2}, 'dark');
-  return {light, dark};
+  const base = {hue: state.hue, chroma: state.chroma, contrast: state.contrast};
+  const light = buildTheme({...base, accents: state.accents}, 'light');
+  const probe = buildTheme({...base, accents: state.accents}, 'dark');
+  const darkAccents = state.linked
+    ? state.accents
+    : (state.darkAccents || state.accents).slice(0, state.accents.length);
+  const dark = buildTheme({...base, accents: darkAccents}, 'dark');
+  return {light, dark, probe};
 }
 
 /* ── 渲染 ───────────────────────────────────────────────────────────── */
-function rowsFor(tokens, checks) {
-  const by = Object.fromEntries(checks.map(c => [c.key, c]));
-  return Object.entries(tokens).map(([key, hex]) => {
-    const c = by[key];
-    const warn = c && !c.pass
-      ? `<span class="warn" role="img" title="对比度 ${c.ratio}，低于${c.kind}要求的 ${c.need}">!</span>` : '';
-    const ratio = c ? `<span class="ratio${c.pass ? '' : ' low'}">${c.ratio}</span>` : '';
-    return `<div class="row"><span class="chip" style="background:${hex}"></span>`
-      + `<span class="name">--${key}</span><span class="role">${ROLES[key] || ''}</span>`
-      + `<span class="value">${ratio}${warn}<span class="hex">${hex}</span></span></div>`;
-  }).join('');
-}
-
-// 把一套 token 挂成卡片自己的局部变量，卡内取色一律走这些，与站点主题无关。
-// 框线不在其中 —— 它属于工具外壳，固定用中性灰，见 rubric.css 的 --hairline。
 function dress(sheet, t) {
   sheet.style.setProperty('--sheet-bg', t.bg);
   sheet.style.setProperty('--sheet-text', t.text);
   sheet.style.setProperty('--sheet-dim', t['text-2']);
 }
+const esc = s => s.replace(/[<>&"]/g, c => ({'<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;'}[c]));
+const warnMark = text =>
+  `<span class="warn" tabindex="0" role="button" aria-label="${esc(text)}">!<span class="tip">${esc(text)}</span></span>`;
+
+function rowsFor(tokens, checks) {
+  const by = Object.fromEntries(checks.map(c => [c.key, c]));
+  return Object.entries(tokens).map(([key, hex]) => {
+    const c = by[key];
+    const warn = c && !c.pass
+      ? warnMark(`对比度 ${c.ratio}，低于${c.kind}要求的 ${c.need}。把这个颜色的明度朝远离底色的方向调。`) : '';
+    const ratio = c ? `<span class="ratio${c.pass ? '' : ' low'}">${c.ratio}</span>` : '';
+    return `<div class="row"><span class="chip" style="background:${hex}"></span>`
+      + `<span class="name">--${key}</span><span class="role">${roleOf(key)}</span>`
+      + `<span class="value">${ratio}${warn}<span class="hex">${hex}</span></span></div>`;
+  }).join('');
+}
 
 function render() {
   for (const [key] of sliders) { $(key).value = state[key]; $(key + '-value').textContent = format[key](state[key]); }
+  const mode = modeOf();
   for (const button of document.querySelectorAll('.seg'))
-    button.setAttribute('aria-checked', String((button.dataset.mode === 'duo') === state.duo));
-  $('accent2-row').hidden = !state.duo;
-  $('accent').value = state.accent; $('accent-hex').textContent = state.accent.toUpperCase();
-  $('accent2').value = state.accent2; $('accent2-hex').textContent = state.accent2.toUpperCase();
+    button.setAttribute('aria-checked', String(button.dataset.mode === mode));
+  $('count-row').hidden = mode !== 'multi';
+  $('count').value = state.count;
+
+  // 强调色：每个一枚胶囊，第一个是主色
+  $('accents').innerHTML = state.accents.map((hex, i) =>
+    `<label class="accent-chip"><input type="color" data-i="${i}" value="${hex}" aria-label="${i ? '强调色 ' + (i + 1) : '主强调色'}">`
+    + `<span class="tag">${i ? String(i + 1).padStart(2, '0') : '主'}</span><code>${hex.toUpperCase()}</code></label>`).join('');
+  for (const input of $('accents').querySelectorAll('input[type=color]'))
+    input.addEventListener('input', e => { state.accents[Number(e.target.dataset.i)] = e.target.value; render(); save(); });
+
+  // 推荐色只在多于一色时有意义 —— 它给的是「和主色搭什么」
+  $('recommend').hidden = state.accents.length < 2;
+  if (state.accents.length >= 2) {
+    $('rec-list').innerHTML = recommend(state.accents[0]).map(r =>
+      `<button class="rec" style="background:${r.hex}" data-hex="${r.hex}" title="${r.label} · ${r.hex.toUpperCase()}" aria-label="套用${r.label}配色 ${r.hex}"></button>`).join('');
+    for (const b of $('rec-list').querySelectorAll('.rec'))
+      b.onclick = () => { state.accents[state.accents.length - 1] = b.dataset.hex; render(); save(); };
+  }
+
+  // 配色冲突：挂在「强调色」这一组的标题上，鼠标移上去说明原因和改法
+  const issues = harmonyIssues(state.accents);
+  $('harmony-slot').innerHTML = issues.length
+    ? warnMark(issues.map(i => `${i.kind}（强调 ${i.pair[0] + 1} 与 ${i.pair[1] + 1}）：${i.text}`).join('\n\n'))
+    : '';
+
   $('link').setAttribute('aria-pressed', String(state.linked));
-  $('link-label').textContent = state.linked ? '深色随浅色自动规划' : '深色单独设定';
+  $('link').setAttribute('aria-label', state.linked ? '已联动，点击断开' : '未联动，点击关联');
+  document.querySelector('.linkbar').dataset.linked = String(state.linked);
+  $('link-label').textContent = state.linked ? '已关联' : '已断开';
 
   const {light, dark} = themes();
   const lc = audit(light), dc = audit(dark);
   $('light-rows').innerHTML = rowsFor(light, lc);
   $('dark-rows').innerHTML = rowsFor(dark, dc);
-  // 每张卡套上自己那套颜色，于是它本身就是这套主题的预览
   dress($('light-sheet'), light);
   dress($('dark-sheet'), dark);
   $('light-state').textContent = `${Object.keys(light).length} TOKENS`;
@@ -144,12 +172,11 @@ function render() {
     `<div class="type-cell"><span class="sample" style="font-weight:${weight};font-size:${size}px;font-family:${family}">${sample}</span>`
     + `<span class="meta">${name} · ${weight} · ${size}px</span></div>`).join('');
 
-  // 两套主题的 token 同名，汇总里必须标出是哪一套，否则只会看到重复的名字
-  const failed = [...lc.map(c => ({...c, theme: '浅'})), ...dc.map(c => ({...c, theme: '深'}))]
-    .filter(c => !c.pass);
-  $('audit-summary').innerHTML = failed.length
-    ? `<span class="bad">${failed.length} 处对比度不足：${failed.map(c => `${c.theme} --${c.key}`).join('、')}</span>`
-    : '<span class="good">所有组合满足 WCAG AA</span>';
+  const failed = [...lc.map(c => ({...c, theme: '浅'})), ...dc.map(c => ({...c, theme: '深'}))].filter(c => !c.pass);
+  const parts = [];
+  if (failed.length) parts.push(`<span class="bad">${failed.length} 处对比度不足</span>`);
+  if (issues.length) parts.push(`<span class="bad">${issues.length} 处配色冲突</span>`);
+  $('audit-summary').innerHTML = parts.length ? parts.join(' · ') : '满足 WCAG AA';
 }
 
 /* ── 导出 ───────────────────────────────────────────────────────────── */
@@ -163,7 +190,7 @@ function toast(message) {
 function markdown() {
   const {light, dark} = themes();
   return toMarkdown({
-    params: {duo: state.duo, accent: state.accent, accent2: state.accent2},
+    params: {accents: state.accents},
     light, dark,
     type: {body: state.body, strong: state.strong, heading: state.heading, size: state.size, scale: state.scale},
   });
@@ -181,7 +208,7 @@ $('copy').onclick = async () => {
     document.body.append(area); area.select();
     const ok = document.execCommand && document.execCommand('copy');
     area.remove();
-    toast(ok ? '规范已复制，粘贴到项目的 agent.md 即可' : '浏览器拒绝了剪贴板，请改用导出后手动复制');
+    toast(ok ? '规范已复制，粘贴到项目的 agent.md 即可' : '浏览器拒绝了剪贴板，请手动选中复制');
   }
 };
 
