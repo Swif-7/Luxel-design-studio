@@ -14,12 +14,15 @@
    ──────────────────────────────────────────────────────────────────────── */
 
 body{min-height:100dvh;background:var(--bg);color:var(--text)}
-header{position:sticky;top:0;z-index:20;display:flex;align-items:center;justify-content:space-between;
+/* 必须限定为 body 的直接子元素：卡片内部也用 <header>，
+   裸的元素选择器会把页面顶栏那套（白底、sticky、60px 高）套到卡头上，
+   浅卡白底白字看不出来，深卡就露出一条白带。 */
+body>header{position:sticky;top:0;z-index:20;display:flex;align-items:center;justify-content:space-between;
   height:60px;padding:0 24px;background:var(--bg);border-bottom:1px solid var(--border)}
-.brand{display:flex;align-items:center;gap:10px;color:inherit;text-decoration:none;font-size:21px;font-weight:650;letter-spacing:-.01em}
-.brand-mark{width:23px;height:23px;color:var(--text);display:block;flex:none}
-.brand-sub{font:10px var(--mono);letter-spacing:2px;margin:5px 0 0 12px;color:var(--text-3)}
-.header-right{display:flex;align-items:center;gap:16px}
+body>header .brand{display:flex;align-items:center;gap:10px;color:inherit;text-decoration:none;font-size:21px;font-weight:650;letter-spacing:-.01em}
+body>header .brand-mark{width:23px;height:23px;color:var(--text);display:block;flex:none}
+body>header .brand-sub{font:10px var(--mono);letter-spacing:2px;margin:5px 0 0 12px;color:var(--text-3)}
+body>header .header-right{display:flex;align-items:center;gap:16px}
 .audit{font-size:11.5px;color:var(--text-2)}
 .audit .bad{color:var(--danger)}
 #theme{padding:0;width:34px;height:34px;display:grid;place-items:center;background:transparent;border-color:var(--border);color:var(--text-2)}
@@ -137,7 +140,7 @@ input[type=range]{width:100%;height:3px;margin:9px 0 13px;display:block;accent-c
 #toast.show{opacity:1;transform:translate(-50%,0)}
 
 @media(max-width:860px){
-  header{padding:0 16px}.audit{display:none}
+  body>header{padding:0 16px}.audit{display:none}
   main{padding:16px 16px 32px;gap:16px}
   /* 窄屏改为上下叠，link 转成横向连线 */
   .board{grid-template-columns:1fr}
