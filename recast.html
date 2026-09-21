@@ -2,17 +2,17 @@
 <html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Recast — Luxel</title><meta name="description" content="在浏览器里压缩图片、转换格式、批量缩放并打包下载，全程本地处理，不上传。"><meta name="theme-color" content="#ffffff"><link rel="icon" href="/favicon.svg?v=3"><link rel="stylesheet" href="/tokens.css"><link rel="stylesheet" href="/recast.css"><script>try{var t=localStorage.getItem("rheo-theme");if(t)document.documentElement.dataset.theme=t}catch(e){}</script></head>
 <body>
 <header><a class="brand" href="/" aria-label="返回 Luxel 首页"><svg class="brand-mark" viewBox="0 0 64 64" fill="currentColor" aria-hidden="true"><rect x="12" y="12" width="20" height="20"/><rect x="32" y="12" width="20" height="20" fill-opacity=".62"/><rect x="12" y="32" width="20" height="20" fill-opacity=".38"/><rect x="32" y="32" width="20" height="20" fill-opacity=".16"/></svg> Luxel <span class="brand-sub">RECAST · IMAGE</span></a>
-<div class="header-right"><label class="head-btn" id="add-wrap" hidden>＋ 添加图片<input id="add" type="file" accept="image/*,.heic,.heif" multiple hidden></label><button id="clear" class="head-btn" type="button" hidden>清空</button><button id="theme" aria-label="切换深浅模式"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"></svg></button></div></header>
+<div class="header-right"><label class="head-btn" id="add-wrap" hidden>＋ 添加图片<input id="add" type="file" accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp" multiple hidden></label><button id="clear" class="head-btn" type="button" hidden>清空</button><button id="theme" aria-label="切换深浅模式"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"></svg></button></div></header>
 
 <main>
 <h1 class="sr-only">Recast — 图片压缩与格式转换</h1>
 <section class="centre" aria-live="polite">
 
 <label id="drop" class="drop">
-  <input id="pick" type="file" accept="image/*,.heic,.heif" multiple>
+  <input id="pick" type="file" accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp" multiple>
   <span class="glyph" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V4M7.5 8.5 12 4l4.5 4.5"/><path d="M4 14.5v3A2.5 2.5 0 0 0 6.5 20h11a2.5 2.5 0 0 0 2.5-2.5v-3"/></svg></span>
   <b>拖入图片，或点击选择</b>
-  <small>JPG · PNG · WEBP · AVIF · GIF · BMP，可一次多张，也能直接粘贴<br>全部在本地处理，不会上传</small>
+  <small>静态 JPG · PNG · WEBP，可一次多张，也能直接粘贴<br>全部在本地处理，不会上传 · 单张 ≤64 MB / 3200 万像素</small>
 </label>
 
 <div id="single" class="single" hidden>
@@ -44,11 +44,11 @@
       <div id="more-panel" class="more-panel" hidden>
         <div class="more-row"><span>转 JPG 时透明区域</span><div class="seg small" role="radiogroup" aria-label="透明区域底色"><button type="button" role="radio" data-fill="#ffffff">白</button><button type="button" role="radio" data-fill="#000000">黑</button></div></div>
         <label class="more-row"><span>文件名加 -min 后缀</span><input id="suffix" type="checkbox" class="switch"></label>
-        <p class="more-note">重新编码会去掉 EXIF 与定位信息，并按拍摄方向摆正。结果比原图还大时，自动保留原图。</p>
+        <p class="more-note">输出始终重新编码，不回退原文件；体积可能变大。PNG 仅转换或缩放，未接入专项压缩。原文件元数据不会主动复制，但请勿将此工具用作敏感信息清除保证。</p>
       </div>
     </div>
   </div>
-  <button id="download" type="button" class="primary" disabled>下载</button>
+  <button id="cancel" type="button" class="ghost" hidden>取消处理</button><button id="retry" type="button" class="ghost" hidden>重试未完成</button><button id="download" type="button" class="primary" disabled>下载</button>
 </div>
 </main>
 

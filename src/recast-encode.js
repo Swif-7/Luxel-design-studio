@@ -1,5 +1,6 @@
 // Recast 的编解码：浏览器自带的 createImageBitmap 解码，canvas 缩放，canvas 编码。
 // Worker 和主线程共用这一份 —— 有 OffscreenCanvas 就用它，没有就退回 <canvas>。
+import { inspectImage, MAX_PIXELS } from './recast-inspect.js';
 import { fitSize } from './recast-core.js';
 
 const hasOffscreen = typeof OffscreenCanvas !== 'undefined' && 'convertToBlob' in OffscreenCanvas.prototype;
@@ -36,6 +37,7 @@ function drawScaled(source, width, height) {
     const hctx = half.getContext('2d');
     hctx.imageSmoothingQuality = 'high';
     hctx.drawImage(src, 0, 0, half.width, half.height);
+    if (src !== source) { src.width = 0; src.height = 0; }
     src = half; w = half.width; h = half.height;
   }
   return src;
@@ -43,19 +45,25 @@ function drawScaled(source, width, height) {
 
 /* fill：输出没有透明通道（JPG）时，透明区域垫的底色，否则会变成黑底。 */
 export async function encodeImage(blob, { mime, quality, maxEdge, fill = '#ffffff' }) {
+  await inspectImage(blob);
   const bitmap = await createImageBitmap(blob);
+  let canvas, scaled;
   try {
+    if (bitmap.width * bitmap.height > MAX_PIXELS) throw new Error('image-too-large');
     const { width, height } = fitSize(bitmap.width, bitmap.height, maxEdge);
-    const canvas = makeCanvas(width, height);
+    canvas = makeCanvas(width, height);
     const ctx = canvas.getContext('2d');
     if (mime === 'image/jpeg') { ctx.fillStyle = fill; ctx.fillRect(0, 0, width, height); }
     ctx.imageSmoothingQuality = 'high';
-    ctx.drawImage(drawScaled(bitmap, width, height), 0, 0, width, height);
+    scaled = drawScaled(bitmap, width, height);
+    ctx.drawImage(scaled, 0, 0, width, height);
     const out = await toBlob(canvas, mime, quality);
     if (out.type !== mime) throw new Error('unsupported-format');
     return { blob: out, width, height, srcWidth: bitmap.width, srcHeight: bitmap.height };
   } finally {
     bitmap.close?.();
+    if (scaled && scaled !== bitmap) { scaled.width = 0; scaled.height = 0; }
+    if (canvas) { canvas.width = 0; canvas.height = 0; }
   }
 }
 

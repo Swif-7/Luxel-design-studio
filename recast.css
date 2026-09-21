@@ -103,7 +103,7 @@ button.primary:disabled{opacity:.35}
 .hint{color:var(--text-3)}
 
 /* ── 底部控制条 ── */
-.dock{flex:none;margin:22px 0 26px;display:flex;align-items:center;gap:16px;padding:9px 10px 9px 18px;border-radius:var(--r-pill);
+.dock{flex:none;flex-wrap:wrap;justify-content:center;margin:22px 0 26px;display:flex;align-items:center;gap:16px;padding:9px 10px 9px 18px;border-radius:var(--r-pill);
   background:var(--surface);box-shadow:inset 0 0 0 1px var(--border),0 10px 30px -18px #0004;max-width:100%}
 .grp{display:flex;align-items:center;gap:10px;font-size:13px}
 .lab{font-size:11.5px;color:var(--text-3);white-space:nowrap}

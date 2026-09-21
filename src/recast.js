@@ -1,5 +1,6 @@
 // Recast 页面：拖入 / 选择 / 粘贴图片 → 按控制条设置在本地编码 → 单张对比或批量网格 → 下载。
-import { FORMATS, FORMAT_ORDER, formatOfMime, resolveFormat, formatBytes, savings, preferOriginal, outputName, makeZip } from './recast-core.js';
+import { FORMATS, FORMAT_ORDER, resolveFormat, formatBytes, savings, outputName, makeZip } from './recast-core.js';
+import { inspectImage } from './recast-inspect.js';
 import { encodeImage, probeEncoders, canUseWorkers } from './recast-encode.js';
 
 const $ = (id) => document.getElementById(id);
@@ -35,8 +36,8 @@ const saveSettings = () => { try { localStorage.setItem(SETTINGS_KEY, JSON.strin
 /* 浏览器实际能导出哪些格式要现场测：不支持的格式会被悄悄编成 PNG。 */
 const supported = new Set();
 const UNSUPPORTED_TIP = {
-  webp: '当前浏览器不能导出 WEBP（Safari 只能读取、不能导出）',
-  avif: '当前浏览器不能导出 AVIF —— 目前主流浏览器都只能读取、不能导出',
+  webp: '当前浏览器未通过 WEBP 编码检测',
+  avif: '当前浏览器未通过 AVIF 编码检测，尚未接入独立编码器',
   jpeg: '当前浏览器不能导出 JPG', png: '当前浏览器不能导出 PNG',
 };
 
@@ -50,24 +51,45 @@ let generation = 0;
 let selectedId = null;       // 单张视图正在看的那张；批量里点缩略图进入
 let focusSingle = false;     // 批量时是否停在单张对比视图
 
-const isImage = (f) => f.type.startsWith('image/') || /\.(heic|heif|avif|jxl)$/i.test(f.name);
-
+const errorText = (code) => ({
+  'gif-unsupported': '首版暂不支持 GIF，请使用静态 JPG、PNG 或 WebP',
+  'animated-image': '暂不支持动画图片，未转换以避免丢失动画',
+  'input-unsupported': '仅支持静态 JPG、PNG、WebP（按文件内容识别）',
+  'invalid-image': '文件损坏或不是有效图片',
+  'image-too-large': '图片超过 3200 万像素或单边超过 16384，请先缩小',
+  'file-too-large': '单张文件不能超过 64 MB',
+  'unsupported-format': '浏览器无法编码此格式，请明确选择其他输出格式',
+  'output-too-large': '本批输出超过 128 MB，请降低尺寸或分批处理',
+}[code] || '这张图读取或编码失败');
+let intakeEpoch = 0;
+let intakeChain = Promise.resolve();
 function addFiles(list) {
-  const files = [...list].filter(isImage);
-  if (!files.length) { if (list.length) toast('没有可以处理的图片'); return; }
-  for (const file of files) {
-    const item = { id: nextId++, file, url: URL.createObjectURL(file), status: 'queued', gen: generation };
-    items.push(item);
-    enqueue(item);
-  }
-  if (items.length === files.length) selectedId = items[0].id;   // 从空状态进来，停在第一张
-  render();
+  const files = [...list], epoch = intakeEpoch;
+  intakeChain = intakeChain.then(async () => {
+    for (const file of files) {
+      if (epoch !== intakeEpoch) return;
+      if (items.length >= 100 || items.reduce((n, it) => n + it.file.size, 0) + file.size > 256 * 1024 * 1024) {
+        toast('每批最多 100 张、总文件大小最多 256 MB，请分批处理'); break;
+      }
+      let info, error;
+      try { info = await inspectImage(file); } catch (e) { error = errorText(e.message); }
+      if (epoch !== intakeEpoch) return;
+      const item = { id: nextId++, file, sourceMime: info?.mime, url: info ? URL.createObjectURL(file) : '',
+        status: error ? 'error' : 'queued', gen: generation, error, invalid: !!error };
+      items.push(item);
+      if (selectedId === null) selectedId = item.id;
+      if (!error) enqueue(item);
+      render();
+    }
+  }).catch(() => toast('添加失败，请重试'));
 }
 
 function removeItem(id) {
   const i = items.findIndex(it => it.id === id);
   if (i < 0) return;
   const [it] = items.splice(i, 1);
+  cancelItem(it);
+  pump();
   URL.revokeObjectURL(it.url);
   if (it.out?.url) URL.revokeObjectURL(it.out.url);
   gridNodes.get(id)?.remove();
@@ -78,6 +100,9 @@ function removeItem(id) {
 }
 
 function clearAll() {
+  intakeEpoch++;
+  clearTimeout(rerunTimer);
+  for (const it of items) cancelItem(it);
   for (const it of items) { URL.revokeObjectURL(it.url); if (it.out?.url) URL.revokeObjectURL(it.out.url); }
   items = []; selectedId = null; focusSingle = false;
   gridNodes.forEach(n => n.remove()); gridNodes.clear();
@@ -88,34 +113,57 @@ function clearAll() {
 /* ── 编码池 ───────────────────────────────────────────────────────────
    有 OffscreenCanvas 就开几个 worker 并行；没有就在主线程一张一张来。 */
 const queue = [];
-const poolSize = canUseWorkers ? Math.max(1, Math.min(4, (navigator.hardwareConcurrency || 4) - 1)) : 1;
+const poolSize = 1; // Bound peak decoded memory; file headers are checked before admission.
 const lanes = [];
 const pending = new Map();   // job id → item
 
 function makeLane() {
-  const lane = { busy: false, job: null };
+  const lane = { busy: false, job: null, cancel: null };
   const runHere = async (job) => {
+    lane.job = job;
     let data;
     try { data = { id: job.id, ok: true, ...(await encodeImage(job.blob, job.options)) }; }
     catch (e) { data = { id: job.id, ok: false, error: String(e && e.message || e) }; }
-    lane.busy = false; finish(data); pump();
+    lane.job = null; lane.busy = false; finish(data); pump();
   };
   lane.run = runHere;
   if (canUseWorkers) {
     try {
       const worker = new Worker(new URL('./recast-worker.js', import.meta.url), { type: 'module' });
       lane.run = (job) => { lane.job = job; worker.postMessage(job); };
+      lane.cancel = () => { worker.onmessage = worker.onerror = null; worker.terminate(); lane.job = null; lane.busy = false; };
       worker.onmessage = ({ data }) => { lane.job = null; lane.busy = false; finish(data); pump(); };
       // worker 起不来（旧浏览器不支持模块 worker 等）：这条道改回主线程，手上那张重做
       worker.onerror = (e) => {
         e.preventDefault?.();
         worker.terminate();
+        lane.cancel = null;
         lane.run = runHere;
         if (lane.job) { const job = lane.job; lane.job = null; runHere(job); } else { lane.busy = false; pump(); }
       };
     } catch {}
   }
   return lane;
+}
+
+function cancelItem(item) {
+  for (const [id, job] of pending) {
+    if (job.item !== item) continue;
+    pending.delete(id);
+    const index = lanes.findIndex(l => l.job?.id === id);
+    if (index >= 0 && lanes[index].cancel) { lanes[index].cancel(); lanes[index] = makeLane(); }
+    // Main-thread native encoding cannot be interrupted; keep its lane occupied
+    // until it returns, but the removed pending id prevents publishing its result.
+  }
+  for (let i = queue.length - 1; i >= 0; i--) if (queue[i] === item) queue.splice(i, 1);
+}
+function cancelProcessing() {
+  clearTimeout(rerunTimer); intakeEpoch++; generation++;
+  for (const it of items) {
+    cancelItem(it);
+    if (it.status === 'busy' || it.status === 'queued') { it.status = 'cancelled'; it.error = '已取消，可以重试'; }
+  }
+  render();
 }
 
 function enqueue(item) {
@@ -132,7 +180,8 @@ function pump() {
     if (!lane) break;
     const item = queue.shift();
     if (!items.includes(item) || item.gen !== generation) continue;
-    const key = resolveFormat(settings.format, item.file.type, supported) || 'png';
+    const key = resolveFormat(settings.format, item.sourceMime, supported);
+    if (!key) { item.status = 'error'; item.error = errorText('unsupported-format'); paintItem(item); if (item.id === selectedId) paintSingle(); continue; }
     const fmt = FORMATS[key];
     const id = ++jobSeq;
     pending.set(id, { item, gen: generation, key });
@@ -152,15 +201,13 @@ function finish(data) {
   if (!job) return;
   const { item, gen, key } = job;
   if (!items.includes(item) || gen !== item.gen) return;     // 设置已经变了，这一轮作废
+  if (data.ok && items.reduce((n, it) => n + (it.id !== item.id ? it.out?.size || 0 : 0), 0) + data.blob.size > 128 * 1024 * 1024) { data = { ok: false, error: 'output-too-large' }; }
   if (!data.ok) {
     item.status = 'error';
-    const heic = /\.(heic|heif)$/i.test(item.file.name) || /hei[cf]/i.test(item.file.type);
-    item.error = heic ? '当前浏览器读不了 HEIC（Safari 可以）' : data.error === 'unsupported-format' ? '当前浏览器不能导出这个格式' : '这张图读取或编码失败';
+    item.error = errorText(data.error);
   } else {
     if (item.out?.url) URL.revokeObjectURL(item.out.url);
-    const resized = data.width !== data.srcWidth || data.height !== data.srcHeight;
-    const sameFormat = formatOfMime(item.file.type) === key;
-    const kept = preferOriginal({ originalSize: item.file.size, encodedSize: data.blob.size, sameFormat, resized });
+    const kept = false; // Always export the re-encoded result, never silently restore metadata.
     item.out = { blob: kept ? item.file : data.blob, size: kept ? item.file.size : data.blob.size, key, kept,
       width: kept ? data.srcWidth : data.width, height: kept ? data.srcHeight : data.height,
       srcWidth: data.srcWidth, srcHeight: data.srcHeight, url: null };
@@ -172,14 +219,21 @@ function finish(data) {
   if (item.id === selectedId) paintSingle();
 }
 
-/* 设置一变，全部重新编码。滑块拖动时会连发，等停手 250ms 再开始。 */
+// Invalidate immediately; debounce only the expensive work, never result validity.
 let rerunTimer;
 function rerunAll(delay = 0) {
   clearTimeout(rerunTimer);
+  generation++;
+  for (const it of items) {
+    cancelItem(it);
+    if (it.invalid) continue;
+    it.gen = generation; it.status = 'queued'; it.error = null;
+    if (it.out?.url) URL.revokeObjectURL(it.out.url);
+    it.out = null;
+  }
+  render();
   rerunTimer = setTimeout(() => {
-    generation++;
-    queue.length = 0;
-    for (const it of items) enqueue(it);
+    for (const it of items) if (!it.invalid && it.status === 'queued' && !queue.includes(it)) enqueue(it);
     render();
   }, delay);
 }
@@ -190,6 +244,7 @@ const selected = () => items.find(it => it.id === selectedId) || items[0];
 
 function render() {
   const v = view();
+  paintControls();
   $('drop').hidden = v !== 'empty';
   $('single').hidden = v !== 'single';
   $('batch').hidden = v !== 'batch';
@@ -212,7 +267,7 @@ function paintGrid() {
       node.innerHTML = `<img alt="" loading="lazy" decoding="async"><button class="open" type="button"></button>`
         + `<span class="pct" hidden></span><span class="st"></span><span class="meta"></span>`
         + `<button class="rm" type="button" aria-label="移除">×</button>`;
-      node.querySelector('img').src = it.url;
+      if (it.url) node.querySelector('img').src = it.url;
       node.querySelector('.open').onclick = () => { selectedId = it.id; focusSingle = true; render(); };
       node.querySelector('.rm').onclick = () => removeItem(it.id);
       gridNodes.set(it.id, node);
@@ -223,7 +278,7 @@ function paintGrid() {
   if (!addTile) {
     addTile = document.createElement('label');
     addTile.className = 'th add';
-    addTile.innerHTML = '＋ 继续添加<input type="file" accept="image/*,.heic,.heif" multiple>';
+    addTile.innerHTML = '＋ 继续添加<input type="file" accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp" multiple>';
     addTile.querySelector('input').onchange = (e) => { addFiles(e.target.files); e.target.value = ''; };
   }
   grid.appendChild(addTile);
@@ -244,7 +299,7 @@ function paintItem(it) {
     meta.textContent = `${formatBytes(it.file.size)} → ${formatBytes(it.out.size)}`;
   } else {
     pct.hidden = true;
-    meta.textContent = it.status === 'error' ? it.error : formatBytes(it.file.size);
+    meta.textContent = ['error', 'cancelled'].includes(it.status) ? it.error : formatBytes(it.file.size);
   }
 }
 
@@ -256,7 +311,7 @@ function paintSingle() {
   $('back').hidden = $('prev').hidden = $('next').hidden = !many;
   $('back').textContent = `← 全部 ${items.length} 张`;
   $('single-name').textContent = it.file.name;
-  if ($('before').dataset.id !== String(it.id)) { $('before').src = it.url; $('before').dataset.id = it.id; }
+  if ($('before').dataset.id !== String(it.id)) { if (it.url) $('before').src = it.url; else $('before').removeAttribute('src'); $('before').dataset.id = it.id; }
   const cmp = $('compare');
   const tagB = $('tag-before'), tagA = $('tag-after');
   tagB.textContent = `原图 · ${formatBytes(it.file.size)}`;
@@ -264,7 +319,7 @@ function paintSingle() {
     if (!it.out.url) it.out.url = URL.createObjectURL(it.out.blob);
     if ($('after').src !== it.out.url) $('after').src = it.out.url;
     const p = savings(it.file.size, it.out.size);
-    tagA.textContent = it.out.kept ? '保留原图 · 已是最小' : `${FORMATS[it.out.key].label} · ${formatBytes(it.out.size)} · ${p < 0 ? '+' + -p : '−' + p}%`;
+    tagA.textContent = it.out.kept ? '本次处理未减小体积' : `${FORMATS[it.out.key].label} · ${formatBytes(it.out.size)} · ${p < 0 ? '+' + -p : '−' + p}%`;
     tagA.className = 'tag r' + (p < 0 && !it.out.kept ? ' bad' : '');
     tagA.hidden = false;
     $('single-meta').textContent = it.out.width === it.out.srcWidth
@@ -273,9 +328,9 @@ function paintSingle() {
     cmp.classList.remove('busy');
   } else {
     tagA.hidden = true;
-    cmp.classList.toggle('busy', it.status !== 'error');
-    $('single-meta').textContent = it.status === 'error' ? it.error : '';
-    if (it.status === 'error') $('after').removeAttribute('src');
+    cmp.classList.toggle('busy', it.status === 'busy' || it.status === 'queued');
+    $('single-meta').textContent = it.error || '';
+    $('after').removeAttribute('src');
   }
 }
 
@@ -290,7 +345,9 @@ function paintSummary() {
     + (working ? ` · 处理中 ${working}` : '') + (errors ? ` · 失败 ${errors}` : '');
   const dl = $('download');
   const many = view() === 'batch';
-  dl.disabled = !done.length || working > 0;
+  dl.disabled = !done.length || working > 0 || (view() !== 'batch' && selected()?.status !== 'done');
+  $('cancel').hidden = working === 0;
+  $('retry').hidden = !items.some(it => !it.invalid && ['error', 'cancelled'].includes(it.status));
   dl.textContent = working ? `处理中 ${items.length - working}/${items.length}` : many ? '全部下载 .zip' : '下载';
 }
 
@@ -309,7 +366,7 @@ function paintControls() {
     b.onclick = () => { settings.format = key; saveSettings(); paintControls(); rerunAll(); };
     seg.appendChild(b);
   }
-  const lossless = settings.format === 'png';
+  const lossless = settings.format === 'png' || settings.format === 'keep' && items.length > 0 && items.every(it => it.sourceMime === 'image/png');
   $('quality').disabled = lossless;
   $('quality').value = settings.quality;
   $('quality-val').textContent = lossless ? '无损' : settings.quality;
@@ -358,7 +415,8 @@ $('download').onclick = async () => {
   try {
     const taken = new Set();
     const files = [];
-    for (const it of done) files.push({ name: nameFor(it, taken), data: new Uint8Array(await it.out.blob.arrayBuffer()) });
+    const snapshot = done.map(it => ({ name: nameFor(it, taken), blob: it.out.blob }));
+    for (const it of snapshot) files.push({ name: it.name, data: new Uint8Array(await it.blob.arrayBuffer()) });
     const d = new Date(), p2 = (n) => String(n).padStart(2, '0');   // 本地时间，toISOString 是 UTC 会差一天
     const stamp = `${d.getFullYear()}${p2(d.getMonth() + 1)}${p2(d.getDate())}-${p2(d.getHours())}${p2(d.getMinutes())}`;
     save(new Blob([makeZip(files)], { type: 'application/zip' }), `recast-${stamp}.zip`);
@@ -377,6 +435,7 @@ function step(dir) {
   const i = items.findIndex(it => it.id === selectedId);
   selectedId = items[(i + dir + items.length) % items.length].id;
   paintSingle();
+  paintSummary();
 }
 $('prev').onclick = () => step(-1);
 $('next').onclick = () => step(1);
@@ -391,6 +450,8 @@ document.addEventListener('keydown', (e) => {
 /* ── 进图的三条路：点选、整页拖入、粘贴 ──────────────────────────── */
 for (const input of [$('pick'), $('add')]) input.onchange = (e) => { addFiles(e.target.files); e.target.value = ''; };
 $('clear').onclick = clearAll;
+$('cancel').onclick = cancelProcessing;
+$('retry').onclick = () => { for (const it of items) if (!it.invalid && ['error', 'cancelled'].includes(it.status)) { it.error = null; enqueue(it); } render(); };
 
 let dragDepth = 0;
 const hasFiles = (e) => [...(e.dataTransfer?.types || [])].includes('Files');

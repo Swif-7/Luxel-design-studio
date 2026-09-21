@@ -14,18 +14,10 @@ export const FORMAT_ORDER = ['webp', 'jpeg', 'png', 'avif'];
 const MIME_TO_KEY = { 'image/webp': 'webp', 'image/jpeg': 'jpeg', 'image/jpg': 'jpeg', 'image/png': 'png', 'image/avif': 'avif' };
 export const formatOfMime = (mime) => MIME_TO_KEY[String(mime).toLowerCase()] || null;
 
-/* 「原格式」要落到一个浏览器真能编码的格式上：
-   源格式能编就用源格式；GIF / BMP / TIFF / HEIC 这类编不了的，
-   有透明通道可能的走 PNG，照片类走 JPG —— 但我们在解码前不知道有没有透明，
-   所以按扩展名的典型用途选：GIF / BMP → PNG，HEIC / TIFF → JPG。 */
+// 原格式必须保持真实源格式，不能静默转 JPG 丢失透明度。
 export function resolveFormat(choice, sourceMime, supported) {
-  const can = (k) => supported.has(k);
-  if (choice !== 'keep') return can(choice) ? choice : null;
-  const src = formatOfMime(sourceMime);
-  if (src && can(src)) return src;
-  const mime = String(sourceMime).toLowerCase();
-  if (mime === 'image/gif' || mime === 'image/bmp' || mime === 'image/x-ms-bmp') return 'png';
-  return can('jpeg') ? 'jpeg' : 'png';
+  const key = choice === 'keep' ? formatOfMime(sourceMime) : choice;
+  return supported.has(key) ? key : null;
 }
 
 /* ── 尺寸 ──────────────────────────────────────────────────────────────

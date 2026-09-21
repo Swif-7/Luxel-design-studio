@@ -10,13 +10,13 @@ test('resolveFormat honours an explicit choice only when the browser can encode 
   assert.equal(resolveFormat('avif', 'image/png', all), null);
 });
 
-test('keep maps each source to something encodable', () => {
+test('keep never silently substitutes another format', () => {
   assert.equal(resolveFormat('keep', 'image/jpeg', all), 'jpeg');
   assert.equal(resolveFormat('keep', 'image/png', all), 'png');
-  assert.equal(resolveFormat('keep', 'image/gif', all), 'png');
-  assert.equal(resolveFormat('keep', 'image/heic', all), 'jpeg');
-  // Safari 导不出 WEBP：原格式是 WEBP 时退到 JPG
-  assert.equal(resolveFormat('keep', 'image/webp', new Set(['jpeg', 'png'])), 'jpeg');
+  assert.equal(resolveFormat('keep', 'image/gif', all), null);
+  assert.equal(resolveFormat('keep', 'image/heic', all), null);
+  // Missing WebP encoder must not silently discard transparency.
+  assert.equal(resolveFormat('keep', 'image/webp', new Set(['jpeg', 'png'])), null);
 });
 
 test('fitSize only ever shrinks and keeps the aspect ratio', () => {
