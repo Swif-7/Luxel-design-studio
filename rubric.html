@@ -1,42 +1,49 @@
 <!doctype html>
 <html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Rubric — Luxel</title><meta name="description" content="用滑块和取色整理配色与字重，一键复制成可直接交给 agent 的 UI 设计规范。"><meta name="theme-color" content="#ffffff"><link rel="icon" href="/favicon.svg?v=3"><link rel="stylesheet" href="/tokens.css"><link rel="stylesheet" href="/rubric.css"><script>try{var t=localStorage.getItem("rheo-theme");if(t)document.documentElement.dataset.theme=t}catch(e){}</script></head>
 <body>
-<header><a class="brand" href="/" aria-label="返回 Luxel 首页"><svg class="brand-mark" viewBox="0 0 64 64" fill="currentColor" aria-hidden="true"><rect x="12" y="12" width="20" height="20"/><rect x="32" y="12" width="20" height="20" fill-opacity=".62"/><rect x="12" y="32" width="20" height="20" fill-opacity=".38"/><rect x="32" y="32" width="20" height="20" fill-opacity=".16"/></svg> Luxel <span class="brand-sub">RUBRIC · UI SPEC</span></a><div class="header-right"><span id="audit-summary" class="audit"></span><button id="theme" aria-label="切换深浅模式"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"></svg></button></div></header>
+<header><a class="brand" href="/" aria-label="返回 Luxel 首页"><svg class="brand-mark" viewBox="0 0 64 64" fill="currentColor" aria-hidden="true"><rect x="12" y="12" width="20" height="20"/><rect x="32" y="12" width="20" height="20" fill-opacity=".62"/><rect x="12" y="32" width="20" height="20" fill-opacity=".38"/><rect x="32" y="32" width="20" height="20" fill-opacity=".16"/></svg> Luxel <span class="brand-sub">RUBRIC · UI SPEC</span></a><div class="header-right"><div id="audit-wrap" class="audit-wrap"><button id="audit-summary" class="audit" aria-expanded="false" aria-controls="audit-panel"></button><section id="audit-panel" class="audit-panel" aria-label="检查与建议详情" tabindex="0" hidden></section></div><button id="theme" aria-label="切换深浅模式"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"></svg></button><button id="copy" class="primary header-copy" title="复制当前浅深配色与字体规范"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="7" y="7" width="10" height="10" rx="2"/><path d="M12 4V3H3v9h1"/></svg>复制规范</button></div></header>
 
 <main>
 <h1 class="sr-only">Rubric — 为 agent 生成 UI 设计规范</h1>
 
 <div class="board">
 <section class="sheet" id="light-sheet"><header><h2>浅色</h2><span id="light-state" class="sheet-state"></span></header><div id="light-rows" class="rows"></div></section>
-<div class="linkbar"><button id="link" aria-pressed="true" aria-label="深色随浅色自动规划"><span aria-hidden="true">⇄</span></button><span id="link-label" class="link-label"></span></div>
 <section class="sheet" id="dark-sheet"><header><h2>深色</h2><span id="dark-state" class="sheet-state"></span></header><div id="dark-rows" class="rows"></div></section>
 </div>
 
-<section class="console">
-<div class="group"><h3>模式</h3>
+<section class="console" data-editing-theme="light">
+<div class="console-head"><div class="console-tools"><h2>配色</h2><div class="edit-theme-switch"><button type="button" data-edit-theme="light" aria-pressed="true">浅色</button><span class="theme-track"><input id="edit-theme" type="range" min="0" max="1" step="1" value="0" aria-label="当前编辑的配色方案" aria-valuetext="浅色"></span><button type="button" data-edit-theme="dark" aria-pressed="false">深色</button></div><div class="linkbar"><button id="link" aria-pressed="true" aria-label="深色随浅色自动规划"><span aria-hidden="true">⇄</span></button><span id="link-label" class="link-label"></span></div><span id="edit-status" class="sr-only">浅深联动</span></div><div class="console-actions"><button id="reset" class="ghost" title="恢复全部默认设置">重置</button></div></div>
+<div class="group palette-group"><div class="group-head"><h3>强调色 <span id="harmony-slot"></span></h3>
 <div class="segment" role="radiogroup" aria-label="配色模式">
 <button class="seg" data-mode="mono" role="radio" aria-checked="true">单色</button>
-<button class="seg" data-mode="duo" role="radio" aria-checked="false">双色</button>
 <button class="seg" data-mode="multi" role="radio" aria-checked="false">多色</button>
-</div>
-<label class="count-row" id="count-row" hidden for="count">强调色数量<input id="count" type="number" min="2" max="6" step="1" value="3"></label>
-</div>
-
-<div class="group grow"><h3>强调色 <span id="harmony-slot"></span></h3>
+</div></div>
+<div class="palette-options"><label class="count-row" id="count-row" hidden for="count"><span>数量</span><input id="count" type="number" min="2" max="6" step="1" value="3"></label>
+<label class="policy-row" for="accent-policy"><span class="sr-only">颜色处理</span><span class="select-row"><select id="accent-policy"><option value="auto">自动适配</option><option value="original">保留原色</option></select></span></label></div>
 <div id="accents" class="accents"></div>
-<div id="recommend" class="recommend" hidden><span class="rec-label">推荐</span><div id="rec-list" class="rec-list"></div></div>
+<p id="policy-note" class="sr-only"></p>
+<div id="recommend" class="recommend" hidden>
+<p id="rec-note" class="sr-only"></p>
+<div class="rec-group"><span class="rec-label" id="contrast-label" title="跨色相搭配；接近黑白灰时提供稳定的彩色点缀">对比色</span><div id="rec-list" class="rec-list" role="group" aria-labelledby="contrast-label"></div></div>
+<div class="rec-group"><span class="rec-label" id="tonal-label" title="同一色系的深浅变化">同色阶</span><div id="tonal-list" class="rec-list" role="group" aria-labelledby="tonal-label"></div></div>
+</div>
 </div>
 
-<div class="group"><h3>中性色</h3><div id="neutral-controls" class="stack"></div></div>
-
-<div class="group actions"><h3>导出</h3>
-<button id="copy" class="primary">⧉ &nbsp; 复制规范 <span>MD</span></button>
-<button id="reset" class="ghost">重置</button>
+<div class="group background-group"><h3>主体背景 <span id="background-warning"></span></h3>
+<div class="background-controls"><label class="background-picker" title="自定义主体背景色"><input id="background-color" type="color" aria-label="主体背景色"></label><input id="background-hex" type="text" aria-label="主体背景色 HEX" maxlength="7" spellcheck="false"><button id="background-reset" type="button">默认</button></div>
+<div class="background-recommend-head"><span id="background-source">随主色推荐</span><button id="background-link" type="button" aria-pressed="false">联动</button></div>
+<div id="background-recommend" class="rec-list" role="group" aria-label="推荐背景色"></div>
+<p id="background-alert" class="sr-only" role="status" hidden></p>
 </div>
+<div class="group neutral-group"><h3>中性色</h3><div id="neutral-controls" class="stack"></div></div>
+
 </section>
 
-<section class="type-card"><div class="type-head"><h2>字重与字号</h2><span class="sheet-state">每个样本自带它的两个滑块</span></div><div id="type-rows" class="type-strip"></div></section>
+<section class="type-card"><div class="type-head"><h2>字重与字号</h2><button id="type-link" aria-pressed="false">推荐联动 · 关</button></div>
+<div id="type-rows" class="type-strip"></div></section>
 </main>
 <div id="toast" role="status"></div>
-<script type="module" src="/src/rubric.js"></script>
+<dialog id="copy-fallback" aria-labelledby="copy-title"><h2 id="copy-title">手动复制规范</h2><p>浏览器未允许自动复制。下方已选中全文，可按 ⌘C / Ctrl+C 复制。</p><textarea id="copy-text" aria-label="完整设计规范" readonly></textarea><button id="close-copy">关闭</button></dialog>
+<dialog id="audit-detail" aria-labelledby="audit-title"><h2 id="audit-title">检查说明</h2><p id="audit-message"></p><button id="close-audit">关闭</button></dialog>
+<script type="module" src="/src/rubric.js?v=20260921-compact-14"></script>
 </body></html>
