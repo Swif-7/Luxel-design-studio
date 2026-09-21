@@ -26,12 +26,15 @@ body{height:100dvh;display:flex;overflow:hidden}
 .brand-mark{width:22px;height:22px;color:var(--text);display:block}
 
 /* 工具条：选中项把对应卡片推到堆叠最前，未选中的留在后方。 */
-.tool-list{display:flex;flex-direction:column;gap:6px}
-.tool-btn{padding:8px 0 7px;width:48px;display:flex;flex-direction:column;align-items:center;gap:5px;
-  background:transparent;border-color:transparent;border-radius:var(--r-pill);color:var(--text-3);
+.tool-list{display:flex;flex-direction:column;align-items:center;gap:6px;width:100%}
+/* 工具按钮是「胶囊一律给可点元素」这条规则的例外：它里面是图标＋英文名，
+   名字一长（RUBRIC）做成圆形就几乎贴到两侧。改成大圆角方形，宽度跟随左栏，
+   给名字留出左右余量。 */
+.tool-btn{padding:9px 0 8px;width:calc(100% - 12px);display:flex;flex-direction:column;align-items:center;gap:6px;
+  background:transparent;border-color:transparent;border-radius:var(--r-card);color:var(--text-3);
   transition:background .18s, color .18s, border-color .18s}
 .tool-btn svg{width:19px;height:19px}
-.tool-name{font:8.5px var(--mono);letter-spacing:.1em;text-transform:uppercase;line-height:1}
+.tool-name{font:8.5px var(--mono);letter-spacing:.06em;text-transform:uppercase;line-height:1}
 .tool-btn:hover{background:var(--surface-3);border-color:transparent;color:var(--text-2)}
 .tool-btn[aria-pressed=true]{background:var(--accent);border-color:var(--accent);color:var(--accent-fg)}
 #theme{flex:none;padding:0;width:34px;height:34px;display:grid;place-items:center;
@@ -130,7 +133,8 @@ body{height:100dvh;display:flex;overflow:hidden}
   .masthead{padding-top:18px}
 }
 @media(max-width:560px){
-  .rail{width:46px;padding:14px 0}
+  .rail{width:56px;padding:14px 0}
+  .tool-name{font-size:7.5px}
   .rail-text{display:none}
   .formula{display:none}
   .tools{padding-top:12px}
