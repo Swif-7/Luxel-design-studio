@@ -145,9 +145,13 @@ const readTick = () => {
     const n = parseInt(getComputedStyle(el).getPropertyValue(el.dataset.readout), 10);
     if (Number.isNaN(n)) continue;
     // data-unit="size"：读数单位是 KB，满 1024 换成 MB 带一位小数
+    // data-unit="tc"：读数是 30fps 下的帧数，写成 00:SS:FF 时间码
+    const p2 = (v) => String(v).padStart(2, '0');
     const value = el.dataset.unit === 'size'
       ? (n >= 1024 ? (n / 1024).toFixed(1) + ' MB' : n + ' KB')
-      : n;
+      : el.dataset.unit === 'tc'
+        ? `${p2(Math.floor(n / 1800))}:${p2(Math.floor(n / 30) % 60)}:${p2(n % 30)}`
+        : n;
     const text = (el.dataset.prefix || '') + value + (el.dataset.suffix || '');
     if (el.textContent !== text) el.textContent = text;
   }

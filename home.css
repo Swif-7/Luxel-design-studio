@@ -218,6 +218,48 @@ body{height:100dvh;display:flex;overflow:hidden}
 /* 不在最前时整张封面停下；减弱动态时也停，负 delay 让胶囊停在错开的位置上 */
 .tool-card[data-front=false] .thumb-recast,.tool-card[data-front=false] .thumb-recast *{animation-play-state:paused}
 @media(prefers-reduced-motion:reduce){.thumb-recast,.thumb-recast *{animation-play-state:paused}}
+/* Roll 封面：三条轨道上的玻璃片段（与 Recast 胶囊同一套材质，各自垫同色光晕），
+   白色播放头从左扫到右，右下角时间码跟着走。上下两轨缩小虚化、只有中间轨清晰 —— 景深。
+   底色同一套漂移网格渐变，色板换成暖调珊瑚 / 杏 / 青。
+   注意：封面本身是尺寸容器，它自己的 padding / gap 不能写 cqw（会退回视口单位）。 */
+@property --e1x{syntax:"<percentage>";inherits:false;initial-value:8%}
+@property --e1y{syntax:"<percentage>";inherits:false;initial-value:6%}
+@property --e2x{syntax:"<percentage>";inherits:false;initial-value:96%}
+@property --e2y{syntax:"<percentage>";inherits:false;initial-value:94%}
+@property --e3x{syntax:"<percentage>";inherits:false;initial-value:88%}
+@property --e3y{syntax:"<percentage>";inherits:false;initial-value:8%}
+@property --tf{syntax:"<integer>";inherits:true;initial-value:0}
+.thumb-roll{aspect-ratio:3/2;display:flex;flex-direction:column;justify-content:center;container-type:inline-size;
+  background:radial-gradient(110% 90% at var(--e1x) var(--e1y),#ffa8a8,transparent 60%),
+    radial-gradient(100% 90% at var(--e2x) var(--e2y),#63e6be,transparent 60%),
+    radial-gradient(80% 70% at var(--e3x) var(--e3y),#ffd8a8,transparent 62%),#fff0e6;
+  animation:rl-m1 20s ease-in-out infinite,rl-m2 26s ease-in-out infinite,rl-m3 32s ease-in-out infinite,rl-tc 6s linear infinite}
+@keyframes rl-m1{0%,100%{--e1x:8%;--e1y:6%}35%{--e1x:48%;--e1y:30%}70%{--e1x:6%;--e1y:82%}}
+@keyframes rl-m2{0%,100%{--e2x:96%;--e2y:94%}40%{--e2x:42%;--e2y:88%}75%{--e2x:92%;--e2y:36%}}
+@keyframes rl-m3{0%,100%{--e3x:88%;--e3y:8%}30%{--e3x:36%;--e3y:12%}65%{--e3x:14%;--e3y:88%}}
+/* 时间码：和播放头同一个 6s 周期，帧数 0 → 749（30fps 下约 25 秒），由 home.js 写成 00:SS:FF */
+@keyframes rl-tc{from{--tf:0}to{--tf:749}}
+.rl-glass{background:linear-gradient(180deg,#ffffff99,#ffffff29 55%,#ffffff47);
+  -webkit-backdrop-filter:blur(6px) saturate(1.8);backdrop-filter:blur(6px) saturate(1.8);
+  box-shadow:inset 0 1px 0 #ffffffeb,inset 0 -1px 0 #ffffff66,inset 0 0 0 1px #ffffff73,0 6px 14px -6px #4a1b1b33}
+.rl-tracks{position:relative;display:flex;flex-direction:column;gap:2.6cqw;padding:0 6cqw;margin-top:5cqw}   /* 给播放头顶上的小帽子留位置，上下留白才对称 */
+.rl-lane{position:relative;display:block;height:8cqw}
+.rl-lane.far{filter:blur(1.6px);opacity:.75;scale:.94}
+.rl-clip{position:absolute;top:0;bottom:0;display:flex;align-items:center;padding:0 2cqw;border-radius:2.4cqw}
+.rl-clip i{position:absolute;inset:-1cqw 1cqw;border-radius:2.4cqw;background:var(--c);filter:blur(6px);opacity:.8;z-index:-1}
+.rl-clip .rl-glass{position:absolute;inset:0;border-radius:2.4cqw}
+.rl-clip b{position:relative;font:600 3.2cqw/1 var(--mono);color:#2a161699;white-space:nowrap}
+.rl-head{position:absolute;top:-3cqw;bottom:-3cqw;left:0;width:2px;margin-left:-1px;background:#fff;box-shadow:0 0 8px #0004;
+  translate:8cqw 0;animation:rl-head 6s linear infinite}
+.rl-head::before{content:"";position:absolute;top:-2.4cqw;left:50%;width:5cqw;height:3.4cqw;margin-left:-2.5cqw;
+  border-radius:1.4cqw 1.4cqw 2.5cqw 2.5cqw;background:#fff;box-shadow:0 2px 6px #0004}
+@keyframes rl-head{from{translate:8cqw 0}to{translate:92cqw 0}}
+.rl-bar{display:flex;align-items:center;gap:2.5cqw;padding:0 6cqw;margin-top:5cqw}
+.rl-play{width:9cqw;height:9cqw;border-radius:50%;display:grid;place-items:center}
+.rl-play::before{content:"";margin-left:.6cqw;border-left:2.6cqw solid #2a1616;border-top:1.6cqw solid transparent;border-bottom:1.6cqw solid transparent}
+.rl-tc{margin-left:auto;font:600 max(8px,4.2cqw)/1 var(--mono);color:#2a1616;padding:1.8cqw 3.4cqw;border-radius:var(--r-pill);white-space:nowrap}
+.tool-card[data-front=false] .thumb-roll,.tool-card[data-front=false] .thumb-roll *{animation-play-state:paused}
+@media(prefers-reduced-motion:reduce){.thumb-roll,.thumb-roll *{animation-play-state:paused}}
 .thumb canvas{position:absolute;inset:0;width:100%;height:100%;display:block;
   opacity:0;transition:opacity .4s}
 .thumb.live canvas{opacity:1}
