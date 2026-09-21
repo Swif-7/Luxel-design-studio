@@ -154,8 +154,7 @@ body{height:100dvh;display:flex;overflow:hidden}
 .rb-type{display:flex;align-items:center;gap:6cqw;padding:0 9cqw;margin-top:7cqw}
 .rb-aa{font:400 16cqw/1 var(--sans);-webkit-text-stroke:calc(var(--w) * 1.6px) currentColor;paint-order:stroke fill;letter-spacing:.01em}
 .rb-ctl{flex:1;display:flex;flex-direction:column;gap:3cqw}
-.rb-num{font:max(8px,4.2cqw) var(--mono);color:#0d0d0d99;counter-reset:wn var(--wn)}
-.rb-num::before{content:"wght " counter(wn)}
+.rb-num{font:max(8px,4.2cqw) var(--mono);color:#0d0d0d99}
 .rb-rail{position:relative;height:3px;border-radius:var(--r-pill);background:#0d0d0d26}
 .rb-rail::before{content:"";position:absolute;inset:0 auto 0 0;width:calc(var(--w) * 100%);border-radius:inherit;background:#0d0d0d}
 .rb-rail::after{content:"";position:absolute;top:50%;left:calc(var(--w) * 100%);width:13px;height:13px;margin:-6.5px 0 0 -6.5px;
@@ -167,6 +166,58 @@ body{height:100dvh;display:flex;overflow:hidden}
 .tool-card[data-front=false] .thumb-rubric,.tool-card[data-front=false] .rb-track i{animation-play-state:paused}
 /* 减弱动态：色标用 paused 而不是 none —— 负 delay 仍然生效，停在各自错开的位置上 */
 @media(prefers-reduced-motion:reduce){.thumb-rubric{animation:none;--w:.6;--wn:540}.rb-track i{animation-play-state:paused}}
+/* Recast 封面：格式胶囊沿一条路线滚过，中间放大、清晰，两侧缩小、虚化（和 Rubric 同一套
+   景深语法）。胶囊是磨砂 / 液态玻璃：半透明白 + backdrop 模糊提饱和 + 顶部高光与内描边。
+   玻璃只有「后面有东西」才看得出来，所以胶囊后面垫一层慢速漂移的彩色光斑，
+   光斑比胶囊走得慢，两者错开，玻璃里透出的颜色一直在变。 */
+@property --c1x{syntax:"<percentage>";inherits:false;initial-value:10%}
+@property --c1y{syntax:"<percentage>";inherits:false;initial-value:5%}
+@property --c2x{syntax:"<percentage>";inherits:false;initial-value:95%}
+@property --c2y{syntax:"<percentage>";inherits:false;initial-value:95%}
+@property --c3x{syntax:"<percentage>";inherits:false;initial-value:85%}
+@property --c3y{syntax:"<percentage>";inherits:false;initial-value:5%}
+@property --q{syntax:"<integer>";inherits:true;initial-value:98}
+@property --kb{syntax:"<integer>";inherits:true;initial-value:34200}
+.thumb-recast{aspect-ratio:3/2;display:flex;flex-direction:column;justify-content:center;container-type:inline-size;
+  background:radial-gradient(110% 90% at var(--c1x) var(--c1y),#b197fc,transparent 60%),
+    radial-gradient(100% 90% at var(--c2x) var(--c2y),#96f2d7,transparent 60%),
+    radial-gradient(80% 70% at var(--c3x) var(--c3y),#a5d8ff,transparent 62%),#dde1ff;
+  animation:rc-m1 21s ease-in-out infinite,rc-m2 25s ease-in-out infinite,rc-m3 31s ease-in-out infinite}
+@keyframes rc-m1{0%,100%{--c1x:10%;--c1y:5%}35%{--c1x:50%;--c1y:30%}70%{--c1x:5%;--c1y:80%}}
+@keyframes rc-m2{0%,100%{--c2x:95%;--c2y:95%}40%{--c2x:45%;--c2y:90%}75%{--c2x:90%;--c2y:35%}}
+@keyframes rc-m3{0%,100%{--c3x:85%;--c3y:5%}30%{--c3x:35%;--c3y:10%}65%{--c3x:15%;--c3y:90%}}
+.rc-lane{position:relative;display:block;height:14cqw}
+/* 每枚胶囊和它的彩色光晕装在同一个 slot 里：位移、缩放、景深虚化都作用在 slot 上，
+   光晕永远正好垫在自己那块玻璃底下，不会错位。 */
+.rc-slot{position:absolute;left:0;top:50%;margin-top:-5cqw;display:block;
+  translate:100cqw 0;animation:rc-run 16s linear infinite,rc-dof 16s linear infinite;animation-delay:calc(var(--k) * -2s)}
+.rc-halo{position:absolute;inset:-1.2cqw 1.5cqw;border-radius:var(--r-pill);background:var(--c);filter:blur(7px);opacity:.85}
+.rc-pill{position:relative;height:10cqw;display:flex;align-items:center;gap:1.8cqw;padding:0 3.6cqw;
+  border-radius:var(--r-pill);color:#16162a99;font:600 4.3cqw/1 var(--mono);letter-spacing:.02em;
+  background:linear-gradient(180deg,#ffffff99,#ffffff29 55%,#ffffff47);
+  -webkit-backdrop-filter:blur(6px) saturate(1.9);backdrop-filter:blur(6px) saturate(1.9);
+  box-shadow:inset 0 1px 0 #ffffffeb,inset 0 -1px 0 #ffffff66,inset 0 0 0 1px #ffffff73,0 6px 14px -6px #1b1b4a40;}
+/* 液态玻璃的镜面高光：贴着上沿的一道亮带 */
+.rc-pill::before{content:"";position:absolute;left:14%;right:14%;top:1px;height:42%;border-radius:var(--r-pill);
+  background:linear-gradient(#ffffffc0,#fff0);pointer-events:none}
+.rc-pill s{width:2.6cqw;height:2.6cqw;border-radius:50%;background:var(--c);box-shadow:inset 0 .4cqw .5cqw #ffffff8c}
+.rc-pill b{position:relative;font-weight:600}
+@keyframes rc-run{from{translate:100cqw 0}to{translate:-100cqw 0}}
+@keyframes rc-dof{0%{scale:.7;filter:blur(3px)}15%{scale:.86;filter:blur(1.2px)}30%{scale:1.22;filter:blur(0)}45%{scale:.86;filter:blur(1.2px)}58%,100%{scale:.7;filter:blur(3px)}}
+.rc-row{display:flex;align-items:center;gap:5cqw;padding:0 8cqw;margin-top:8cqw;animation:rc-q 6s ease-in-out infinite}
+.rc-q{flex:1;display:flex;flex-direction:column;gap:2.6cqw}
+.rc-qn{font:max(8px,4cqw) var(--mono);color:#16162a99}
+.rc-rail{position:relative;height:3px;border-radius:var(--r-pill);background:#16162a26}
+.rc-rail::before{content:"";position:absolute;inset:0 auto 0 0;width:calc(var(--q) * 1%);border-radius:inherit;background:#16162a}
+.rc-rail::after{content:"";position:absolute;top:50%;left:calc(var(--q) * 1%);width:13px;height:13px;margin:-6.5px 0 0 -6.5px;
+  border-radius:50%;background:#fff;box-shadow:0 1px 4px #0004,0 0 0 1px #0d0d0d1a}
+.rc-kb{min-width:8.4em;text-align:center;padding:1.8cqw 3.4cqw;border-radius:var(--r-pill);font:600 max(8px,4.2cqw)/1 var(--mono);color:#16162a;
+  background:linear-gradient(180deg,#ffffffb3,#ffffff4d);-webkit-backdrop-filter:blur(6px) saturate(1.6);backdrop-filter:blur(6px) saturate(1.6);
+  box-shadow:inset 0 1px 0 #ffffffeb,inset 0 0 0 1px #ffffff73,0 4px 10px -4px #1b1b4a33}
+@keyframes rc-q{0%,10%{--q:98;--kb:34200}24%{--q:80;--kb:6800}45%,55%{--q:24;--kb:286}76%{--q:80;--kb:6800}90%,100%{--q:98;--kb:34200}}
+/* 不在最前时整张封面停下；减弱动态时也停，负 delay 让胶囊停在错开的位置上 */
+.tool-card[data-front=false] .thumb-recast,.tool-card[data-front=false] .thumb-recast *{animation-play-state:paused}
+@media(prefers-reduced-motion:reduce){.thumb-recast,.thumb-recast *{animation-play-state:paused}}
 .thumb canvas{position:absolute;inset:0;width:100%;height:100%;display:block;
   opacity:0;transition:opacity .4s}
 .thumb.live canvas{opacity:1}

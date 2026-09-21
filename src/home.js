@@ -133,4 +133,27 @@ if (thumb && canvas) {
   }
 }
 
+/* ── 封面读数 ────────────────────────────────────────────────────────
+   Rubric 的 wght、Recast 的 quality / KB 由 CSS 动画驱动一个注册过的整数属性。
+   原先用 counter(var(--x)) 直接显示，但 Safari 等浏览器不认，会一直读 0 ——
+   改由这里每帧读出插值后的值写成文字。只更新最前那张卡，文字没变就不碰 DOM。 */
+const readouts = [...document.querySelectorAll('[data-readout]')];
+let readAll = true;           // 第一帧全部填上，后排卡片也不会是空的
+const readTick = () => {
+  for (const el of readouts) {
+    if (!readAll && el.closest('.tool-card').dataset.front !== 'true') continue;
+    const n = parseInt(getComputedStyle(el).getPropertyValue(el.dataset.readout), 10);
+    if (Number.isNaN(n)) continue;
+    // data-unit="size"：读数单位是 KB，满 1024 换成 MB 带一位小数
+    const value = el.dataset.unit === 'size'
+      ? (n >= 1024 ? (n / 1024).toFixed(1) + ' MB' : n + ' KB')
+      : n;
+    const text = (el.dataset.prefix || '') + value + (el.dataset.suffix || '');
+    if (el.textContent !== text) el.textContent = text;
+  }
+  readAll = false;
+  requestAnimationFrame(readTick);
+};
+if (readouts.length) requestAnimationFrame(readTick);
+
 select(0);
