@@ -69,8 +69,16 @@ window.addEventListener('resize',()=>{if(exportMenu.matches(':popover-open'))pos
 exportMenu.addEventListener('keydown',e=>{const items=[...exportMenu.querySelectorAll('button')];let i=items.indexOf(document.activeElement);if(['ArrowDown','ArrowUp','Home','End'].includes(e.key)){e.preventDefault();i=e.key==='Home'?0:e.key==='End'?items.length-1:(i+(e.key==='ArrowDown'?1:-1)+items.length)%items.length;items[i].focus();}});
 function closeExportMenu(){exportMenu.hidePopover();exportTrigger.focus();}
 exportMenu.addEventListener('click',e=>{if(e.target.closest('button'))closeExportMenu();});
-// 复制样式：把当前参数以 JSON 放进剪贴板，Relief 的「导入样式」直接读取并用 validate 校验
-$('copy-style').onclick=async()=>{try{await navigator.clipboard.writeText(JSON.stringify(state));toast('样式已复制，可在 Relief 的背景里导入');}catch{toast('复制失败：浏览器不允许写入剪贴板');}};
+// 复制到 Relief：把点击这一刻的画面按「保存图片」同样的分辨率（画质档位 × 当前比例）渲染成 PNG 放进剪贴板，
+// Relief 的「导入样式」直接读这张图当背景 —— 所见即所得，Relief 也不必再跑一遍着色器。
+// ClipboardItem 里直接放 Promise：Safari 要求 write 在点击的同一拍里调用，不能先 await 渲染。
+$('copy-style').onclick=async()=>{
+ if(exporting||!renderer||lost){toast('画面尚未就绪或正在导出');return;}
+ if(!navigator.clipboard?.write||typeof ClipboardItem==='undefined'){toast('当前浏览器不支持复制图片，请用「保存图片」后在 Relief 里选择这张图');return;}
+ const snapshot={...state,colors:[...state.colors],seedValue:hashSeed(state.seed)%10000},time=elapsed,size=mediaSize();
+ try{await navigator.clipboard.write([new ClipboardItem({'image/png':exportPng(snapshot,time,size)})]);toast(`当前画面已复制 · ${size.width} × ${size.height}，到 Relief 背景里点「导入样式」`);}
+ catch(error){toast(error.name==='NotAllowedError'?'浏览器没有给剪贴板权限，请用「保存图片」':'复制失败：'+error.message);}
+};
 $('export-html').onclick=async()=>{
  if(!renderer||lost){toast('画面尚未就绪');return;}
  const snapshot={...state,colors:[...state.colors],seedValue:hashSeed(state.seed)%10000},time=elapsed,stopped=paused;
@@ -79,7 +87,7 @@ $('export-html').onclick=async()=>{
  catch(error){toast('导出失败：'+error.message);}finally{exportTrigger.disabled=false;}
 };
 function mediaSize(){const rect=$('canvas').getBoundingClientRect();return exportSize(state.quality,rect.width,rect.height);}
-function updateExportSizes(){const {width,height}=mediaSize();$('png-size').textContent=`${width} × ${height} · 当前画面`;$('video-size').textContent=`${width} × ${height} · 10 秒 · 30 帧 / 秒`;}
+function updateExportSizes(){const {width,height}=mediaSize();$('png-size').textContent=`${width} × ${height} · 当前画面`;$('copy-size').textContent=`${width} × ${height} · 粘贴到 Relief 当背景`;$('video-size').textContent=`${width} × ${height} · 10 秒 · 30 帧 / 秒`;}
 $('cancel-export').onclick=()=>exportAbort?.abort();
 async function saveMedia(video){
  if(exporting||!renderer||lost){toast('画面尚未就绪或正在导出');return;}

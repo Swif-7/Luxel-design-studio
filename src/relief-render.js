@@ -32,8 +32,8 @@ function remember(key, make) {
 }
 export const clearCache = () => cache.clear();
 
-function drawCover(ctx, img, W, H, align = 'center') {
-  const iw = img.width, ih = img.height, k = Math.max(W / iw, H / ih);
+function drawCover(ctx, img, W, H, align = 'center', zoom = 1) {
+  const iw = img.width, ih = img.height, k = Math.max(W / iw, H / ih) * Math.max(1, zoom);
   const w = iw * k, h = ih * k;
   ctx.drawImage(img, (W - w) / 2, align === 'top' ? 0 : (H - h) / 2, w, h);
 }
@@ -42,7 +42,7 @@ function rawBackground(bg, W, H) {
   return remember(`raw|${bg.key}|${W}x${H}`, () => {
     const c = canvas(W, H), ctx = c.getContext('2d');
     if (bg.src === 'solid') { ctx.fillStyle = bg.solid; ctx.fillRect(0, 0, W, H); return c; }
-    if (bg.src === 'image' && bg.image) { drawCover(ctx, bg.image, W, H); return c; }
+    if (bg.src === 'image' && bg.image) { drawCover(ctx, bg.image, W, H, 'center', bg.zoom); return c; }
     const r = rheoRenderer();
     if (r) {
       r.draw({ ...bg.rheo, particles: false }, 6, c.width, c.height);

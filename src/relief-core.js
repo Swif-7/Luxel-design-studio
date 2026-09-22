@@ -174,12 +174,13 @@ export function trimBounds(data, W, H, tolerance = 4) {
   return { x: left, y: top, w: right - left + 1, h: bottom - top + 1 };
 }
 
-/* ── Rheo 样式 ─────────────────────────────────────────────────────────
-   Rheo 页「复制样式」复制的是参数 JSON；也接受导出的 .json 文件内容。
+/* ── Rheo 样式（旧版兼容）──────────────────────────────────────────────
+   现在 Rheo 的「复制到 Relief」复制的是画面 PNG；早先复制的是参数 JSON，
+   剪贴板里要是这种文字（或导出的 .json 内容），仍按参数重新生成。
    交给 Rheo 自己的 validate 校验，范围不对会抛出带原因的错误。 */
 export function parseRheoStyle(text) {
   let value;
-  try { value = JSON.parse(String(text).trim()); } catch { throw Error('不是 Rheo 的样式：请在 Rheo 页点「复制样式」后再导入'); }
+  try { value = JSON.parse(String(text).trim()); } catch { throw Error('不是 Rheo 的样式：请在 Rheo 页导出菜单点「复制到 Relief」后再导入'); }
   return validate(value);
 }
 

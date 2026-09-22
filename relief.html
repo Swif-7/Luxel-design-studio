@@ -9,7 +9,7 @@
 <h1 class="sr-only">Relief — 截图美化与样机</h1>
 <section id="stage" class="stage">
   <label id="drop" class="drop">
-    <input id="pick" type="file" accept="image/*,.heic,.heif">
+    <input id="pick" type="file" accept="image/*,.heic,.heif" title="选择截图">
     <span class="glyph" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="4.5" width="17" height="15" rx="3.5"/><rect x="7.5" y="8.5" width="9" height="7" rx="1.5"/></svg></span>
     <b>粘贴截图（⌘V），或拖入 / 点击选择</b>
     <small>接下来依次：裁切 → 背景 → 构图 → 文字 → 导出<br>全部在本地处理，不会上传</small>
@@ -31,11 +31,11 @@
 
 <dialog id="import-dialog" class="import-dialog">
   <form method="dialog">
-    <h2>导入 Rheo 样式</h2>
-    <p>在 <a href="/rheo.html" target="_blank" rel="noopener">Rheo</a> 页右上角「导出」菜单里点「复制样式」，再粘贴到这里。</p>
-    <textarea id="import-text" rows="5" spellcheck="false" placeholder='{"version":3, …}'></textarea>
+    <h2>导入 Rheo 画面</h2>
+    <p>在 <a href="/rheo.html" target="_blank" rel="noopener">Rheo</a> 页右上角「导出」菜单里点「复制到 Relief」，回到这里按 <kbd>⌘V</kbd> 粘贴。</p>
+    <label id="import-paste" class="import-paste" tabindex="0">按 ⌘V 粘贴，或点击选择 Rheo 保存的 PNG<input id="import-file" type="file" accept="image/*" title="选择 Rheo 保存的图片"></label>
     <p id="import-error" class="import-error" role="alert"></p>
-    <div class="import-actions"><button value="cancel" class="ghost">取消</button><button id="import-ok" value="ok" class="primary">导入</button></div>
+    <div class="import-actions"><button value="cancel" class="ghost">取消</button></div>
   </form>
 </dialog>
 <div id="veil" class="veil" hidden><span>松开即可放入</span></div>

@@ -119,7 +119,7 @@ test('trimBounds leaves a uniform image alone', () => {
 test('parseRheoStyle accepts a copied Rheo state and rejects anything else', () => {
   const s = parseRheoStyle(JSON.stringify({ ...defaults, mode: 2, seed: 'from-rheo' }));
   assert.equal(s.mode, 2); assert.equal(s.seed, 'from-rheo');
-  assert.throws(() => parseRheoStyle('hello'), /复制样式/);
+  assert.throws(() => parseRheoStyle('hello'), /复制到 Relief/);
   assert.throws(() => parseRheoStyle(JSON.stringify({ ...defaults, glow: 99 })), /参数超出范围/);
 });
 

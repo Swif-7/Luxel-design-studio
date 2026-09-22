@@ -36,6 +36,7 @@ const SETTINGS_KEY = 'relief-settings';
 const DEFAULTS = {
   cropRatio: 'free', radius: 14,
   src: 'rheo', rheo: { ...defaults, particles: false }, solid: '#f1f3f5', blur: 0,
+  rheoSize: 100, imageSize: 100, frameSize: 100,   // 背景大小：生成的 Rheo 50–200%；导入的图片 / Rheo 画面 100–300%（只能放大，否则四周露空）
   frame: 'browser', shadow: 55, ratio: '4:3', scale: 74,
   tpl: 0, title: '让截图自己会说话', sub: '本地处理 · 一键复制 · 8 种排版', ink: 'auto',
   fmt: 'png', x: 2,
@@ -47,13 +48,14 @@ try {
   if (s.src === 'image') s.src = 'rheo';               // 导入的背景图不会保存
 } catch {}
 const saveSettings = () => {
-  const { cropRatio, radius, src, rheo, solid, blur, frame, shadow, ratio, scale, tpl, title, sub, ink, fmt, x } = s;
-  try { localStorage.setItem(SETTINGS_KEY, JSON.stringify({ cropRatio, radius, src, rheo, solid, blur, frame, shadow, ratio, scale, tpl, title, sub, ink, fmt, x })); } catch {}
+  const { cropRatio, radius, src, rheo, solid, blur, rheoSize, imageSize, frameSize, frame, shadow, ratio, scale, tpl, title, sub, ink, fmt, x } = s;
+  try { localStorage.setItem(SETTINGS_KEY, JSON.stringify({ cropRatio, radius, src, rheo, solid, blur, rheoSize, imageSize, frameSize, frame, shadow, ratio, scale, tpl, title, sub, ink, fmt, x })); } catch {}
 };
 
 let source = null;          // { img, width, height, url }
 let crop = null;            // { x, y, w, h }，原图像素
 let bgImage = null, bgImageId = 0;
+let rheoFrame = null;      // 从 Rheo 页「复制到 Relief」导入的那一帧；有它时 Rheo 背景直接用这张图，不再重新渲染
 let step = 0;
 
 const CROP_RATIOS = { free: null, orig: 'orig', '1:1': 1, '4:3': 4 / 3, '16:9': 16 / 9 };
@@ -96,12 +98,21 @@ function shot() {
   return c;
 }
 
-const scene = () => ({
-  bg: { key: s.src === 'solid' ? 'solid:' + s.solid : s.src === 'image' && bgImage ? 'image:' + bgImageId : 'rheo:' + JSON.stringify(s.rheo),
-        src: s.src === 'image' && !bgImage ? 'rheo' : s.src, solid: s.solid, image: bgImage, rheo: s.rheo, blur: s.blur },
-  frame: s.frame, radius: s.radius, shadow: s.shadow, scale: s.scale, tpl: step >= 3 ? s.tpl : 0,
-  title: s.title, sub: s.sub, ink: s.ink,
-});
+/* 背景大小：Rheo 直接乘它自己的 scale（着色器里坐标除以 scale，越大图案越大，按原生分辨率重画不会糊）；
+   导入图片在「铺满」的基础上再放大。 */
+const scene = () => {
+  const rheo = { ...s.rheo, scale: clamp(s.rheo.scale * s.rheoSize / 100, 0.25, 3) };
+  let bg;
+  if (s.src === 'solid') bg = { key: 'solid:' + s.solid, src: 'solid', solid: s.solid };
+  else if (s.src === 'image' && bgImage) bg = { key: `image:${bgImageId}:${s.imageSize}`, src: 'image', image: bgImage, zoom: s.imageSize / 100 };
+  else if (s.src === 'rheo' && rheoFrame) bg = { key: `frame:${bgImageId}:${s.frameSize}`, src: 'image', image: rheoFrame, zoom: s.frameSize / 100 };
+  else bg = { key: 'rheo:' + JSON.stringify(rheo), src: 'rheo', rheo };
+  return {
+    bg: { ...bg, blur: s.blur },
+    frame: s.frame, radius: s.radius, shadow: s.shadow, scale: s.scale, tpl: step >= 3 ? s.tpl : 0,
+    title: s.title, sub: s.sub, ink: s.ink,
+  };
+};
 const aspectNow = () => canvasAspect(s.ratio, frameAspect(s.frame, crop.w / crop.h));
 
 /* ── 视图 ───────────────────────────────────────────────────────── */
@@ -138,9 +149,13 @@ function controls() {
       ctl('&nbsp;', '<div class="row"><button type="button" class="pill" data-act="trim">自动去白边</button><button type="button" class="pill ghost" data-act="resetCrop">还原</button></div>')];
     case 1: return [
       ctl('来源', seg('src', [['rheo', 'Rheo'], ['solid', '纯色'], ['image', '导入图片']], s.src)),
-      s.src === 'rheo' ? ctl('Rheo', '<div class="row"><button type="button" class="pill" data-act="rndColor">随机颜色</button><button type="button" class="pill" data-act="rndStyle">随机样式</button><button type="button" class="pill" data-act="importStyle">导入样式</button></div>')
+      s.src === 'rheo' && rheoFrame ? ctl('Rheo', `<div class="row"><span class="chip">已导入画面 · ${rheoFrame.naturalWidth} × ${rheoFrame.naturalHeight}</span><button type="button" class="pill" data-act="importStyle">重新导入</button><button type="button" class="pill ghost" data-act="clearFrame">改回随机生成</button></div>`)
+      : s.src === 'rheo' ? ctl('Rheo', '<div class="row"><button type="button" class="pill" data-act="rndColor">随机颜色</button><button type="button" class="pill" data-act="rndStyle">随机样式</button><button type="button" class="pill" data-act="importStyle">导入样式</button></div>')
         : s.src === 'solid' ? ctl('颜色', `<div class="swatches">${SOLIDS.map(c => `<button type="button" data-act="solid" data-v="${c}" style="background:${c}" aria-label="${c}" aria-pressed="${c === s.solid}"></button>`).join('')}<label title="自定义颜色"><input type="color" data-act="solidPick" value="${s.solid}" aria-label="自定义颜色"></label></div>`)
           : ctl('图片', `<label class="pill" style="cursor:pointer;border:1px solid var(--border-control);border-radius:999px;background:var(--surface-2)">${bgImage ? '换一张图…' : '选择图片…'}<input type="file" accept="image/*" data-act="bgFile" hidden></label>`),
+      s.src === 'rheo' && rheoFrame ? range('frameSize', '背景大小', s.frameSize, 100, 300, '%')
+        : s.src === 'rheo' ? range('rheoSize', '背景大小', s.rheoSize, 50, 200, '%')
+        : s.src === 'image' ? range('imageSize', '背景大小', s.imageSize, 100, 300, '%') : '',
       range('blur', '模糊', s.blur, 0, 100)];
     case 2: return [
       ctl('外框', seg('frame', [['none', '无'], ['browser', '浏览器'], ['phone', '手机']], s.frame)),
@@ -179,8 +194,9 @@ $('dock').addEventListener('click', async (e) => {
     case 'cropRatio': s.cropRatio = v; crop = fitRatioBox(source.width, source.height, cropRatioValue()); break;
     case 'resetCrop': s.cropRatio = 'free'; crop = fitRatioBox(source.width, source.height, null); break;
     case 'trim': trim(); break;
-    case 'rndColor': s.rheo = randomizePalette(randomSeed(), s.rheo).state; break;
-    case 'rndStyle': s.rheo = { ...generate(randomSeed(), { ...s.rheo, lockColors: true, lockMode: false }), lockColors: s.rheo.lockColors, lockMode: s.rheo.lockMode, particles: false }; break;
+    case 'clearFrame': rheoFrame = null; break;
+    case 'rndColor': rheoFrame = null; s.rheo = randomizePalette(randomSeed(), s.rheo).state; break;
+    case 'rndStyle': rheoFrame = null; s.rheo = { ...generate(randomSeed(), { ...s.rheo, lockColors: true, lockMode: false }), lockColors: s.rheo.lockColors, lockMode: s.rheo.lockMode, particles: false }; break;
     case 'importStyle': return importStyle();
     case 'solid': s.solid = v; break;
     case 'tpl': s.tpl = +v; break;
@@ -199,7 +215,7 @@ $('dock').addEventListener('input', (e) => {
   if (el.type === 'range') {
     s[act] = +el.value;
     const out = $('dock').querySelector(`[data-out="${act}"]`);
-    if (out) out.textContent = el.value + (act === 'scale' ? '%' : '');
+    if (out) out.textContent = el.value + (['scale', 'rheoSize', 'imageSize', 'frameSize'].includes(act) ? '%' : '');
     saveSettings();
     if (step === 0) layoutCrop(); else schedulePreview();   // 拖滑块不重建面板，否则拖不动
     return;
@@ -303,23 +319,42 @@ function paintTemplates() {
   });
 }
 
-/* ── 导入 Rheo 样式：先试剪贴板，读不到就开粘贴框 ──────────────── */
+/* ── 导入 Rheo 画面 ─────────────────────────────────────────────────
+   Rheo 页「复制到 Relief」放进剪贴板的是当前那一帧 PNG（分辨率同 Rheo 的「保存图片」）。
+   这里先直接读剪贴板；浏览器不给读（Firefox、未授权）就开弹窗，按 ⌘V 粘贴或选文件。
+   剪贴板里要是旧版复制的参数 JSON，也照样认，按参数重新生成。 */
+async function useFrame(blob) {
+  const img = await loadImage(URL.createObjectURL(blob));
+  if (rheoFrame) URL.revokeObjectURL(rheoFrame.src);
+  rheoFrame = img; bgImageId++; s.src = 'rheo';
+  saveSettings(); render();
+  toast(`已导入 Rheo 画面 · ${img.naturalWidth} × ${img.naturalHeight}`);
+}
+function useStyleText(text) {
+  s.rheo = { ...parseRheoStyle(text), particles: false };
+  rheoFrame = null; s.src = 'rheo'; saveSettings(); render(); toast('已导入 Rheo 样式');
+}
 async function importStyle() {
   try {
-    const text = await navigator.clipboard.readText();
-    s.rheo = { ...parseRheoStyle(text), particles: false };
-    s.src = 'rheo'; saveSettings(); render(); toast('已导入 Rheo 样式');
-    return;
+    for (const item of await navigator.clipboard.read()) {
+      const type = item.types.find(t => t.startsWith('image/'));
+      if (type) return await useFrame(await item.getType(type));
+      if (item.types.includes('text/plain')) {
+        try { return useStyleText(await (await item.getType('text/plain')).text()); } catch {}
+      }
+    }
   } catch {}
-  $('import-text').value = ''; $('import-error').textContent = '';
+  $('import-error').textContent = '';
   $('import-dialog').showModal();
+  $('import-paste').focus();
 }
-$('import-ok').onclick = (e) => {
-  try {
-    s.rheo = { ...parseRheoStyle($('import-text').value), particles: false };
-    s.src = 'rheo'; saveSettings(); render(); toast('已导入 Rheo 样式');
-  } catch (err) { e.preventDefault(); $('import-error').textContent = err.message; }
-};
+async function takeImportFile(file) {
+  if (!isImage(file)) { $('import-error').textContent = '剪贴板里没有图片：请先在 Rheo 页点「复制到 Relief」'; return; }
+  try { await useFrame(file); $('import-dialog').close(); }
+  catch { $('import-error').textContent = '这张图读不出来'; }
+}
+$('import-file').onchange = (e) => { if (e.target.files[0]) takeImportFile(e.target.files[0]); e.target.value = ''; };
+const importOpen = () => $('import-dialog').open;
 
 /* ── 导出 ───────────────────────────────────────────────────────── */
 function exportBlob(type) {
@@ -369,6 +404,14 @@ addEventListener('drop', (e) => {
   if (f) loadFile(f); else toast('这不是图片');
 });
 addEventListener('paste', (e) => {
+  if (importOpen()) {                                         // 导入弹窗开着：粘贴的是 Rheo 画面（或旧版参数），不是截图
+    e.preventDefault();
+    const f = [...(e.clipboardData?.files || [])].find(isImage);
+    if (f) { takeImportFile(f); return; }
+    const text = e.clipboardData?.getData('text/plain');
+    try { useStyleText(text); $('import-dialog').close(); } catch { $('import-error').textContent = '剪贴板里没有图片：请先在 Rheo 页点「复制到 Relief」'; }
+    return;
+  }
   if (e.target.closest?.('input,textarea')) return;          // 在输入框里粘贴文字不拦
   const f = [...(e.clipboardData?.files || [])].find(isImage);
   if (f) { e.preventDefault(); loadFile(f); }
