@@ -301,4 +301,10 @@ export function renderScene(ctx, W, H, s, shot) {
   return { regions, ink };
 }
 
+/* Rise 复用同一套背景（Rheo / 纯色 / 导入图片 + 模糊 + 大小）：给出画好的背景层和它亮不亮 */
+export function backgroundLayer(bg, W, H) {
+  const layer = blurred(bg, W, H);
+  return { canvas: layer, light: remember(`ink|${bg.key}|${bg.blur}|${W}x${H}`, () => averageLight(layer)) };
+}
+
 export { canvas as makeCanvas, roundRect };

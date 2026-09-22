@@ -5,6 +5,7 @@
 - `/` — 首页，工具索引
 - `/rheo.html` — **Rheo**，实时流动着色器工作台
 - `/rubric.html` — **Rubric**，用滑块与取色整理配色和字重，一键复制成可交给 agent 的 UI 规范
+- `/rise.html` — **Rise**，粘贴数据做成会动的图表：18 种图表、10 套风格，导出 PNG / JPG / PNG 序列（可带透明）/ 视频 / HTML
 
 字体为 IBM Plex（OFL），自托管于 `fonts/`，不走 CDN。Plex Sans 不含汉字，中文回落到系统字体。
 
@@ -58,6 +59,10 @@ npm start
 - `src/home.js`：首页主题切换，以及工具卡上复用 `Renderer` 跑的实时缩略图（交汇融流）。
 - `src/spec.js`：Rubric 的纯逻辑 —— 由参数生成两套主题、算对比度、导出 Markdown，不碰 DOM。
 - `src/rubric.js`：Rubric 的控件、渲染与剪贴板。
+- `src/rise-data.js`：Rise 的数据解析 —— 一行一组、最多 7 组，自动分辨千分位逗号与分隔符。
+- `src/rise-core.js`：Rise 的图表类型、风格预设、排版、刻度、数字格式与动画时间，不 import 任何东西。
+- `src/rise-draw.js`：Rise 的图表绘制（只依赖 rise-core）；导出 HTML 时这两个文件原样内联。
+- `src/rise-render.js` / `src/rise.js`：Rise 的合成（背景复用 Relief）与页面控件、播放、导出。
 - `server.mjs`：Node 内置模块实现的本地服务器。
 
 ## 验证

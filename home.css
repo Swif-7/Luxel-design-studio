@@ -296,6 +296,39 @@ body{height:100dvh;display:flex;overflow:hidden}
 @keyframes rf-chrome{0%,20%{height:0}46%,84%{height:5.2cqw}96%,100%{height:0}}
 .tool-card[data-front=false] .thumb-relief,.tool-card[data-front=false] .thumb-relief *{animation-play-state:paused}
 @media(prefers-reduced-motion:reduce){.thumb-relief,.thumb-relief *{animation-play-state:paused}}
+/* Rise 封面：七根玻璃柱从底线依次长高，每根下面垫一团同色光晕（和 Recast 胶囊同一种玻璃），
+   右上角读数跟着从 +0 % 数到 +382 %。只留柱子和读数，不再叠折线，保持干净。
+   底色同一套漂移网格渐变，色板换成青柠 / 靛蓝 / 青。封面本身是尺寸容器：它自己的 padding / gap 不写 cqw。 */
+@property --s1x{syntax:"<percentage>";inherits:false;initial-value:10%}
+@property --s1y{syntax:"<percentage>";inherits:false;initial-value:6%}
+@property --s2x{syntax:"<percentage>";inherits:false;initial-value:94%}
+@property --s2y{syntax:"<percentage>";inherits:false;initial-value:94%}
+@property --s3x{syntax:"<percentage>";inherits:false;initial-value:86%}
+@property --s3y{syntax:"<percentage>";inherits:false;initial-value:8%}
+@property --gr{syntax:"<integer>";inherits:true;initial-value:0}
+.thumb-rise{aspect-ratio:3/2;container-type:inline-size;
+  background:radial-gradient(110% 90% at var(--s1x) var(--s1y),#c0eb75,transparent 60%),
+    radial-gradient(100% 90% at var(--s2x) var(--s2y),#91a7ff,transparent 60%),
+    radial-gradient(80% 70% at var(--s3x) var(--s3y),#66d9e8,transparent 62%),#f1f6ff;
+  animation:rs-m1 21s ease-in-out infinite,rs-m2 25s ease-in-out infinite,rs-m3 31s ease-in-out infinite,rs-count 6s ease-out infinite}
+@keyframes rs-m1{0%,100%{--s1x:10%;--s1y:6%}35%{--s1x:50%;--s1y:28%}70%{--s1x:6%;--s1y:80%}}
+@keyframes rs-m2{0%,100%{--s2x:94%;--s2y:94%}40%{--s2x:44%;--s2y:88%}75%{--s2x:90%;--s2y:36%}}
+@keyframes rs-m3{0%,100%{--s3x:86%;--s3y:8%}30%{--s3x:34%;--s3y:12%}65%{--s3x:14%;--s3y:88%}}
+@keyframes rs-count{0%,8%{--gr:0}55%,88%{--gr:382}100%{--gr:0}}
+.rs-axis{position:absolute;left:9%;right:9%;bottom:18%;height:1px;background:#161b3326}
+.rs-plot{position:absolute;left:9%;right:9%;top:16%;bottom:20%;display:flex;align-items:flex-end;gap:2.6cqw}
+.rs-bar{position:relative;flex:1;height:var(--h);transform-origin:bottom;
+  animation:rs-grow 6s cubic-bezier(.2,.9,.25,1) infinite;animation-delay:calc(var(--i) * .08s)}
+.rs-bar i{position:absolute;inset:8% -8% 0;border-radius:2cqw 2cqw 1cqw 1cqw;background:var(--c);filter:blur(5px);opacity:.75}
+.rs-bar b,.rs-read{background:linear-gradient(180deg,#ffffff99,#ffffff29 55%,#ffffff47);
+  -webkit-backdrop-filter:blur(6px) saturate(1.8);backdrop-filter:blur(6px) saturate(1.8);
+  box-shadow:inset 0 1px 0 #ffffffeb,inset 0 -1px 0 #ffffff66,inset 0 0 0 1px #ffffff73,0 6px 14px -6px #1b224a33}
+.rs-bar b{position:absolute;inset:0;border-radius:2cqw 2cqw 1cqw 1cqw}
+@keyframes rs-grow{0%,6%{transform:scaleY(.04)}40%,88%{transform:scaleY(1)}100%{transform:scaleY(.04)}}
+.rs-read{position:absolute;right:6%;top:6%;font:600 max(8px,4cqw)/1 var(--mono);color:#161b33;
+  padding:1.8cqw 3.2cqw;border-radius:var(--r-pill);white-space:nowrap}
+.tool-card[data-front=false] .thumb-rise,.tool-card[data-front=false] .thumb-rise *{animation-play-state:paused}
+@media(prefers-reduced-motion:reduce){.thumb-rise{animation:none;--gr:382}.rs-bar{animation:none}}
 .thumb canvas{position:absolute;inset:0;width:100%;height:100%;display:block;
   opacity:0;transition:opacity .4s}
 .thumb.live canvas{opacity:1}

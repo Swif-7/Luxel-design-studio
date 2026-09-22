@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Rise — Luxel</title><meta name="description" content="粘贴数据，一键做成会动的图表：18 种图表、10 套风格，导出 PNG、PNG 序列（带透明）、视频或 HTML，全程本地处理。"><meta name="theme-color" content="#ffffff"><link rel="icon" href="/favicon.svg?v=3"><link rel="stylesheet" href="/tokens.css"><link rel="stylesheet" href="/rise.css"><script>try{var t=localStorage.getItem("rheo-theme");if(t)document.documentElement.dataset.theme=t}catch(e){}</script></head>
+<body>
+<header><a class="brand" href="/" aria-label="返回 Luxel 首页"><svg class="brand-mark" viewBox="0 0 64 64" fill="currentColor" aria-hidden="true"><rect x="12" y="12" width="20" height="20"/><rect x="32" y="12" width="20" height="20" fill-opacity=".62"/><rect x="12" y="32" width="20" height="20" fill-opacity=".38"/><rect x="32" y="32" width="20" height="20" fill-opacity=".16"/></svg> Luxel <span class="brand-sub">RISE · CHARTS</span></a>
+<nav id="steps" class="steps" aria-label="步骤"></nav>
+<div class="header-right"><button id="theme" aria-label="切换深浅模式"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"></svg></button></div></header>
+
+<main>
+<h1 class="sr-only">Rise — 动态图表</h1>
+<section id="stage" class="stage">
+  <div id="editor" class="editor">
+    <div class="ed-head"><b>数据</b><span id="ed-count" class="count"></span><button type="button" class="ghost" id="sample">示例</button><button type="button" class="ghost" id="clear">清空</button></div>
+    <textarea id="data" spellcheck="false" aria-label="图表数据" placeholder="一行一组，最多 7 组。例如：&#10;月份 一月 二月 三月&#10;新用户：1,280 1,960 1,720&#10;回访：860 1,120 1,340"></textarea>
+    <p class="ed-tip">空格、逗号、顿号、分号、Tab 都能分隔；2,000 这类千分位和小数会自动认出来。第一行全是文字时当作表头；也可以拖入 CSV。</p>
+    <div id="parsed" class="parsed" aria-live="polite"></div>
+  </div>
+  <div class="view">
+    <div id="canvas-wrap" class="canvas-wrap">
+      <canvas id="preview" class="preview"></canvas>
+      <div id="text-layer" class="text-layer" hidden><div id="text-hits"></div><textarea id="text-editor" class="text-editor" rows="1" spellcheck="false" hidden></textarea></div>
+    </div>
+    <div class="playbar"><button type="button" id="play" class="play" aria-label="暂停"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"></svg></button><input id="scrub" type="range" min="0" max="1000" value="0" aria-label="播放进度"><output id="clock">0.0 / 0.0 s</output><div id="tabs" class="tabs" role="group" aria-label="预览哪一组"></div></div>
+  </div>
+</section>
+
+<div id="dock" class="dock" role="group" aria-label="当前步骤的设置"></div>
+</main>
+
+<dialog id="import-dialog" class="import-dialog">
+  <form method="dialog">
+    <h2>导入 Rheo 画面</h2>
+    <p>在 <a href="/rheo.html" target="_blank" rel="noopener">Rheo</a> 页右上角「导出」菜单里点「复制到 Relief」，回到这里按 <kbd>⌘V</kbd> 粘贴。</p>
+    <label id="import-paste" class="import-paste" tabindex="0">按 ⌘V 粘贴，或点击选择 Rheo 保存的 PNG<input id="import-file" type="file" accept="image/*" title="选择 Rheo 保存的图片"></label>
+    <p id="import-error" class="import-error" role="alert"></p>
+    <div class="import-actions"><button value="cancel" class="ghost">取消</button></div>
+  </form>
+</dialog>
+<div id="veil" class="veil" hidden><span>松开即可读入数据</span></div>
+<p id="toast" class="toast" role="status" hidden></p>
+<script type="module" src="/src/rise.js"></script>
+</body>
+</html>
