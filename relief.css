@@ -106,6 +106,18 @@ button.primary:hover{background:var(--accent);border-color:var(--accent);opacity
 .tpls button span{position:absolute;left:3px;right:3px;bottom:3px;font:600 8.5px/1.4 var(--sans);border-radius:99px;background:#ffffffe0;color:#0d0d0d;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .readout{font:12px var(--mono);color:var(--text-2);white-space:nowrap;padding:5px 0}
+.hint{margin:2px 0 0;font-size:11.5px;color:var(--text-3)}
+.swatches button.auto{width:auto;padding:0 10px;border-radius:var(--r-pill);font-size:11.5px;color:var(--text-2);background:var(--surface-2);box-shadow:inset 0 0 0 1px var(--border-control)}
+
+/* 画面上直接改字：透明点击区 + 闪烁光标 + 原位编辑框 */
+.text-layer{position:absolute;pointer-events:none}
+.txt-hit{position:absolute;padding:0;border:0;border-radius:8px;background:transparent;cursor:text;pointer-events:auto;
+  outline:1.5px dashed transparent;outline-offset:2px;transition:outline-color .15s,background .15s}
+.txt-hit:hover,.txt-hit:focus-visible{outline-color:#ffffffcc;background:#ffffff14;box-shadow:0 0 0 1px #0000001f}
+.txt-caret{position:absolute;width:2px;border-radius:1px;pointer-events:none;animation:caret 1.06s steps(1) infinite}
+@keyframes caret{0%,50%{opacity:1}50.01%,100%{opacity:0}}
+.text-editor{position:absolute;margin:0;padding:0;border:0;resize:none;overflow:hidden;background:transparent;pointer-events:auto;
+  outline:1.5px dashed #ffffffcc;outline-offset:6px;border-radius:4px;caret-color:currentColor;white-space:pre-wrap;word-break:break-all}
 
 /* 导入样式弹窗 */
 .import-dialog{width:min(460px,calc(100vw - 32px));padding:22px 22px 18px;border:1px solid var(--border);border-radius:var(--r-panel);
@@ -144,4 +156,4 @@ button.primary:hover{background:var(--accent);border-color:var(--accent);opacity
   .toast{top:116px}                /* 窄屏顶栏是两行（品牌 + 步骤条），提示条放到它下面 */
 }
 @media(max-width:480px){.steps button{font-size:0;gap:0;padding:4px}.steps button i{font-size:11px}}
-@media(prefers-reduced-motion:reduce){*{transition:none!important}}
+@media(prefers-reduced-motion:reduce){*{transition:none!important}.txt-caret{animation:none}}

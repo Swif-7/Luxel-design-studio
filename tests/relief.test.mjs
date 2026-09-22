@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { canvasAspect, exportSize, frameAspect, PHONE_ASPECT, TEMPLATES, placeShot, textBox, bulletsOf, wrapLines,
+import { canvasAspect, exportSize, frameAspect, PHONE_ASPECT, TEMPLATES, placeShot, textBox, shiftOffset, bulletsOf, wrapLines,
   fitRatioBox, dragBox, MIN_CROP, trimBounds, parseRheoStyle, isLight } from '../src/relief-core.js';
 import { defaults } from '../src/model.js';
 
@@ -126,4 +126,23 @@ test('parseRheoStyle accepts a copied Rheo state and rejects anything else', () 
 test('isLight separates light and dark backgrounds', () => {
   assert.equal(isLight(255, 253, 253), true);
   assert.equal(isLight(8, 12, 19), false);
+});
+
+test('text nudges only along its template axis and never leaves the canvas', () => {
+  const W = 1600, H = 1200;
+  TEMPLATES.forEach((tpl, i) => {
+    if (!tpl.text) return;
+    const base = textBox(i, W, H, 0);
+    for (const shift of [-100, -40, 40, 100, 999]) {
+      const b = textBox(i, W, H, shift);
+      if (tpl.nudge === 'y') assert.equal(b.x, base.x, `${tpl.name} keeps x`);
+      if (tpl.nudge === 'x') assert.equal(b.y, base.y, `${tpl.name} keeps y`);
+      if (!tpl.nudge) assert.deepEqual(b, base);
+      assert.ok(b.x >= W * .02 - 1e-6 && b.x + b.w <= W * .98 + 1e-6, `${tpl.name} x inside`);
+      assert.ok(b.y >= H * .02 - 1e-6 && b.y + b.h <= H * .98 + 1e-6, `${tpl.name} y inside`);
+    }
+  });
+  assert.deepEqual(shiftOffset(1, W, H, 50), { dx: 0, dy: H * .1 });
+  assert.deepEqual(shiftOffset(6, W, H, -50), { dx: -W * .1, dy: 0 });
+  assert.deepEqual(shiftOffset(5, W, H, 80), { dx: 0, dy: 0 });   // 角标签不挪
 });

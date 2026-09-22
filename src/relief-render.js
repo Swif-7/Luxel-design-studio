@@ -1,7 +1,7 @@
 // Relief 的绘制：背景 → 截图（含外框、圆角、阴影）→ 文字，全部画在一张 2D canvas 上。
 // 预览和导出走同一个 renderScene，只是像素尺寸不同 —— 看到的就是导出的。
 import { Renderer } from './shader.js';
-import { TEMPLATES, frameAspect, placeShot, textBox, bulletsOf, wrapLines, BROWSER_BAR, PHONE_BEZEL, isLight } from './relief-core.js';
+import { TEMPLATES, frameAspect, placeShot, textBox, shiftOffset, bulletsOf, wrapLines, BROWSER_BAR, PHONE_BEZEL, isLight, clamp } from './relief-core.js';
 
 export const FONT = '"IBM Plex Sans","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif';
 export const MONO = '"IBM Plex Mono",ui-monospace,Menlo,monospace';
@@ -172,79 +172,133 @@ function drawShot(ctx, shot, box, s, W) {
   ctx.restore();
 }
 
-/* ── 文字 ─────────────────────────────────────────────────────────── */
-function drawText(ctx, s, W, H, ink, shotBox) {
+/* ── 文字 ─────────────────────────────────────────────────────────
+   一边画一边记下每段文字的位置（regions），页面据此在预览上叠点击区和闪烁光标：
+   { field:'title'|'sub', x, y, w, h（文字外框）, caret:{ x, y, h }, edit:{ x, y, w }（编辑框位置和换行宽度）,
+     font, size, lh, align, alpha }
+   s.interactive：预览里，空字段也要留一个光标位置，好让用户点回去重新输入（导出时不画也不占位）。
+   s.hide：正在编辑的字段，画布上先不画它，由编辑框原地显示。 */
+function drawText(ctx, s, W, H, ink, alphaK, shotBox) {
   const t = TEMPLATES[s.tpl];
-  if (!t || !s.tpl) return;
+  const regions = [];
+  if (!t || !s.tpl) return regions;
   const u = Math.sqrt(W * H) / 100;
   const title = (s.title || '').trim(), sub = (s.sub || '').trim();
+  const shown = (field) => s.hide !== field;
   ctx.fillStyle = ink; ctx.textBaseline = 'alphabetic';
 
   if (t.tag) {                                        // 角标签：左上胶囊 + 右下署名
-    const fs = t.title * u, pad = fs * .7, m = Math.min(W, H) * .05;
-    if (title) {
-      ctx.font = `600 ${fs}px ${MONO}`;
-      const tw = Math.min(ctx.measureText(title).width, W * .6), th = fs * 2;
-      roundRect(ctx, m, m, tw + pad * 2, th, th / 2); ctx.fillStyle = ink === '#ffffff' ? '#ffffff26' : '#ffffffc7'; ctx.fill();
-      ctx.fillStyle = ink; ctx.textBaseline = 'middle'; ctx.textAlign = 'left'; ctx.fillText(title, m + pad, m + th / 2, W * .6);
+    const fs = t.title * u, pad = fs * .7, m = Math.min(W, H) * .05, th = fs * 2;
+    if (title || s.interactive) {
+      const font = `600 ${fs}px ${MONO}`;
+      ctx.font = font;
+      const tw = Math.min(ctx.measureText(title).width, W * .6);
+      if (title) {
+        ctx.globalAlpha = alphaK;
+        roundRect(ctx, m, m, tw + pad * 2, th, th / 2); ctx.fillStyle = ink === '#ffffff' ? '#ffffff26' : '#ffffffc7'; ctx.fill();
+        ctx.fillStyle = ink;
+        if (shown('title')) { ctx.textBaseline = 'middle'; ctx.textAlign = 'left'; ctx.fillText(title, m + pad, m + th / 2, W * .6); }
+        ctx.globalAlpha = 1;
+      }
+      regions.push({ field: 'title', x: m, y: m, w: Math.max(tw, fs) + pad * 2, h: th, caret: { x: m + pad + tw, y: m + th * .22, h: th * .56 },
+        edit: { x: m + pad, y: m + (th - fs * 1.3) / 2, w: W * .6 }, font, size: fs, lh: 1.3, align: 'left', alpha: 1 });
     }
-    if (sub) { ctx.font = `400 ${t.sub * u}px ${FONT}`; ctx.textAlign = 'right'; ctx.textBaseline = 'alphabetic'; ctx.globalAlpha = .75; ctx.fillText(sub, W - m, H - m, W * .6); ctx.globalAlpha = 1; }
-    return;
+    if (sub || s.interactive) {
+      const size = t.sub * u, font = `400 ${size}px ${FONT}`;
+      ctx.font = font; ctx.textBaseline = 'alphabetic'; ctx.textAlign = 'right';
+      const sw = Math.min(ctx.measureText(sub).width, W * .6);
+      if (sub && shown('sub')) { ctx.globalAlpha = .75 * alphaK; ctx.fillText(sub, W - m, H - m, W * .6); ctx.globalAlpha = 1; }
+      regions.push({ field: 'sub', x: W - m - Math.max(sw, size), y: H - m - size, w: Math.max(sw, size), h: size * 1.3, caret: { x: W - m, y: H - m - size * .92, h: size * 1.1 },
+        edit: { x: W - m - W * .6, y: H - m - size * 1.05, w: W * .6 }, font, size, lh: 1.3, align: 'right', alpha: .75 });
+    }
+    return regions;
   }
 
-  const box = textBox(s.tpl, W, H);
-  const blocks = [];                                  // [{ lines, font, size, alpha, gapAfter }]
+  const box = textBox(s.tpl, W, H, s.textShift);
+  const blocks = [];                                  // [{ field, lines, font, size, alpha, gap, lh, ghost }]
   const measureWith = (font) => { ctx.font = font; return (txt) => ctx.measureText(txt).width; };
   if (t.quote) {
     const qf = `700 ${t.title * 2.6 * u}px Georgia,"Times New Roman",serif`;
     blocks.push({ lines: ['“'], font: qf, size: t.title * 2.6 * u * .55, alpha: .35, gap: t.title * u * .2 });
   }
-  if (title && t.behind) {
+  if (t.behind) {
     // 杂志大字只占一行：按文字区宽度把字号收到正好放下，而不是折行（第二行会被截图挡住）
     let size = t.title * u;
-    const w = measureWith(`650 ${size}px ${FONT}`)(title);
+    const w = measureWith(`650 ${size}px ${FONT}`)(title || '点');
     if (w > box.w) size *= box.w / w;
-    blocks.push({ lines: [title], font: `650 ${size}px ${FONT}`, size, alpha: .92, gap: 0, lh: 1.05 });
-  } else if (title) {
+    if (title || s.interactive) blocks.push({ field: 'title', lines: [title], font: `650 ${size}px ${FONT}`, size, alpha: .92, gap: 0, lh: 1.05, ghost: !title });
+  } else if (title || s.interactive) {
     const size = t.title * u, font = `${t.quote ? 500 : 600} ${size}px ${FONT}`;
-    blocks.push({ lines: wrapLines(title, box.w, measureWith(font), 3), font, size, alpha: 1, gap: size * .45, lh: 1.18 });
+    blocks.push({ field: 'title', lines: title ? wrapLines(title, box.w, measureWith(font), 3) : [''], font, size, alpha: 1, gap: title ? size * .45 : 0, lh: 1.18, ghost: !title });
   }
   if (t.bullets) {
     const size = t.sub * u, font = `400 ${size}px ${FONT}`;
     const items = bulletsOf(sub);
-    blocks.push({ lines: items.map(b => '✓  ' + b), font, size, alpha: .82, gap: 0, lh: 1.7 });
-  } else if (sub && !t.behind) {
+    if (items.length || s.interactive) blocks.push({ field: 'sub', lines: items.length ? items.map(b => '✓  ' + b) : [''], font, size, alpha: .82, gap: 0, lh: 1.7, ghost: !items.length });
+  } else if (!t.behind && (sub || s.interactive)) {
     const size = t.sub * u, font = `400 ${size}px ${t.quote ? MONO : FONT}`;
-    blocks.push({ lines: wrapLines((t.quote ? '— ' : '') + sub, box.w, measureWith(font), 2), font, size, alpha: .72, gap: 0, lh: 1.4 });
+    blocks.push({ field: 'sub', lines: sub ? wrapLines((t.quote ? '— ' : '') + sub, box.w, measureWith(font), 2) : [''], font, size, alpha: .72, gap: 0, lh: 1.4, ghost: !sub });
   }
-  const height = blocks.reduce((sum, b) => sum + b.lines.length * b.size * (b.lh || 1) + b.gap, 0);
-  let y = t.valign === 'middle' ? box.y + (box.h - height) / 2 : t.valign === 'top' ? box.y : box.y + (box.h - height) / 2;
+  // 空字段（ghost）不占高度，导出和预览的排版因此完全一致
+  const height = blocks.reduce((sum, b) => b.ghost ? sum : sum + b.lines.length * b.size * (b.lh || 1) + b.gap, 0);
+  let y = t.valign === 'top' ? box.y : box.y + (box.h - height) / 2;
   // 杂志大字：让标题下缘约三分之一压在截图后面，不管画幅横竖都有「被截图挡住一截」的效果
-  if (t.behind && shotBox && blocks[0]) y = Math.max(H * 0.03, shotBox.y - blocks[0].size * 0.72);
-  const x = t.align === 'center' ? box.x + box.w / 2 : box.x;
-  ctx.textAlign = t.align === 'center' ? 'center' : 'left';
+  if (t.behind && shotBox && blocks[0]) y = clamp(shotBox.y - blocks[0].size * 0.72 + shiftOffset(s.tpl, W, H, s.textShift).dy, H * 0.02, H * 0.9);
+  const center = t.align === 'center';
+  const x = center ? box.x + box.w / 2 : box.x;
+  ctx.textAlign = center ? 'center' : 'left';
   for (const b of blocks) {
-    ctx.font = b.font; ctx.globalAlpha = b.alpha;
-    for (const line of b.lines) { y += b.size * (b.lh || 1); ctx.fillText(line, x, y - b.size * (b.lh ? (b.lh - 1) / 2 + .18 : 0)); }
-    y += b.gap;
+    ctx.font = b.font;
+    const lh = b.size * (b.lh || 1), top = y;
+    let maxW = 0, lastW = 0, lastBase = y + lh;
+    if (b.ghost) {
+      lastBase = y + lh - b.size * ((b.lh - 1) / 2 + .18);
+    } else {
+      ctx.globalAlpha = b.alpha * alphaK;
+      for (const line of b.lines) {
+        y += lh;
+        const base = y - b.size * (b.lh ? (b.lh - 1) / 2 + .18 : 0);
+        if (!b.field || shown(b.field)) ctx.fillText(line, x, base);
+        lastW = ctx.measureText(line).width; maxW = Math.max(maxW, lastW); lastBase = base;
+      }
+      y += b.gap;
+    }
+    if (b.field) {
+      const bw = Math.max(maxW, b.size);
+      regions.push({ field: b.field, x: center ? x - bw / 2 : x, y: top, w: bw, h: b.ghost ? lh : b.lines.length * lh,
+        caret: { x: center ? x + lastW / 2 : x + lastW, y: lastBase - b.size * .9, h: b.size * 1.1 },
+        edit: { x: box.x, y: top, w: box.w }, font: b.font, size: b.size, lh: b.lh || 1, align: center ? 'center' : 'left', alpha: b.alpha });
+    }
   }
   ctx.globalAlpha = 1;
+  return regions;
+}
+
+/* 文字颜色：'auto' 按背景亮度取深 / 浅；其余是十六进制色。旧设置里的 black / white 照旧能用。 */
+export function resolveInk(ink, bgIsLight) {
+  if (ink === 'black') return '#16202e';
+  if (ink === 'white') return '#ffffff';
+  if (/^#[0-9a-f]{6}$/i.test(ink || '')) return ink.toLowerCase();
+  return bgIsLight ? '#16202e' : '#ffffff';
 }
 
 /* ── 整张 ─────────────────────────────────────────────────────────
-   s：{ bg:{ key, src, solid, image, rheo, blur }, frame, radius, shadow, scale, tpl, title, sub, ink, url }
-   shot：已经裁好的截图（canvas 或 ImageBitmap）。 */
+   s：{ bg:{ key, src, solid, image, rheo, blur }, frame, radius, shadow, scale, tpl, title, sub, ink, inkAlpha,
+        interactive, hide }
+   shot：已经裁好的截图（canvas 或 ImageBitmap）。返回文字区域（见 drawText），预览用来做点击编辑。 */
 export function renderScene(ctx, W, H, s, shot) {
   const bg = blurred(s.bg, W, H);
   ctx.drawImage(bg, 0, 0, W, H);
   const aspect = frameAspect(s.frame, shot.width / shot.height);
   const box = placeShot(s.tpl, W, H, aspect, s.scale);
-  const ink = s.ink === 'white' ? '#ffffff' : s.ink === 'black' ? '#16202e'
-    : remember(`ink|${s.bg.key}|${s.bg.blur}`, () => averageLight(bg)) ? '#16202e' : '#ffffff';
+  const ink = resolveInk(s.ink, remember(`ink|${s.bg.key}|${s.bg.blur}`, () => averageLight(bg)));
+  const alphaK = (s.inkAlpha ?? 100) / 100;
   const behind = TEMPLATES[s.tpl]?.behind;
-  if (behind) drawText(ctx, s, W, H, ink, box);
+  let regions = [];
+  if (behind) regions = drawText(ctx, s, W, H, ink, alphaK, box);
   drawShot(ctx, shot, box, s, W);
-  if (!behind) drawText(ctx, s, W, H, ink, box);
+  if (!behind) regions = drawText(ctx, s, W, H, ink, alphaK, box);
+  return { regions, ink };
 }
 
 export { canvas as makeCanvas, roundRect };

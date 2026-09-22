@@ -32,13 +32,14 @@ paintTheme();
    截图本身、裁切框和导入的背景图只在内存里。 */
 const STEPS = ['裁切', '背景', '构图', '文字', '导出'];
 const SOLIDS = ['#f1f3f5', '#ffffff', '#16202e', '#ffe066', '#a5d8ff', '#ffc9c9', '#b2f2bb'];
+const INKS = ['#16202e', '#ffffff', '#3b5bdb', '#e8590c'];
 const SETTINGS_KEY = 'relief-settings';
 const DEFAULTS = {
   cropRatio: 'free', radius: 14,
   src: 'rheo', rheo: { ...defaults, particles: false }, solid: '#f1f3f5', blur: 0,
   rheoSize: 100, imageSize: 100, frameSize: 100,   // 背景大小：生成的 Rheo 30–200%；导入的图片 / Rheo 画面 30–300%（缩到 100% 以下时四周透明，预览显示棋盘格）
   frame: 'browser', shadow: 55, ratio: '4:3', scale: 74,
-  tpl: 0, title: '让截图自己会说话', sub: '本地处理 · 一键复制 · 8 种排版', ink: 'auto',
+  tpl: 1, title: '点击修改文本', sub: '点击修改副标题', ink: 'auto', inkAlpha: 100, textShift: 0,
   fmt: 'png', x: 2,
 };
 let s = { ...DEFAULTS };
@@ -46,10 +47,14 @@ try {
   const saved = JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}');
   s = { ...DEFAULTS, ...saved, rheo: { ...DEFAULTS.rheo, ...(saved.rheo || {}) } };
   if (s.src === 'image') s.src = 'rheo';               // 导入的背景图不会保存
+  // 旧版默认文案和「深 / 浅」颜色迁移到新版
+  if (s.title === '让截图自己会说话') s.title = DEFAULTS.title;
+  if (s.sub === '本地处理 · 一键复制 · 8 种排版') s.sub = DEFAULTS.sub;
+  if (s.ink === 'black') s.ink = '#16202e'; else if (s.ink === 'white') s.ink = '#ffffff';
 } catch {}
 const saveSettings = () => {
-  const { cropRatio, radius, src, rheo, solid, blur, rheoSize, imageSize, frameSize, frame, shadow, ratio, scale, tpl, title, sub, ink, fmt, x } = s;
-  try { localStorage.setItem(SETTINGS_KEY, JSON.stringify({ cropRatio, radius, src, rheo, solid, blur, rheoSize, imageSize, frameSize, frame, shadow, ratio, scale, tpl, title, sub, ink, fmt, x })); } catch {}
+  const { cropRatio, radius, src, rheo, solid, blur, rheoSize, imageSize, frameSize, frame, shadow, ratio, scale, tpl, title, sub, ink, inkAlpha, textShift, fmt, x } = s;
+  try { localStorage.setItem(SETTINGS_KEY, JSON.stringify({ cropRatio, radius, src, rheo, solid, blur, rheoSize, imageSize, frameSize, frame, shadow, ratio, scale, tpl, title, sub, ink, inkAlpha, textShift, fmt, x })); } catch {}
 };
 
 let source = null;          // { img, width, height, url }
@@ -57,6 +62,7 @@ let crop = null;            // { x, y, w, h }，原图像素
 let bgImage = null, bgImageId = 0;
 let rheoFrame = null;      // 从 Rheo 页「复制到 Relief」导入的那一帧；有它时 Rheo 背景直接用这张图，不再重新渲染
 let step = 0;
+let editing = null;        // 正在画面上直接编辑的文字字段：'title' | 'sub' | null
 
 const CROP_RATIOS = { free: null, orig: 'orig', '1:1': 1, '4:3': 4 / 3, '16:9': 16 / 9 };
 const cropRatioValue = () => { const r = CROP_RATIOS[s.cropRatio]; return r === 'orig' ? source.width / source.height : r; };
@@ -110,7 +116,8 @@ const scene = () => {
   return {
     bg: { ...bg, blur: s.blur },
     frame: s.frame, radius: s.radius, shadow: s.shadow, scale: s.scale, tpl: step >= 3 ? s.tpl : 0,
-    title: s.title, sub: s.sub, ink: s.ink,
+    title: s.title, sub: s.sub, ink: s.ink, inkAlpha: s.inkAlpha, textShift: s.textShift,
+    interactive: step === 3, hide: editing,
   };
 };
 const aspectNow = () => canvasAspect(s.ratio, frameAspect(s.frame, crop.w / crop.h));
@@ -133,7 +140,7 @@ function paintSteps() {
     `<button type="button" data-step="${i}" class="${i < step ? 'done' : ''}" ${i === step ? 'aria-current="step"' : ''}><i>${i < step ? '✓' : i + 1}</i>${name}</button>`).join('');
 }
 $('steps').onclick = (e) => { const b = e.target.closest('[data-step]'); if (b) go(+b.dataset.step); };
-function go(n) { step = clamp(n, 0, 4); render(); }
+function go(n) { if (editing) endEdit(true); step = clamp(n, 0, 4); render(); }
 
 /* ── 底部面板：每一步的控件 ─────────────────────────────────────── */
 const seg = (act, opts, cur) => `<div class="seg" role="group">${opts.map(([v, t]) => `<button type="button" data-act="${act}" data-v="${v}" aria-pressed="${String(v) === String(cur)}">${t}</button>`).join('')}</div>`;
@@ -164,9 +171,11 @@ function controls() {
       range('scale', '内容大小', s.scale, 30, 95, '%')];
     case 3: return [
       `<div class="ctl"><span class="lab">排版</span><div class="tpls" id="tpls">${TEMPLATES.map((t, i) => `<button type="button" data-act="tpl" data-v="${i}" aria-pressed="${i === s.tpl}" title="${t.name}"><canvas></canvas><span>${t.name}</span></button>`).join('')}</div></div>`,
-      `<div class="col"><div class="ctl"><span class="lab">标题</span><input class="field" data-act="title" value="${esc(s.title)}" maxlength="60"></div>`
-      + `<div class="ctl"><span class="lab">副标题${s.tpl === 6 ? '（用 · 分隔要点）' : ''}</span><input class="field" data-act="sub" value="${esc(s.sub)}" maxlength="80"></div>`
-      + ctl('文字颜色', seg('ink', [['auto', '自动'], ['black', '深'], ['white', '浅']], s.ink)) + '</div>'];
+      `<div class="col">`
+      + ctl('文字颜色', `<div class="swatches"><button type="button" class="auto" data-act="ink" data-v="auto" aria-pressed="${s.ink === 'auto'}" title="按背景自动选深 / 浅">自动</button>${INKS.map(c => `<button type="button" data-act="ink" data-v="${c}" style="background:${c}" aria-label="${c}" aria-pressed="${s.ink === c}"></button>`).join('')}<label title="自定义颜色"><input type="color" data-act="inkPick" value="${/^#/.test(s.ink) ? s.ink : '#16202e'}" aria-label="自定义文字颜色"></label></div>`)
+      + range('inkAlpha', '透明度', s.inkAlpha, 10, 100, '%')
+      + (TEMPLATES[s.tpl].nudge ? range('textShift', TEMPLATES[s.tpl].nudge === 'y' ? '垂直位置' : '水平位置', s.textShift, -100, 100) : '')
+      + `<p class="hint">${s.tpl ? '点击画面里的文字即可直接修改' : '选一种排版后，点击画面里的文字修改'}</p></div>`];
     case 4: {
       const { width, height } = exportSize(aspectNow(), s.x);
       return [ctl('格式', seg('fmt', [['png', 'PNG'], ['jpg', 'JPG']], s.fmt)), ctl('倍率', seg('x', [['1', '1x'], ['2', '2x']], s.x)),
@@ -199,7 +208,7 @@ $('dock').addEventListener('click', async (e) => {
     case 'rndStyle': rheoFrame = null; s.rheo = { ...generate(randomSeed(), { ...s.rheo, lockColors: true, lockMode: false }), lockColors: s.rheo.lockColors, lockMode: s.rheo.lockMode, particles: false }; break;
     case 'importStyle': return importStyle();
     case 'solid': s.solid = v; break;
-    case 'tpl': s.tpl = +v; break;
+    case 'tpl': if (s.tpl !== +v) s.textShift = 0; s.tpl = +v; break;   // 换排版时位置微调归零
     case 'x': s.x = +v; break;
     case 'copy': return copyImage(b);
     case 'download': return download(b);
@@ -215,17 +224,23 @@ $('dock').addEventListener('input', (e) => {
   if (el.type === 'range') {
     s[act] = +el.value;
     const out = $('dock').querySelector(`[data-out="${act}"]`);
-    if (out) out.textContent = el.value + (['scale', 'rheoSize', 'imageSize', 'frameSize'].includes(act) ? '%' : '');
+    if (out) out.textContent = (act === 'textShift' && +el.value > 0 ? '+' : '') + el.value + (['scale', 'rheoSize', 'imageSize', 'frameSize', 'inkAlpha'].includes(act) ? '%' : '');
     saveSettings();
     if (step === 0) layoutCrop(); else schedulePreview();   // 拖滑块不重建面板，否则拖不动
     return;
   }
-  if (act === 'title' || act === 'sub') { s[act] = el.value; saveSettings(); schedulePreview(); scheduleTemplates(); return; }
+  if (act === 'inkPick') { s.ink = el.value; saveSettings(); schedulePreview(); scheduleTemplates(); return; }
   if (act === 'solidPick') { s.solid = el.value; saveSettings(); schedulePreview(); }
+});
+// 双击「位置」滑块回到默认位置
+$('dock').addEventListener('dblclick', (e) => {
+  const el = e.target.closest('input[data-act=textShift]');
+  if (!el) return;
+  el.value = 0; el.dispatchEvent(new Event('input', { bubbles: true }));
 });
 $('dock').addEventListener('change', async (e) => {
   const el = e.target;
-  if (el.dataset.act === 'solidPick') render();
+  if (el.dataset.act === 'solidPick' || el.dataset.act === 'inkPick') render();
   if (el.dataset.act === 'bgFile' && el.files[0]) {
     try {
       bgImage = await loadImage(URL.createObjectURL(el.files[0])); bgImageId++; s.src = 'image';
@@ -304,8 +319,72 @@ function paintPreview() {
   const cv = $('preview');
   cv.style.width = Math.round(w) + 'px'; cv.style.height = Math.round(h) + 'px';
   cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr);
-  renderScene(cv.getContext('2d'), cv.width, cv.height, scene(), shot());
+  const out = renderScene(cv.getContext('2d'), cv.width, cv.height, scene(), shot());
+  paintTextLayer(out, cv.width / w);
 }
+
+/* ── 在画面上直接改字 ───────────────────────────────────────────────
+   预览画布上叠一层：每段文字一块透明点击区 + 末尾一根闪烁光标（提示「这里能点」）。
+   点进去在原位打开编辑框，字体、字号、颜色、对齐都和画布一致；编辑期间画布不画这一段，
+   由编辑框原地显示，看起来就是在图上打字。回车 / 点别处确认，Esc 放弃。 */
+let lastRegions = [], lastK = 1, lastInk = '#16202e', editOriginal = '';
+function paintTextLayer(out, k) {
+  lastRegions = out.regions; lastK = k; lastInk = out.ink;
+  const layer = $('text-layer'), cv = $('preview');
+  const on = step === 3 && !!s.tpl;
+  layer.hidden = !on;
+  if (!on) { if (editing) endEdit(true); return; }
+  Object.assign(layer.style, { left: cv.offsetLeft + 'px', top: cv.offsetTop + 'px', width: cv.style.width, height: cv.style.height });
+  const px = (v) => (v / k) + 'px';
+  $('text-hits').innerHTML = lastRegions.map(r => `<button type="button" class="txt-hit" data-field="${r.field}" aria-label="修改${r.field === 'title' ? '标题' : '副标题'}"
+    style="left:${px(r.x - r.size * .15)};top:${px(r.y - r.size * .1)};width:${px(r.w + r.size * .3)};height:${px(r.h + r.size * .2)}"></button>`
+    + (editing === r.field ? '' : `<i class="txt-caret" style="left:${px(r.caret.x + r.size * .06)};top:${px(r.caret.y)};height:${px(r.caret.h)};background:${out.ink}"></i>`)).join('');
+  if (editing) placeEditor();
+}
+/* 编辑框贴着文字本身：宽度随输入伸缩（最多到这段文字的换行宽度），
+   居中的往两边长，右对齐的往左长 —— 不再是一整条从左到右的长框，看起来才像「就在这段字上改」。 */
+const measureCtx = document.createElement('canvas').getContext('2d');
+function placeEditor() {
+  const r = lastRegions.find(x => x.field === editing), ed = $('text-editor');
+  if (!r) return;
+  const k = lastK, size = r.size / k, font = r.font.replace(/[\d.]+px/, size + 'px');
+  const maxW = r.edit.w / k, x0 = r.edit.x / k;
+  measureCtx.font = font;
+  const widest = Math.max(0, ...ed.value.split('\n').map(line => measureCtx.measureText(line).width));
+  const width = Math.min(maxW, Math.max(widest + size * .6, size * 2));
+  const left = r.align === 'center' ? x0 + (maxW - width) / 2 : r.align === 'right' ? x0 + maxW - width : x0;
+  Object.assign(ed.style, {
+    left: left + 'px', top: (r.edit.y / k) + 'px', width: width + 'px',
+    font, lineHeight: String(r.lh), textAlign: r.align,
+    color: lastInk, opacity: String(r.alpha * s.inkAlpha / 100),
+  });
+  ed.style.height = 'auto'; ed.style.height = ed.scrollHeight + 'px';
+}
+function startEdit(field) {
+  if (editing === field) return;
+  if (editing) endEdit(true);
+  editing = field; editOriginal = s[field];
+  const ed = $('text-editor');
+  ed.value = s[field]; ed.hidden = false;
+  ed.setAttribute('aria-label', field === 'title' ? '标题' : '副标题');
+  placeEditor(); ed.focus(); ed.select();
+  schedulePreview();
+}
+function endEdit(commit) {
+  if (!editing) return;
+  if (!commit) s[editing] = editOriginal;
+  s[editing] = s[editing].replace(/\s*\n\s*/g, ' ');
+  editing = null;
+  $('text-editor').hidden = true;
+  saveSettings(); schedulePreview(); scheduleTemplates();
+}
+$('text-hits').addEventListener('click', (e) => { const b = e.target.closest('.txt-hit'); if (b) startEdit(b.dataset.field); });
+$('text-editor').addEventListener('input', (e) => { s[editing] = e.target.value; placeEditor(); schedulePreview(); });
+$('text-editor').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); endEdit(true); }
+  else if (e.key === 'Escape') { e.preventDefault(); endEdit(false); }
+});
+$('text-editor').addEventListener('blur', () => endEdit(true));
 
 /* 文字模板缩略图：用当前的背景和截图各画一张小图 */
 let tplQueued = false;
@@ -315,7 +394,7 @@ function paintTemplates() {
   const tw = a >= 4 / 3 ? 120 : Math.round(90 * a), th = Math.round(tw / a);
   $('dock').querySelectorAll('#tpls canvas').forEach((cv, i) => {
     cv.width = tw; cv.height = th;
-    renderScene(cv.getContext('2d'), tw, th, { ...scene(), tpl: i }, shot());
+    renderScene(cv.getContext('2d'), tw, th, { ...scene(), tpl: i, interactive: false, hide: null }, shot());
   });
 }
 
@@ -362,7 +441,7 @@ function exportBlob(type) {
   const cv = makeCanvas(width, height), ctx = cv.getContext('2d');
   // JPG 没有透明通道：背景缩小露白的地方垫白色，否则会变成黑色
   if (type === 'image/jpeg') { ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, width, height); }
-  renderScene(ctx, width, height, scene(), shot());
+  renderScene(ctx, width, height, { ...scene(), interactive: false, hide: null }, shot());   // 导出不带光标占位，也不隐藏任何字段
   return new Promise((resolve, reject) => cv.toBlob(b => (b ? resolve(b) : reject(Error('导出失败'))), type, 0.92));
 }
 const stamp = () => { const d = new Date(), p = (n) => String(n).padStart(2, '0'); return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}`; };

@@ -36,14 +36,14 @@ export function frameAspect(frame, contentAspect) {
    文字排在 text 区域里。尺寸单位 u = √(宽×高)/100，横竖画幅字号观感一致。 */
 export const TEMPLATES = [
   { name: '无文字', shot: [0, 0, 1, 1] },
-  { name: '标题居上', shot: [0, .3, 1, 1], text: [.08, .07, .92, .27], align: 'center', title: 6.2, sub: 2.6 },
-  { name: '左文右图', shot: [.4, 0, 1, 1], text: [.07, .2, .38, .8], align: 'left', valign: 'middle', title: 5.4, sub: 2.4 },
-  { name: '底部说明', shot: [0, 0, 1, .8], text: [.1, .8, .9, .95], align: 'center', valign: 'top', title: 3.4, sub: 2.2 },
-  { name: '贴底露出', shot: [0, .3, 1, 1.45], anchor: 'top', text: [.08, .07, .92, .27], align: 'center', title: 6.4, sub: 2.6 },
+  { name: '标题居上', shot: [0, .3, 1, 1], text: [.08, .07, .92, .27], align: 'center', title: 6.2, sub: 2.6, nudge: 'y' },
+  { name: '左文右图', shot: [.4, 0, 1, 1], text: [.07, .2, .38, .8], align: 'left', valign: 'middle', title: 5.4, sub: 2.4, nudge: 'x' },
+  { name: '底部说明', shot: [0, 0, 1, .8], text: [.1, .8, .9, .95], align: 'center', valign: 'top', title: 3.4, sub: 2.2, nudge: 'y' },
+  { name: '贴底露出', shot: [0, .3, 1, 1.45], anchor: 'top', text: [.08, .07, .92, .27], align: 'center', title: 6.4, sub: 2.6, nudge: 'y' },
   { name: '角标签', shot: [0, .06, 1, .94], tag: true, title: 2.2, sub: 2.2 },
-  { name: '要点列表', shot: [.42, 0, 1, 1], text: [.07, .18, .4, .82], align: 'left', valign: 'middle', title: 4.8, sub: 2.4, bullets: true },
-  { name: '引语', shot: [0, 0, .58, 1], text: [.6, .18, .93, .82], align: 'left', valign: 'middle', title: 3.8, sub: 2.2, quote: true },
-  { name: '杂志大字', shot: [0, .12, 1, 1], text: [.04, .04, .96, .5], align: 'center', valign: 'top', title: 14, behind: true },
+  { name: '要点列表', shot: [.42, 0, 1, 1], text: [.07, .18, .4, .82], align: 'left', valign: 'middle', title: 4.8, sub: 2.4, bullets: true, nudge: 'x' },
+  { name: '引语', shot: [0, 0, .58, 1], text: [.6, .18, .93, .82], align: 'left', valign: 'middle', title: 3.8, sub: 2.2, quote: true, nudge: 'x' },
+  { name: '杂志大字', shot: [0, .12, 1, 1], text: [.04, .04, .96, .5], align: 'center', valign: 'top', title: 14, behind: true, nudge: 'y' },
 ];
 
 /* 截图在 shot 区域里的位置。scale 30–95 是占区域可用尺寸的百分比；
@@ -61,11 +61,22 @@ export function placeShot(tpl, W, H, aspect, scale) {
   return { x, y, w, h };
 }
 
-export function textBox(tpl, W, H) {
+/* 文字位置微调：居中的排版只能上下挪，侧边的排版只能左右挪（nudge 标明方向）。
+   shift 取 -100…100，对应画布高 / 宽的 ±20%；挪完夹回画布内，四周至少留 2%。 */
+export const SHIFT_RANGE = 0.2;
+export function shiftOffset(tpl, W, H, shift = 0) {
+  const axis = TEMPLATES[tpl]?.nudge;
+  const k = clamp(shift, -100, 100) / 100 * SHIFT_RANGE;
+  return { dx: axis === 'x' ? k * W : 0, dy: axis === 'y' ? k * H : 0 };
+}
+
+export function textBox(tpl, W, H, shift = 0) {
   const t = TEMPLATES[tpl];
   if (!t || !t.text) return null;
   const [x0, y0, x1, y1] = t.text;
-  return { x: x0 * W, y: y0 * H, w: (x1 - x0) * W, h: (y1 - y0) * H };
+  const w = (x1 - x0) * W, h = (y1 - y0) * H;
+  const { dx, dy } = shiftOffset(tpl, W, H, shift);
+  return { x: clamp(x0 * W + dx, W * .02, W * .98 - w), y: clamp(y0 * H + dy, H * .02, H * .98 - h), w, h };
 }
 
 /* 要点列表：副标题按 · / 、 ， | 或换行切成几条。 */
