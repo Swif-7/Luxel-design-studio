@@ -69,6 +69,8 @@ window.addEventListener('resize',()=>{if(exportMenu.matches(':popover-open'))pos
 exportMenu.addEventListener('keydown',e=>{const items=[...exportMenu.querySelectorAll('button')];let i=items.indexOf(document.activeElement);if(['ArrowDown','ArrowUp','Home','End'].includes(e.key)){e.preventDefault();i=e.key==='Home'?0:e.key==='End'?items.length-1:(i+(e.key==='ArrowDown'?1:-1)+items.length)%items.length;items[i].focus();}});
 function closeExportMenu(){exportMenu.hidePopover();exportTrigger.focus();}
 exportMenu.addEventListener('click',e=>{if(e.target.closest('button'))closeExportMenu();});
+// 复制样式：把当前参数以 JSON 放进剪贴板，Relief 的「导入样式」直接读取并用 validate 校验
+$('copy-style').onclick=async()=>{try{await navigator.clipboard.writeText(JSON.stringify(state));toast('样式已复制，可在 Relief 的背景里导入');}catch{toast('复制失败：浏览器不允许写入剪贴板');}};
 $('export-html').onclick=async()=>{
  if(!renderer||lost){toast('画面尚未就绪');return;}
  const snapshot={...state,colors:[...state.colors],seedValue:hashSeed(state.seed)%10000},time=elapsed,stopped=paused;

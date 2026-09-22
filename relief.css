@@ -1,0 +1,137 @@
+/* Relief — 居中舞台 ＋ 底部步骤面板（与 Recast 同一套骨架）。
+   顶栏中间是五步步骤条；舞台居中显示当前步骤（裁切时是原图 + 裁切框，之后是合成预览）；
+   底部面板只放这一步的几个控件，两头是上一步 / 下一步。 */
+
+body{height:100dvh;margin:0;display:flex;flex-direction:column;overflow:hidden;background:var(--bg);color:var(--text)}
+body>header{flex:none;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:16px;height:60px;padding:0 24px;
+  background:var(--bg);border-bottom:1px solid var(--border)}
+body>header .brand{display:flex;align-items:center;gap:10px;color:inherit;text-decoration:none;font-size:21px;font-weight:650;letter-spacing:-.01em;min-width:0}
+body>header .brand-mark{width:23px;height:23px;color:var(--text);display:block;flex:none}
+body>header .brand-sub{font:10px var(--mono);letter-spacing:2px;margin:5px 0 0 12px;color:var(--text-3);white-space:nowrap}
+/* 列位写死：空状态时步骤条隐藏，右侧按钮不能因此挤到中间那一列 */
+.steps{grid-column:2}
+.header-right{grid-column:3;justify-self:end;display:flex;align-items:center;gap:8px}
+.head-btn{display:inline-flex;align-items:center;font-size:13px;padding:7px 14px;border-radius:var(--r-pill);color:var(--text-2);cursor:pointer;white-space:nowrap;transition:background .15s,color .15s}
+.head-btn:hover{background:var(--surface-3);color:var(--text)}
+#theme{padding:0;width:34px;height:34px;flex:none;display:grid;place-items:center;background:transparent;border-color:var(--border);color:var(--text-2)}
+#theme svg{width:16px;height:16px}
+#theme:hover{background:var(--surface-3);color:var(--text)}
+[hidden]{display:none!important}
+
+/* 步骤条 */
+.steps{display:flex;align-items:center;gap:3px;padding:4px;border-radius:var(--r-pill);background:var(--surface-3)}
+.steps button{display:flex;align-items:center;gap:7px;border:0;background:transparent;padding:5px 13px 5px 6px;border-radius:var(--r-pill);
+  color:var(--text-2);font-size:12.5px;white-space:nowrap}
+.steps button:hover{background:transparent;color:var(--text)}
+.steps button i{width:20px;height:20px;border-radius:50%;display:grid;place-items:center;font:600 11px/1 var(--mono);font-style:normal;
+  background:var(--surface-2);box-shadow:inset 0 0 0 1px var(--border)}
+.steps button.done i,.steps button[aria-current=step] i{background:var(--text);color:var(--bg);box-shadow:none}
+.steps button[aria-current=step]{background:var(--surface-2);color:var(--text);box-shadow:0 1px 3px #0002}
+
+main{flex:1;min-height:0;display:flex;flex-direction:column;align-items:center;padding:26px 40px 0}
+button.ghost{background:transparent;border-color:transparent;color:var(--text-2);padding:6px 12px;font-size:13px;white-space:nowrap}
+button.ghost:hover{background:var(--surface-3);color:var(--text);border-color:transparent}
+button.primary{background:var(--accent);color:var(--accent-fg);border-color:var(--accent);font-weight:600;white-space:nowrap}
+button.primary:hover{background:var(--accent);border-color:var(--accent);opacity:.88}
+
+/* 舞台：尺寸容器，里面的画布 / 裁切框按比例塞进来 */
+.stage{flex:1;min-height:0;width:100%;max-width:980px;position:relative;display:grid;place-items:center;container-type:size}
+.preview{display:block;border-radius:12px;box-shadow:0 0 0 1px var(--border),0 22px 50px -30px #0008}
+
+/* 空状态：底色借用首页 Relief 封面的柠檬 / 天蓝 / 薄绿 */
+.drop{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;text-align:center;
+  border-radius:var(--r-panel);cursor:pointer;font-size:14px;transition:box-shadow .18s;
+  background:radial-gradient(90% 90% at 12% 8%,#ffe06640,transparent 60%),radial-gradient(90% 90% at 92% 95%,#74c0fc40,transparent 60%),
+    radial-gradient(70% 70% at 85% 10%,#b2f2bb40,transparent 62%),var(--surface)}
+.drop input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%}
+.drop .glyph{width:52px;height:52px;border-radius:16px;display:grid;place-items:center;background:var(--surface-2);
+  box-shadow:0 6px 16px -8px #0004,inset 0 0 0 1px var(--border);transition:transform .18s,box-shadow .18s}
+.drop .glyph svg{width:24px;height:24px}
+.drop:hover .glyph{transform:translateY(-2px);box-shadow:0 10px 22px -10px #0005,inset 0 0 0 1px var(--border)}
+.drop:has(input:focus-visible){box-shadow:0 0 0 2px var(--text)}
+.drop b{font-size:16px;font-weight:600}
+.drop small{color:var(--text-3);font-size:12.5px;line-height:1.7;padding:0 28px;text-wrap:balance}
+
+/* 裁切：原图在棋盘格上，裁切框外压暗，八个把手 */
+.crop{position:absolute;inset:0 0 28px;display:grid;place-items:center}
+.crop-frame{position:relative;user-select:none;-webkit-user-select:none;touch-action:none;
+  background:repeating-conic-gradient(var(--surface-3) 0 25%,var(--surface) 0 50%) 0 0/18px 18px}
+.crop-frame img{display:block;width:100%;height:100%;pointer-events:none}
+/* 压暗层放在会裁剪的遮罩里：阴影只盖住原图范围，而且跟着圆角走 —— 圆角预览就是它 */
+.crop-mask{position:absolute;inset:0;overflow:hidden;pointer-events:none}
+.crop-shade{position:absolute;box-shadow:0 0 0 9999px #000000a0;border-radius:var(--r,0)}
+.crop-box{position:absolute;cursor:move;outline:1.5px solid #fff;touch-action:none}
+.crop-box::before,.crop-box::after{content:"";position:absolute;pointer-events:none}
+.crop-box::before{inset:0 33.33%;border-left:1px solid #ffffff70;border-right:1px solid #ffffff70}
+.crop-box::after{inset:33.33% 0;border-top:1px solid #ffffff70;border-bottom:1px solid #ffffff70}
+.crop-box i{position:absolute;width:22px;height:22px;z-index:1}
+.crop-box i::after{content:"";position:absolute;inset:6px;border-radius:50%;background:#fff;box-shadow:0 1px 4px #0006}
+.crop-box i[data-h=nw]{left:-11px;top:-11px;cursor:nwse-resize}.crop-box i[data-h=se]{right:-11px;bottom:-11px;cursor:nwse-resize}
+.crop-box i[data-h=ne]{right:-11px;top:-11px;cursor:nesw-resize}.crop-box i[data-h=sw]{left:-11px;bottom:-11px;cursor:nesw-resize}
+.crop-box i[data-h=n]{left:calc(50% - 11px);top:-11px;cursor:ns-resize}.crop-box i[data-h=s]{left:calc(50% - 11px);bottom:-11px;cursor:ns-resize}
+.crop-box i[data-h=e]{right:-11px;top:calc(50% - 11px);cursor:ew-resize}.crop-box i[data-h=w]{left:-11px;top:calc(50% - 11px);cursor:ew-resize}
+.crop-dims{position:absolute;left:50%;bottom:-22px;translate:-50% 0;font:11.5px var(--mono);color:var(--text-2);white-space:nowrap}
+
+/* ── 底部步骤面板 ── */
+.dock{flex:none;margin:18px 0 22px;display:flex;align-items:center;gap:16px;padding:10px 12px;border-radius:24px;background:var(--surface);
+  box-shadow:inset 0 0 0 1px var(--border),0 10px 30px -18px #0004;max-width:100%}
+.dock .ctls{display:flex;align-items:flex-end;gap:18px;min-width:0}
+.dock .nav{padding:8px 16px;white-space:nowrap;flex:none}
+.dock .nav.back{padding:8px 12px}
+.ctl{display:flex;flex-direction:column;gap:6px;min-width:0}
+.lab{font-size:11.5px;color:var(--text-3);white-space:nowrap;display:flex;justify-content:space-between;gap:10px}
+.lab output{font-family:var(--mono);color:var(--text)}
+.seg{display:inline-flex;padding:3px;gap:2px;border-radius:var(--r-pill);background:var(--surface-3);align-self:flex-start}
+.seg button{padding:4px 11px;border:0;border-radius:var(--r-pill);background:transparent;color:var(--text-2);font-size:12.5px;white-space:nowrap}
+.seg button:hover{background:transparent;color:var(--text)}
+.seg button[aria-pressed=true]{background:var(--surface-2);color:var(--text);box-shadow:0 1px 3px #0002}
+.dock input[type=range]{width:130px;margin:5px 0;height:4px;accent-color:var(--accent);cursor:pointer}
+.row{display:flex;gap:6px}
+.pill{padding:5px 13px;font-size:12.5px;white-space:nowrap}
+.swatches{display:flex;gap:6px;align-items:center}
+.swatches button{width:24px;height:24px;padding:0;border-radius:50%;border:0;box-shadow:inset 0 0 0 1px #0002}
+.swatches button[aria-pressed=true]{box-shadow:0 0 0 2px var(--surface),0 0 0 4px var(--text)}
+.swatches label{position:relative;width:24px;height:24px;border-radius:50%;overflow:hidden;cursor:pointer;
+  background:conic-gradient(#ff6b6b,#fcc419,#51cf66,#22b8cf,#845ef7,#ff6b6b)}
+.swatches label input{position:absolute;inset:0;opacity:0;cursor:pointer}
+.field{border:1px solid var(--border-control);background:var(--surface-2);border-radius:var(--r-pill);padding:5px 13px;font-size:12.5px;color:var(--text);width:200px}
+.col{display:flex;flex-direction:column;gap:6px}
+.tpls{display:grid;grid-template-columns:repeat(5,60px);gap:6px}
+.tpls button{position:relative;padding:0;width:60px;height:45px;border:0;border-radius:9px;overflow:hidden;background:var(--surface-3);display:grid;place-items:center}
+.tpls button canvas{display:block;max-width:100%;max-height:100%}
+.tpls button[aria-pressed=true]{box-shadow:0 0 0 2px var(--surface),0 0 0 4px var(--text)}
+.tpls button span{position:absolute;left:3px;right:3px;bottom:3px;font:600 8.5px/1.4 var(--sans);border-radius:99px;background:#ffffffe0;color:#0d0d0d;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.readout{font:12px var(--mono);color:var(--text-2);white-space:nowrap;padding:5px 0}
+
+/* 导入样式弹窗 */
+.import-dialog{width:min(460px,calc(100vw - 32px));padding:22px 22px 18px;border:1px solid var(--border);border-radius:var(--r-panel);
+  background:var(--surface-2);color:var(--text);box-shadow:0 24px 60px #0004}
+.import-dialog::backdrop{background:#0006}
+.import-dialog h2{margin:0 0 6px;font-size:16px}
+.import-dialog p{margin:0 0 12px;font-size:12.5px;color:var(--text-2);line-height:1.6}
+.import-dialog a{color:inherit}
+.import-dialog textarea{width:100%;box-sizing:border-box;resize:vertical;padding:10px 12px;border-radius:var(--r-card);border:1px solid var(--border-control);
+  background:var(--surface);color:var(--text);font:12px var(--mono)}
+.import-error{min-height:1.2em;color:var(--danger)!important;margin:8px 0 0!important}
+.import-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:6px}
+
+.veil{position:fixed;inset:12px;z-index:50;display:grid;place-items:center;border-radius:var(--r-panel);pointer-events:none;
+  background:color-mix(in srgb,var(--bg) 70%,transparent);outline:2px solid var(--text);outline-offset:-2px;
+  -webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);font-size:16px;font-weight:600}
+.toast{position:fixed;left:50%;top:74px;transform:translateX(-50%);z-index:60;margin:0;padding:9px 16px;border-radius:var(--r-pill);
+  background:var(--accent);color:var(--accent-fg);font-size:13px;box-shadow:0 8px 24px #0003;max-width:calc(100vw - 32px)}
+
+/* ── 窄屏：步骤条换到第二行，面板折行 ── */
+@media(max-width:860px){
+  body>header{grid-template-columns:1fr auto;height:auto;padding:10px 16px;row-gap:10px}
+  body>header .brand-sub{display:none}
+  .steps{grid-column:1/-1;grid-row:2;justify-self:center;overflow-x:auto;max-width:100%}
+  .header-right{grid-column:2}
+  .steps button{padding:4px 9px 4px 4px}
+  main{padding:14px 16px 0}
+  .dock{flex-wrap:wrap;justify-content:center;gap:10px 14px;margin:12px 0 14px}
+  .dock .ctls{flex-wrap:wrap;justify-content:center}
+}
+@media(max-width:480px){.steps button{font-size:0;gap:0;padding:4px}.steps button i{font-size:11px}}
+@media(prefers-reduced-motion:reduce){*{transition:none!important}}

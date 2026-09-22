@@ -26,7 +26,10 @@ body{height:100dvh;display:flex;overflow:hidden}
 .brand-mark{width:22px;height:22px;color:var(--text);display:block}
 
 /* 工具条：选中项把对应卡片推到堆叠最前，未选中的留在后方。 */
-.tool-list{display:flex;flex-direction:column;align-items:center;gap:6px;width:100%}
+/* 按钮组的中心要对齐封面（缩略图）的中心，而不是左栏中心：
+   卡组居中时包含下方 56px 的文字块，封面中心比卡组中心高 28px；
+   左栏上 logo 22px、下主题键 34px，按钮组本身又比栏中心低 6px。合计上移 28 − 6 = 22px。 */
+.tool-list{display:flex;flex-direction:column;align-items:center;gap:6px;width:100%;translate:0 -22px}
 /* 工具按钮是「胶囊一律给可点元素」这条规则的例外：它里面是图标＋英文名，
    名字一长（RUBRIC）做成圆形就几乎贴到两侧。改成大圆角方形，宽度跟随左栏，
    给名字留出左右余量。 */
@@ -260,6 +263,45 @@ body{height:100dvh;display:flex;overflow:hidden}
 .rl-tc{margin-left:auto;font:600 max(8px,4.2cqw)/1 var(--mono);color:#2a1616;padding:1.8cqw 3.4cqw;border-radius:var(--r-pill);white-space:nowrap}
 .tool-card[data-front=false] .thumb-roll,.tool-card[data-front=false] .thumb-roll *{animation-play-state:paused}
 @media(prefers-reduced-motion:reduce){.thumb-roll,.thumb-roll *{animation-play-state:paused}}
+/* Relief 封面：一张原始截图先铺满整张卡，然后缩进画面中央，长出圆角、窗口栏和大阴影，
+   背后的渐变随之露出来 —— 「把裸截图衬托成能发出去的作品图」。
+   底色同一套漂移网格渐变，色板换成清爽的柠檬 / 天蓝 / 薄绿。
+   封面本身是尺寸容器：它自己的 padding / gap 不写 cqw。 */
+@property --v1x{syntax:"<percentage>";inherits:false;initial-value:10%}
+@property --v1y{syntax:"<percentage>";inherits:false;initial-value:6%}
+@property --v2x{syntax:"<percentage>";inherits:false;initial-value:94%}
+@property --v2y{syntax:"<percentage>";inherits:false;initial-value:94%}
+@property --v3x{syntax:"<percentage>";inherits:false;initial-value:86%}
+@property --v3y{syntax:"<percentage>";inherits:false;initial-value:8%}
+.thumb-relief{aspect-ratio:3/2;container-type:inline-size;
+  background:radial-gradient(110% 90% at var(--v1x) var(--v1y),#ffe066,transparent 60%),
+    radial-gradient(100% 90% at var(--v2x) var(--v2y),#74c0fc,transparent 60%),
+    radial-gradient(80% 70% at var(--v3x) var(--v3y),#b2f2bb,transparent 62%),#eef6ff;
+  animation:rf-m1 21s ease-in-out infinite,rf-m2 25s ease-in-out infinite,rf-m3 31s ease-in-out infinite}
+@keyframes rf-m1{0%,100%{--v1x:10%;--v1y:6%}35%{--v1x:50%;--v1y:28%}70%{--v1x:6%;--v1y:80%}}
+@keyframes rf-m2{0%,100%{--v2x:94%;--v2y:94%}40%{--v2x:44%;--v2y:88%}75%{--v2x:90%;--v2y:36%}}
+@keyframes rf-m3{0%,100%{--v3x:86%;--v3y:8%}30%{--v3x:34%;--v3y:12%}65%{--v3x:14%;--v3y:88%}}
+.rf-win{position:absolute;inset:0;display:flex;flex-direction:column;overflow:hidden;background:#fff;
+  animation:rf-mount 7s cubic-bezier(.6,0,.25,1) infinite}
+.rf-bar{flex:none;height:0;display:flex;align-items:center;gap:1cqw;padding:0 2.2cqw;overflow:hidden;background:#f6f7f9;
+  border-bottom:1px solid #0000000f;animation:rf-chrome 7s cubic-bezier(.6,0,.25,1) infinite}
+.rf-bar i{width:1.6cqw;height:1.6cqw;border-radius:50%;background:#ff6b6b}
+.rf-bar i:nth-child(2){background:#fcc419}.rf-bar i:nth-child(3){background:#51cf66}
+.rf-bar s{flex:1;max-width:34cqw;height:2.2cqw;margin-left:3cqw;border-radius:9px;background:#0000000d}
+.rf-pic{flex:1;background:url(/png/rheo-card.png) center/cover}
+@keyframes rf-mount{
+  0%,14%{inset:0;border-radius:0;box-shadow:0 0 0 0 #0000}
+  42%,86%{inset:13% 15% 21% 15%;border-radius:2.6cqw;box-shadow:0 1.6cqw 5cqw -1cqw #1b2a4a59,0 0 0 1px #ffffff99}
+  100%{inset:0;border-radius:0;box-shadow:0 0 0 0 #0000}}
+@keyframes rf-chrome{0%,20%{height:0}46%,84%{height:5.2cqw}96%,100%{height:0}}
+.rf-read{position:absolute;left:50%;bottom:5%;translate:-50% 0;opacity:0;white-space:nowrap;
+  font:600 max(8px,4cqw)/1 var(--mono);color:#16202e;padding:1.8cqw 3.2cqw;border-radius:var(--r-pill);
+  background:linear-gradient(180deg,#ffffff99,#ffffff29 55%,#ffffff47);-webkit-backdrop-filter:blur(6px) saturate(1.8);backdrop-filter:blur(6px) saturate(1.8);
+  box-shadow:inset 0 1px 0 #ffffffeb,inset 0 -1px 0 #ffffff66,inset 0 0 0 1px #ffffff73,0 6px 14px -6px #1b2a4a33;
+  animation:rf-show 7s ease infinite}
+@keyframes rf-show{0%,40%{opacity:0;transform:translateY(1.5cqw)}50%,84%{opacity:1;transform:none}92%,100%{opacity:0}}
+.tool-card[data-front=false] .thumb-relief,.tool-card[data-front=false] .thumb-relief *{animation-play-state:paused}
+@media(prefers-reduced-motion:reduce){.thumb-relief,.thumb-relief *{animation-play-state:paused}}
 .thumb canvas{position:absolute;inset:0;width:100%;height:100%;display:block;
   opacity:0;transition:opacity .4s}
 .thumb.live canvas{opacity:1}

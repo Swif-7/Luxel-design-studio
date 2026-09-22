@@ -1,0 +1,249 @@
+// Relief 的绘制：背景 → 截图（含外框、圆角、阴影）→ 文字，全部画在一张 2D canvas 上。
+// 预览和导出走同一个 renderScene，只是像素尺寸不同 —— 看到的就是导出的。
+import { Renderer } from './shader.js';
+import { TEMPLATES, frameAspect, placeShot, textBox, bulletsOf, wrapLines, BROWSER_BAR, PHONE_BEZEL, isLight } from './relief-core.js';
+
+export const FONT = '"IBM Plex Sans","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif';
+export const MONO = '"IBM Plex Mono",ui-monospace,Menlo,monospace';
+
+const canvas = (w, h) => { const c = document.createElement('canvas'); c.width = Math.max(1, Math.round(w)); c.height = Math.max(1, Math.round(h)); return c; };
+
+/* ── 背景 ─────────────────────────────────────────────────────────────
+   Rheo 走 WebGL 渲染器；纯色直接填；导入图片按「铺满」裁。
+   模糊优先用 ctx.filter 的高斯模糊；Safari 不支持时退回逐级缩放。
+   原始背景和模糊后的背景各缓存几个尺寸，拖别的滑块时不必重画。 */
+let rheo = null, rheoCanvas = null;
+function rheoRenderer() {
+  if (rheo === false) return null;
+  if (!rheo) {
+    try { rheoCanvas = document.createElement('canvas'); rheo = new Renderer(rheoCanvas); }
+    catch { rheo = false; return null; }
+  }
+  return rheo;
+}
+
+const cache = new Map();
+function remember(key, make) {
+  if (cache.has(key)) { const v = cache.get(key); cache.delete(key); cache.set(key, v); return v; }
+  const v = make();
+  cache.set(key, v);
+  while (cache.size > 8) cache.delete(cache.keys().next().value);
+  return v;
+}
+export const clearCache = () => cache.clear();
+
+function drawCover(ctx, img, W, H, align = 'center') {
+  const iw = img.width, ih = img.height, k = Math.max(W / iw, H / ih);
+  const w = iw * k, h = ih * k;
+  ctx.drawImage(img, (W - w) / 2, align === 'top' ? 0 : (H - h) / 2, w, h);
+}
+
+function rawBackground(bg, W, H) {
+  return remember(`raw|${bg.key}|${W}x${H}`, () => {
+    const c = canvas(W, H), ctx = c.getContext('2d');
+    if (bg.src === 'solid') { ctx.fillStyle = bg.solid; ctx.fillRect(0, 0, W, H); return c; }
+    if (bg.src === 'image' && bg.image) { drawCover(ctx, bg.image, W, H); return c; }
+    const r = rheoRenderer();
+    if (r) {
+      r.draw({ ...bg.rheo, particles: false }, 6, c.width, c.height);
+      ctx.drawImage(rheoCanvas, 0, 0, W, H);
+    } else {                                           // 没有 WebGL：用 Rheo 的配色画一张柔和渐变
+      const g = ctx.createLinearGradient(0, 0, W, H);
+      const cols = bg.rheo.colors;
+      cols.forEach((col, i) => g.addColorStop(i / Math.max(1, cols.length - 1), col));
+      ctx.fillStyle = bg.rheo.background; ctx.fillRect(0, 0, W, H);
+      ctx.globalAlpha = .8; ctx.fillStyle = g; ctx.fillRect(0, 0, W, H); ctx.globalAlpha = 1;
+    }
+    return c;
+  });
+}
+
+const supportsFilter = (() => { try { const c = document.createElement('canvas').getContext('2d'); c.filter = 'blur(2px)'; return c.filter === 'blur(2px)'; } catch { return false; } })();
+
+function blurred(bg, W, H) {
+  const raw = rawBackground(bg, W, H);
+  if (!bg.blur) return raw;
+  return remember(`blur|${bg.key}|${bg.blur}|${W}x${H}`, () => {
+    const out = canvas(W, H), o = out.getContext('2d');
+    const radius = (bg.blur / 100) * Math.min(W, H) * 0.08;
+    // 边缘取样会混进透明像素、拉出一圈暗边：四周多画出一圈再模糊
+    const pad = radius * 2;
+    if (supportsFilter) {
+      o.filter = `blur(${radius}px)`;
+      o.drawImage(raw, -pad, -pad, W + pad * 2, H + pad * 2);
+      o.filter = 'none';
+      return out;
+    }
+    // Safari 的 2D canvas 不支持 filter：逐级缩一半、再逐级放大一倍，
+    // 每级都是双线性采样，叠起来接近高斯；一步放大会出方块，所以必须一级一级来。
+    const levels = Math.max(1, Math.round(Math.log2(1 + radius)));
+    // 每级再把上下左右各错 1px 的自己以一半透明度叠上去，消掉双线性放大留下的方块。
+    // 不先清空：边缘错出去的那 1px 没有像素可叠，就保留原色，不会混进透明、泛出亮边。
+    const smooth = (c) => {
+      const tmp = canvas(c.width, c.height); tmp.getContext('2d').drawImage(c, 0, 0);
+      const x = c.getContext('2d');
+      x.globalAlpha = .5;
+      for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) x.drawImage(tmp, dx, dy);
+      x.globalAlpha = 1;
+    };
+    let cur = canvas(W + pad * 2, H + pad * 2);
+    cur.getContext('2d').drawImage(raw, 0, 0, cur.width, cur.height);
+    const chain = [cur];
+    for (let i = 0; i < levels; i++) {
+      const next = canvas(cur.width / 2, cur.height / 2), n = next.getContext('2d');
+      n.imageSmoothingQuality = 'high'; n.drawImage(cur, 0, 0, next.width, next.height);
+      chain.push(next); cur = next;
+    }
+    smooth(cur); smooth(cur);
+    for (let i = chain.length - 2; i >= 0; i--) {
+      const up = canvas(chain[i].width, chain[i].height), u = up.getContext('2d');
+      u.imageSmoothingQuality = 'high'; u.drawImage(cur, 0, 0, up.width, up.height);
+      smooth(up);
+      cur = up;
+    }
+    o.drawImage(cur, pad, pad, W, H, 0, 0, W, H);
+    return out;
+  });
+}
+
+/* 采样背景平均亮度，决定「自动」文字颜色。 */
+function averageLight(img) {
+  const c = canvas(8, 8), ctx = c.getContext('2d', { willReadFrequently: true });
+  ctx.drawImage(img, 0, 0, 8, 8);
+  const d = ctx.getImageData(0, 0, 8, 8).data;
+  let r = 0, g = 0, b = 0;
+  for (let i = 0; i < d.length; i += 4) { r += d[i]; g += d[i + 1]; b += d[i + 2]; }
+  const n = d.length / 4;
+  return isLight(r / n, g / n, b / n);
+}
+
+/* ── 截图 ─────────────────────────────────────────────────────────── */
+function roundRect(ctx, x, y, w, h, r) {
+  r = Math.max(0, Math.min(r, w / 2, h / 2));
+  ctx.beginPath();
+  ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
+}
+
+function drawShot(ctx, shot, box, s, W) {
+  const { x, y, w, h } = box;
+  const radius = s.frame === 'phone' ? w * 0.14 : (s.radius / 400) * w;
+  // 阴影：先用同形状的实心块投影，再把内容盖上去，内容本身不会被阴影染色
+  const k = s.shadow / 100;
+  if (k > 0) {
+    ctx.save();
+    ctx.shadowColor = `rgba(10,16,30,${0.18 + 0.32 * k})`;
+    ctx.shadowBlur = W * 0.07 * k;
+    ctx.shadowOffsetY = W * 0.022 * k;
+    roundRect(ctx, x, y, w, h, radius);
+    ctx.fillStyle = s.frame === 'phone' ? '#10151f' : '#ffffff';
+    ctx.fill();
+    ctx.restore();
+  }
+  if (s.frame === 'phone') {
+    roundRect(ctx, x, y, w, h, radius); ctx.fillStyle = '#10151f'; ctx.fill();
+    ctx.lineWidth = w * 0.012; ctx.strokeStyle = '#2c3647'; roundRect(ctx, x + ctx.lineWidth / 2, y + ctx.lineWidth / 2, w - ctx.lineWidth, h - ctx.lineWidth, radius); ctx.stroke();
+    const b = w * PHONE_BEZEL, sx = x + b, sy = y + b, sw = w - 2 * b, sh = h - 2 * b, sr = radius - b;
+    ctx.save(); roundRect(ctx, sx, sy, sw, sh, sr); ctx.clip();
+    ctx.fillStyle = '#fff'; ctx.fillRect(sx, sy, sw, sh);
+    ctx.translate(sx, sy); drawCover(ctx, shot, sw, sh, 'top');
+    ctx.restore();
+    // 灵动岛
+    const iw = sw * 0.3, ih = sw * 0.085;
+    roundRect(ctx, x + (w - iw) / 2, sy + sw * 0.035, iw, ih, ih / 2); ctx.fillStyle = '#10151f'; ctx.fill();
+    return;
+  }
+  ctx.save();
+  roundRect(ctx, x, y, w, h, radius); ctx.clip();
+  let cy = y;
+  if (s.frame === 'browser') {
+    const bar = w * BROWSER_BAR;
+    ctx.fillStyle = '#f4f5f7'; ctx.fillRect(x, y, w, bar);
+    ctx.fillStyle = '#0000000f'; ctx.fillRect(x, y + bar - Math.max(1, w * .001), w, Math.max(1, w * .001));
+    const dot = bar * 0.22, gap = bar * 0.34;
+    ['#ff6b6b', '#fcc419', '#51cf66'].forEach((c, i) => { ctx.beginPath(); ctx.arc(x + bar * 0.62 + i * (dot * 2 + gap * .45), y + bar / 2, dot, 0, Math.PI * 2); ctx.fillStyle = c; ctx.fill(); });
+    const uw = w * 0.36, uh = bar * 0.5;
+    roundRect(ctx, x + (w - uw) / 2, y + (bar - uh) / 2, uw, uh, uh / 2); ctx.fillStyle = '#0000000d'; ctx.fill();
+    if (s.url) { ctx.fillStyle = '#5c5c5c'; ctx.font = `${uh * 0.58}px ${FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(s.url, x + w / 2, y + bar / 2, uw * 0.9); }
+    cy = y + bar;
+  }
+  ctx.drawImage(shot, x, cy, w, y + h - cy);
+  ctx.restore();
+}
+
+/* ── 文字 ─────────────────────────────────────────────────────────── */
+function drawText(ctx, s, W, H, ink, shotBox) {
+  const t = TEMPLATES[s.tpl];
+  if (!t || !s.tpl) return;
+  const u = Math.sqrt(W * H) / 100;
+  const title = (s.title || '').trim(), sub = (s.sub || '').trim();
+  ctx.fillStyle = ink; ctx.textBaseline = 'alphabetic';
+
+  if (t.tag) {                                        // 角标签：左上胶囊 + 右下署名
+    const fs = t.title * u, pad = fs * .7, m = Math.min(W, H) * .05;
+    if (title) {
+      ctx.font = `600 ${fs}px ${MONO}`;
+      const tw = Math.min(ctx.measureText(title).width, W * .6), th = fs * 2;
+      roundRect(ctx, m, m, tw + pad * 2, th, th / 2); ctx.fillStyle = ink === '#ffffff' ? '#ffffff26' : '#ffffffc7'; ctx.fill();
+      ctx.fillStyle = ink; ctx.textBaseline = 'middle'; ctx.textAlign = 'left'; ctx.fillText(title, m + pad, m + th / 2, W * .6);
+    }
+    if (sub) { ctx.font = `400 ${t.sub * u}px ${FONT}`; ctx.textAlign = 'right'; ctx.textBaseline = 'alphabetic'; ctx.globalAlpha = .75; ctx.fillText(sub, W - m, H - m, W * .6); ctx.globalAlpha = 1; }
+    return;
+  }
+
+  const box = textBox(s.tpl, W, H);
+  const blocks = [];                                  // [{ lines, font, size, alpha, gapAfter }]
+  const measureWith = (font) => { ctx.font = font; return (txt) => ctx.measureText(txt).width; };
+  if (t.quote) {
+    const qf = `700 ${t.title * 2.6 * u}px Georgia,"Times New Roman",serif`;
+    blocks.push({ lines: ['“'], font: qf, size: t.title * 2.6 * u * .55, alpha: .35, gap: t.title * u * .2 });
+  }
+  if (title && t.behind) {
+    // 杂志大字只占一行：按文字区宽度把字号收到正好放下，而不是折行（第二行会被截图挡住）
+    let size = t.title * u;
+    const w = measureWith(`650 ${size}px ${FONT}`)(title);
+    if (w > box.w) size *= box.w / w;
+    blocks.push({ lines: [title], font: `650 ${size}px ${FONT}`, size, alpha: .92, gap: 0, lh: 1.05 });
+  } else if (title) {
+    const size = t.title * u, font = `${t.quote ? 500 : 600} ${size}px ${FONT}`;
+    blocks.push({ lines: wrapLines(title, box.w, measureWith(font), 3), font, size, alpha: 1, gap: size * .45, lh: 1.18 });
+  }
+  if (t.bullets) {
+    const size = t.sub * u, font = `400 ${size}px ${FONT}`;
+    const items = bulletsOf(sub);
+    blocks.push({ lines: items.map(b => '✓  ' + b), font, size, alpha: .82, gap: 0, lh: 1.7 });
+  } else if (sub && !t.behind) {
+    const size = t.sub * u, font = `400 ${size}px ${t.quote ? MONO : FONT}`;
+    blocks.push({ lines: wrapLines((t.quote ? '— ' : '') + sub, box.w, measureWith(font), 2), font, size, alpha: .72, gap: 0, lh: 1.4 });
+  }
+  const height = blocks.reduce((sum, b) => sum + b.lines.length * b.size * (b.lh || 1) + b.gap, 0);
+  let y = t.valign === 'middle' ? box.y + (box.h - height) / 2 : t.valign === 'top' ? box.y : box.y + (box.h - height) / 2;
+  // 杂志大字：让标题下缘约三分之一压在截图后面，不管画幅横竖都有「被截图挡住一截」的效果
+  if (t.behind && shotBox && blocks[0]) y = Math.max(H * 0.03, shotBox.y - blocks[0].size * 0.72);
+  const x = t.align === 'center' ? box.x + box.w / 2 : box.x;
+  ctx.textAlign = t.align === 'center' ? 'center' : 'left';
+  for (const b of blocks) {
+    ctx.font = b.font; ctx.globalAlpha = b.alpha;
+    for (const line of b.lines) { y += b.size * (b.lh || 1); ctx.fillText(line, x, y - b.size * (b.lh ? (b.lh - 1) / 2 + .18 : 0)); }
+    y += b.gap;
+  }
+  ctx.globalAlpha = 1;
+}
+
+/* ── 整张 ─────────────────────────────────────────────────────────
+   s：{ bg:{ key, src, solid, image, rheo, blur }, frame, radius, shadow, scale, tpl, title, sub, ink, url }
+   shot：已经裁好的截图（canvas 或 ImageBitmap）。 */
+export function renderScene(ctx, W, H, s, shot) {
+  const bg = blurred(s.bg, W, H);
+  ctx.drawImage(bg, 0, 0, W, H);
+  const aspect = frameAspect(s.frame, shot.width / shot.height);
+  const box = placeShot(s.tpl, W, H, aspect, s.scale);
+  const ink = s.ink === 'white' ? '#ffffff' : s.ink === 'black' ? '#16202e'
+    : remember(`ink|${s.bg.key}|${s.bg.blur}`, () => averageLight(bg)) ? '#16202e' : '#ffffff';
+  const behind = TEMPLATES[s.tpl]?.behind;
+  if (behind) drawText(ctx, s, W, H, ink, box);
+  drawShot(ctx, shot, box, s, W);
+  if (!behind) drawText(ctx, s, W, H, ink, box);
+}
+
+export { canvas as makeCanvas, roundRect };
