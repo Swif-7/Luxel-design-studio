@@ -36,7 +36,9 @@ button.primary:hover{background:var(--accent);border-color:var(--accent);opacity
 
 /* 舞台：尺寸容器，里面的画布 / 裁切框按比例塞进来 */
 .stage{flex:1;min-height:0;width:100%;max-width:980px;position:relative;display:grid;place-items:center;container-type:size}
-.preview{display:block;border-radius:12px;box-shadow:0 0 0 1px var(--border),0 22px 50px -30px #0008}
+/* 画布透明的地方（背景缩小后露白）透出半透明棋盘格 —— 只在预览里，导出不带 */
+.preview{display:block;border-radius:12px;box-shadow:0 0 0 1px var(--border),0 22px 50px -30px #0008;
+  background:repeating-conic-gradient(#8883 0 25%,#8881 0 50%) 0 0/16px 16px}
 
 /* 空状态：底色借用首页 Relief 封面的柠檬 / 天蓝 / 薄绿 */
 /* 拖放区只占舞台中间约一半，四周留白；窄屏时放宽到接近满宽 */
@@ -98,7 +100,7 @@ button.primary:hover{background:var(--accent);border-color:var(--accent);opacity
 .field{border:1px solid var(--border-control);background:var(--surface-2);border-radius:var(--r-pill);padding:5px 13px;font-size:12.5px;color:var(--text);width:200px}
 .col{display:flex;flex-direction:column;gap:6px}
 .tpls{display:grid;grid-template-columns:repeat(5,60px);gap:6px}
-.tpls button{position:relative;padding:0;width:60px;height:45px;border:0;border-radius:9px;overflow:hidden;background:var(--surface-3);display:grid;place-items:center}
+.tpls button{position:relative;padding:0;width:60px;height:45px;border:0;border-radius:9px;overflow:hidden;background:repeating-conic-gradient(#8883 0 25%,#8881 0 50%) 0 0/8px 8px;display:grid;place-items:center}
 .tpls button canvas{display:block;max-width:100%;max-height:100%}
 .tpls button[aria-pressed=true]{box-shadow:0 0 0 2px var(--surface),0 0 0 4px var(--text)}
 .tpls button span{position:absolute;left:3px;right:3px;bottom:3px;font:600 8.5px/1.4 var(--sans);border-radius:99px;background:#ffffffe0;color:#0d0d0d;

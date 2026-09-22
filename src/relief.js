@@ -36,7 +36,7 @@ const SETTINGS_KEY = 'relief-settings';
 const DEFAULTS = {
   cropRatio: 'free', radius: 14,
   src: 'rheo', rheo: { ...defaults, particles: false }, solid: '#f1f3f5', blur: 0,
-  rheoSize: 100, imageSize: 100, frameSize: 100,   // 背景大小：生成的 Rheo 50–200%；导入的图片 / Rheo 画面 100–300%（只能放大，否则四周露空）
+  rheoSize: 100, imageSize: 100, frameSize: 100,   // 背景大小：生成的 Rheo 30–200%；导入的图片 / Rheo 画面 30–300%（缩到 100% 以下时四周透明，预览显示棋盘格）
   frame: 'browser', shadow: 55, ratio: '4:3', scale: 74,
   tpl: 0, title: '让截图自己会说话', sub: '本地处理 · 一键复制 · 8 种排版', ink: 'auto',
   fmt: 'png', x: 2,
@@ -98,8 +98,8 @@ function shot() {
   return c;
 }
 
-/* 背景大小：Rheo 直接乘它自己的 scale（着色器里坐标除以 scale，越大图案越大，按原生分辨率重画不会糊）；
-   导入图片在「铺满」的基础上再放大。 */
+/* 背景大小：Rheo 直接乘它自己的 scale（着色器里坐标除以 scale，越大图案越大，按原生分辨率重画不会糊，
+   下限 0.25 是 Rheo 自己的范围）；导入图片以「铺满」为 100%，放大裁切、缩小则四周留透明。 */
 const scene = () => {
   const rheo = { ...s.rheo, scale: clamp(s.rheo.scale * s.rheoSize / 100, 0.25, 3) };
   let bg;
@@ -153,9 +153,9 @@ function controls() {
       : s.src === 'rheo' ? ctl('Rheo', '<div class="row"><button type="button" class="pill" data-act="rndColor">随机颜色</button><button type="button" class="pill" data-act="rndStyle">随机样式</button><button type="button" class="pill" data-act="importStyle">导入样式</button></div>')
         : s.src === 'solid' ? ctl('颜色', `<div class="swatches">${SOLIDS.map(c => `<button type="button" data-act="solid" data-v="${c}" style="background:${c}" aria-label="${c}" aria-pressed="${c === s.solid}"></button>`).join('')}<label title="自定义颜色"><input type="color" data-act="solidPick" value="${s.solid}" aria-label="自定义颜色"></label></div>`)
           : ctl('图片', `<label class="pill" style="cursor:pointer;border:1px solid var(--border-control);border-radius:999px;background:var(--surface-2)">${bgImage ? '换一张图…' : '选择图片…'}<input type="file" accept="image/*" data-act="bgFile" hidden></label>`),
-      s.src === 'rheo' && rheoFrame ? range('frameSize', '背景大小', s.frameSize, 100, 300, '%')
-        : s.src === 'rheo' ? range('rheoSize', '背景大小', s.rheoSize, 50, 200, '%')
-        : s.src === 'image' ? range('imageSize', '背景大小', s.imageSize, 100, 300, '%') : '',
+      s.src === 'rheo' && rheoFrame ? range('frameSize', '背景大小', s.frameSize, 30, 300, '%')
+        : s.src === 'rheo' ? range('rheoSize', '背景大小', s.rheoSize, 30, 200, '%')
+        : s.src === 'image' ? range('imageSize', '背景大小', s.imageSize, 30, 300, '%') : '',
       range('blur', '模糊', s.blur, 0, 100)];
     case 2: return [
       ctl('外框', seg('frame', [['none', '无'], ['browser', '浏览器'], ['phone', '手机']], s.frame)),
@@ -359,8 +359,10 @@ const importOpen = () => $('import-dialog').open;
 /* ── 导出 ───────────────────────────────────────────────────────── */
 function exportBlob(type) {
   const { width, height } = exportSize(aspectNow(), s.x);
-  const cv = makeCanvas(width, height);
-  renderScene(cv.getContext('2d'), width, height, scene(), shot());
+  const cv = makeCanvas(width, height), ctx = cv.getContext('2d');
+  // JPG 没有透明通道：背景缩小露白的地方垫白色，否则会变成黑色
+  if (type === 'image/jpeg') { ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, width, height); }
+  renderScene(ctx, width, height, scene(), shot());
   return new Promise((resolve, reject) => cv.toBlob(b => (b ? resolve(b) : reject(Error('导出失败'))), type, 0.92));
 }
 const stamp = () => { const d = new Date(), p = (n) => String(n).padStart(2, '0'); return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}`; };

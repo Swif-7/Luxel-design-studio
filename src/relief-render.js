@@ -33,8 +33,9 @@ function remember(key, make) {
 export const clearCache = () => cache.clear();
 
 function drawCover(ctx, img, W, H, align = 'center', zoom = 1) {
-  const iw = img.width, ih = img.height, k = Math.max(W / iw, H / ih) * Math.max(1, zoom);
+  const iw = img.width, ih = img.height, k = Math.max(W / iw, H / ih) * zoom;
   const w = iw * k, h = ih * k;
+  // 缩到铺满以下时四周不补：保持透明，预览里显示棋盘格，用户一眼能看出露白了多少
   ctx.drawImage(img, (W - w) / 2, align === 'top' ? 0 : (H - h) / 2, w, h);
 }
 
@@ -111,10 +112,10 @@ function averageLight(img) {
   const c = canvas(8, 8), ctx = c.getContext('2d', { willReadFrequently: true });
   ctx.drawImage(img, 0, 0, 8, 8);
   const d = ctx.getImageData(0, 0, 8, 8).data;
-  let r = 0, g = 0, b = 0;
-  for (let i = 0; i < d.length; i += 4) { r += d[i]; g += d[i + 1]; b += d[i + 2]; }
-  const n = d.length / 4;
-  return isLight(r / n, g / n, b / n);
+  // 按不透明度加权：背景缩小后露出的透明区域不算进亮度里
+  let r = 0, g = 0, b = 0, n = 0;
+  for (let i = 0; i < d.length; i += 4) { const a = d[i + 3] / 255; r += d[i] * a; g += d[i + 1] * a; b += d[i + 2] * a; n += a; }
+  return n ? isLight(r / n, g / n, b / n) : true;
 }
 
 /* ── 截图 ─────────────────────────────────────────────────────────── */
