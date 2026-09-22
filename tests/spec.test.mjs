@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {buildTheme, audit, contrast, adaptAccent, toMarkdown, hexToLch, harmonyIssues, recommend, recommendTonal, deltaE, normalizeRubricState, resizeRubricPalette, toggleRubricLink, buildRubricThemes, themeHarmonyIssues, TYPE_RELATIONS, typographyBounds, updateTypography, toggleTypographyLink, lchHex, typographyAdvice, rubricEditorState, updateRubricColors, recommendBackgrounds, backgroundTextWarnings} from '../src/spec.js';
+import {buildTheme, audit, contrast, adaptAccent, toMarkdown, hexToLch, harmonyIssues, recommend, recommendTonal, deltaE, normalizeRubricState, resizeRubricPalette, toggleRubricLink, buildRubricThemes, themeHarmonyIssues, TYPE_RELATIONS, typographyBounds, updateTypography, toggleTypographyLink, lchHex, typographyAdvice, rubricEditorState, updateRubricColors, recommendBackgrounds, backgroundTextWarnings, recommendCards, recommendBorders, rubricThemeParams} from '../src/spec.js';
 
 const params = {hue: 250, chroma: 2, contrast: 1, accents: ['#3b5bdb', '#e8590c']};
 const type = [{label:'正文',weight:400,size:15,mono:false},{label:'强调',weight:600,size:15,mono:false},
@@ -472,4 +472,58 @@ test('背景接近文字时精确报告用途，换回默认背景后警告消�
   }
   const restored = normalizeRubricState({backgrounds: {light: {mode: 'custom', color: 'bad'}}});
   assert.equal(buildRubricThemes(restored).light.bg, '#ffffff');
+});
+
+test('卡片与边框推荐：合法色值、与背景拉开、彼此不重复', () => {
+  for (const theme of ['light', 'dark'])
+    for (const [bg, accent] of [[theme === 'dark' ? '#0f0f0f' : '#ffffff', '#3b5bdb'], [theme === 'dark' ? '#12161f' : '#f4f7ff', '#e8590c'], [theme === 'dark' ? '#101010' : '#fafafa', '#777777']]) {
+      const cards = recommendCards(bg, accent, theme);
+      assert.equal(cards.length, 5);
+      for (const c of cards) { assert.match(c.hex, /^#[0-9a-f]{6}$/); assert.ok(deltaE(c.hex, bg) > .008, `${theme} ${c.label} 与背景太近`); }
+      const borders = recommendBorders(bg, cards[0].hex, accent, theme);
+      assert.equal(borders.length, 5);
+      for (const b of borders) { assert.match(b.hex, /^#[0-9a-f]{6}$/); assert.ok(deltaE(b.hex, bg) > .03 && deltaE(b.hex, cards[0].hex) > .02, `${theme} ${b.label} 看不出来`); }
+      assert.equal(new Set(borders.map(b => b.hex)).size, 5);
+    }
+});
+
+test('选中推荐后，卡片与边框随背景和主色重新计算；自定义直接覆盖', () => {
+  let state = normalizeRubricState();
+  state = updateRubricColors(state, e => ({...e, cards: {...e.cards, light: {mode: 'rec', variant: 2}}, borders: {...e.borders, light: {mode: 'rec', variant: 3}}}));
+  const a = buildRubricThemes(state).light;
+  assert.equal(a.surface, recommendCards(a.bg, state.accents[0], 'light')[2].hex);
+  assert.equal(a.border, recommendBorders(a.bg, a.surface, state.accents[0], 'light')[3].hex);
+  state = updateRubricColors(state, e => { e.accents[0] = '#e8590c'; return e; });
+  const b = buildRubricThemes(state).light;
+  assert.notEqual(a.surface, b.surface); assert.notEqual(a.border, b.border);
+  state = updateRubricColors(state, e => ({...e, backgrounds: {...e.backgrounds, light: {mode: 'custom', color: '#f3efe6'}}}));
+  assert.equal(buildRubricThemes(state).light.surface, recommendCards('#f3efe6', '#e8590c', 'light')[2].hex);
+  state = updateRubricColors(state, e => ({...e, cards: {...e.cards, light: {mode: 'custom', color: '#abcdef'}}}));
+  assert.equal(buildRubricThemes(state).light.surface, '#abcdef');
+});
+
+test('卡片与边框设置：浅深分开保存，断开再联动不丢，坏值被清掉', () => {
+  let state = normalizeRubricState();
+  state = updateRubricColors(state, e => ({...e, cards: {light: {mode: 'custom', color: '#eeeeee'}, dark: {mode: 'default'}}}));
+  state = toggleRubricLink(state);
+  state.editingTheme = 'dark';
+  state = updateRubricColors(state, e => ({...e, cards: {...e.cards, dark: {mode: 'custom', color: '#222233'}}}));
+  assert.equal(buildRubricThemes(state).dark.surface, '#222233');
+  state.editingTheme = 'light';
+  state = toggleRubricLink(state);
+  const t = buildRubricThemes(state);
+  assert.equal(t.light.surface, '#eeeeee'); assert.equal(t.dark.surface, '#222233');
+  const cleaned = normalizeRubricState({cards: {light: {mode: 'custom', color: 'nope'}, dark: {mode: 'weird', variant: 99}}, borders: 'x'});
+  assert.match(buildRubricThemes(cleaned).light.surface, /^#[0-9a-f]{6}$/);
+  assert.equal(rubricThemeParams(cleaned).cards.dark.mode, 'default');
+  assert.equal(rubricThemeParams(cleaned).borders.light.mode, 'default');
+});
+
+test('导出的规范写明卡片与边框的来源', () => {
+  let state = normalizeRubricState();
+  state = updateRubricColors(state, e => ({...e, cards: {...e.cards, light: {mode: 'rec', variant: 1}}}));
+  const {light, dark} = buildRubricThemes(state);
+  const md = toMarkdown({params: {...rubricThemeParams(state), linked: true}, light, dark, type: []});
+  assert.match(md, /卡片色：浅色 按背景与主色推荐（第 2 种），深色 默认/);
+  assert.match(md, /边框色：浅色 默认，深色 默认/);
 });

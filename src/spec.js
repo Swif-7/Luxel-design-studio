@@ -5,7 +5,7 @@ import {hexToLab, lchToHex} from './color.js';
 
 const PALETTE = ['#3b5bdb', '#e8590c', '#2f9e44', '#c2255c', '#7048e8', '#0c8599'];
 export const RUBRIC_DEFAULTS = {
-  hue: 250, chroma: 2, contrast: 1, count: 1, linked: true, adaptAccents: true,
+  hue: 250, chroma: 0, contrast: 1, count: 1, linked: true, adaptAccents: true,
   accents: ['#3b5bdb'], multiCount: 2, selectedAccent: 0, typeLinked: false,
   bodyWeight: 400, bodySize: 15, strongWeight: 600, strongSize: 15,
   headingWeight: 650, headingSize: 24, monoWeight: 400, monoSize: 14,
@@ -68,7 +68,49 @@ export function typographyAdvice(rows) {
 }
 export function rubricThemeParams(state) {
   return {hue: state.hue, chroma: state.chroma, contrast: state.contrast,
-    adaptAccents: state.adaptAccents, accents: [...state.accents], backgrounds: cleanBackgrounds(state.backgrounds)};
+    adaptAccents: state.adaptAccents, accents: [...state.accents], backgrounds: cleanBackgrounds(state.backgrounds),
+    cards: cleanSurfaces(state.cards), borders: cleanSurfaces(state.borders)};
+}
+/* 卡片色（--surface）与边框色（--border）：和背景一样浅深各一份。
+   default：沿用中性灰；custom：用户取的色；rec：第 variant 个推荐 ——
+   推荐按「当前背景 + 主强调色」现算，所以之后改背景或强调色，它会跟着变。 */
+function cleanSurfaces(raw) {
+  return Object.fromEntries(['light', 'dark'].map(theme => {
+    const setting = raw?.[theme] || {};
+    return [theme, {mode: ['custom', 'rec'].includes(setting.mode) ? setting.mode : 'default',
+      color: hexValue(setting.color, theme === 'dark' ? '#1c1c1c' : '#f5f5f5'),
+      variant: numeric(setting.variant, 0, 0, 4)}];
+  }));
+}
+/* 卡片推荐：以背景的明度为基准，浅色往深一点、深色往亮一点走，
+   前两个沿用背景自己的色倾向，中间两个带一点主强调色，最后一个是「浮起」的卡。 */
+export function recommendCards(bg, accent, theme) {
+  const b = hexToLch(bg), a = hexToLch(accent), dark = theme === 'dark';
+  const at = dl => dark ? b.L + dl : b.L - dl;
+  const tint = c => Math.min(c, a.C * .5);
+  return [
+    {label: '中性', hex: lchHex({L: at(dark ? .04 : .022), C: b.C, h: b.h})},
+    {label: dark ? '稍亮' : '稍深', hex: lchHex({L: at(dark ? .075 : .045), C: b.C, h: b.h})},
+    {label: '主色微染', hex: lchHex({L: at(dark ? .045 : .02), C: tint(dark ? .018 : .012), h: a.h})},
+    {label: '主色浅染', hex: lchHex({L: at(dark ? .075 : .042), C: tint(dark ? .032 : .03), h: a.h})},
+    {label: '浮起', hex: dark ? lchHex({L: b.L + .11, C: b.C * .5, h: b.h})
+      : b.L > .985 ? lchHex({L: b.L - .065, C: 0, h: 0}) : lchHex({L: Math.min(1, b.L + .04), C: b.C * .3, h: b.h})},
+  ];
+}
+/* 边框推荐：以卡片和背景里更「靠边」的那个为基准（浅色取暗的、深色取亮的），
+   保证边框在两种底上都看得见；有中性、清晰两档，两档主色描边，一档纯灰。 */
+export function recommendBorders(bg, card, accent, theme) {
+  const b = hexToLch(bg), c = hexToLch(card), a = hexToLch(accent), dark = theme === 'dark';
+  const base = dark ? Math.max(b.L, c.L) : Math.min(b.L, c.L);
+  const at = dl => dark ? base + dl : base - dl;
+  const src = c.C > .004 ? c : b;
+  return [
+    {label: '柔和', hex: lchHex({L: at(dark ? .06 : .055), C: src.C, h: src.h})},
+    {label: '清晰', hex: lchHex({L: at(dark ? .12 : .1), C: src.C, h: src.h})},
+    {label: '主色淡描', hex: lchHex({L: at(dark ? .08 : .07), C: Math.min(.025, a.C * .5), h: a.h})},
+    {label: '主色描边', hex: lchHex({L: at(dark ? .16 : .14), C: Math.min(.06, a.C * .7), h: a.h})},
+    {label: '中性灰', hex: lchHex({L: at(dark ? .09 : .08), C: 0, h: 0})},
+  ];
 }
 function cleanBackgrounds(raw) {
   return Object.fromEntries(['light', 'dark'].map(theme => {
@@ -112,6 +154,7 @@ function cleanThemeParams(raw, fallback) {
     contrast: numeric(input.contrast, fallback.contrast, .6, 1.3, .01),
     adaptAccents: typeof input.adaptAccents === 'boolean' ? input.adaptAccents : fallback.adaptAccents,
     backgrounds: cleanBackgrounds(input.backgrounds),
+    cards: cleanSurfaces(input.cards), borders: cleanSurfaces(input.borders),
     accents: Array.isArray(input.accents) && input.accents.length
       ? input.accents.slice(0, 6).map((hex, i) => hexValue(hex, PALETTE[i])) : [...fallback.accents],
   };
@@ -169,6 +212,8 @@ export function toggleRubricLink(state) {
     ? {...state, linked: false, darkSnapshot: paletteFields(state)}
     : {...state, ...paletteFields(rubricEditorState(state)),
       backgrounds: {light: cleanBackgrounds(state.backgrounds).light, dark: cleanBackgrounds(state.darkSnapshot.backgrounds).dark},
+      cards: {light: cleanSurfaces(state.cards).light, dark: cleanSurfaces(state.darkSnapshot.cards).dark},
+      borders: {light: cleanSurfaces(state.borders).light, dark: cleanSurfaces(state.darkSnapshot.borders).dark},
       linked: true, darkSnapshot: null};
 }
 export function buildRubricThemes(state) {
@@ -258,6 +303,13 @@ export function buildTheme(params, theme) {
   if (background.mode === 'custom') out.bg = background.color;
   if (background.mode === 'linked') out.bg = recommendBackgrounds(
     accents[Math.min(background.accentIndex, accents.length - 1)], theme)[background.variant].hex;
+  // 卡片、边框在背景之后定：推荐色要以最终的背景为基准
+  const card = cleanSurfaces(params.cards)[theme];
+  if (card.mode === 'custom') out.surface = card.color;
+  if (card.mode === 'rec') out.surface = recommendCards(out.bg, accents[0], theme)[card.variant].hex;
+  const border = cleanSurfaces(params.borders)[theme];
+  if (border.mode === 'custom') out.border = border.color;
+  if (border.mode === 'rec') out.border = recommendBorders(out.bg, out.surface, accents[0], theme)[border.variant].hex;
   /* 控件描边按 WCAG 1.4.11 的 3:1 解出来，而不是写死一个明度 ——
      色相、色度、对比强度怎么动它都自洽，不会悄悄掉到标准以下。 */
   out['border-strong'] = solveForContrast(hue, chroma / 100, [out.bg, out.surface, out['surface-2'], out['surface-3']], 3.05,
@@ -424,6 +476,11 @@ export function toMarkdown({params, light, dark, type}) {
       ? `随${setting.accentIndex ? '强调色 ' + (setting.accentIndex + 1) : '主色'}推荐生成`
       : setting.mode === 'custom' ? '自定义' : '默认';
   };
+  const surfaceNote = (field, theme) => {
+    const source = theme === 'dark' && params.linked === false ? params.darkSnapshot : params;
+    const setting = cleanSurfaces(source?.[field])[theme];
+    return setting.mode === 'rec' ? `按背景与主色推荐（第 ${setting.variant + 1} 种）` : setting.mode === 'custom' ? '自定义' : '默认';
+  };
   return `# UI 设计规范
 
 由 Luxel Rubric 生成。可放入项目设计文档，作为实现界面的参考。
@@ -436,6 +493,7 @@ ${params.linked === false ? '浅色原色' : '模式'}：${params.accents.length
 当前颜色处理：${params.adaptAccents === false ? '保留原色，不自动修改明度。' : '自动适配浅深背景，可能调整强调色明度。'}
 
 主体背景：浅色 ${backgroundNote('light')}，深色 ${backgroundNote('dark')}。背景与文字的对比度纳入下方检查。
+卡片色：浅色 ${surfaceNote('cards', 'light')}，深色 ${surfaceNote('cards', 'dark')}。边框色：浅色 ${surfaceNote('borders', 'light')}，深色 ${surfaceNote('borders', 'dark')}。
 
 ### 浅色
 

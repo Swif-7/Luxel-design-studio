@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Rubric 的界面层。配色数学全在 spec.js，这里只管控件、渲染和复制。
 import {audit, toMarkdown, roleOf, themeHarmonyIssues, recommend, recommendTonal, deltaE,
-        normalizeRubricState, resizeRubricPalette, toggleRubricLink, buildRubricThemes, rubricThemeParams, updateTypography, toggleTypographyLink, typographyBounds, typographyAdvice, rubricEditorState, updateRubricColors, recommendBackgrounds, backgroundTextWarnings} from './spec.js';
+        normalizeRubricState, resizeRubricPalette, toggleRubricLink, buildRubricThemes, rubricThemeParams, recommendCards, recommendBorders, updateTypography, toggleTypographyLink, typographyBounds, typographyAdvice, rubricEditorState, updateRubricColors, recommendBackgrounds, backgroundTextWarnings} from './spec.js';
 
 const $ = id => document.getElementById(id);
 const STORE = 'luxel-rubric-v3';
@@ -18,7 +18,11 @@ const TYPE_ROWS = [
 let state = normalizeRubricState();
 try {
   const saved = localStorage.getItem(STORE);
-  if (saved) state = normalizeRubricState(JSON.parse(saved));
+  if (saved) {
+    state = normalizeRubricState(JSON.parse(saved));
+    // 旧版默认的灰阶带 2.0 的蓝色偏色，一进来卡片就发蓝、容易误导；没动过这两项的，迁移成纯灰
+    if (state.hue === 250 && state.chroma === 2) state.chroma = 0;
+  }
 } catch {}
 
 /* ── 主题切换，与其它页共用同一个键 ────────────────────────────────── */
@@ -43,10 +47,10 @@ darkQuery.addEventListener('change', () => { if (!document.documentElement.datas
 paintTheme();
 
 /* ── 滑块 ───────────────────────────────────────────────────────────── */
+// 卡片、边框改成直接取色 + 推荐后，灰阶的色相 / 色度滑块不再露出（默认纯灰）；
+// 只剩「文字深浅」，放在字体那一步。
 const sliders = [
-  ['hue', '色相', 0, 360, 1, 'neutral-controls', v => Math.round(v) + '°'],
-  ['chroma', '色度', 0, 10, .1, 'neutral-controls', v => v.toFixed(1)],
-  ['contrast', '文字对比', .6, 1.3, .01, 'neutral-controls', v => v.toFixed(2) + '×'],
+  ['contrast', '文字深浅', .6, 1.3, .01, 'text-contrast', v => v.toFixed(2) + '×'],
 ];
 for (const [key, label, min, max, step, parent] of sliders) {
   const field = document.createElement('div');
@@ -111,6 +115,51 @@ $('background-link').onclick = () => {
     ? {mode: 'custom', color: themes()[state.editingTheme].bg}
     : {mode: 'linked', accentIndex: editor.selectedAccent});
 };
+
+/* ── 卡片色、边框色：取色 / 输入色值 / 默认 / 按背景与主色推荐 ──────────
+   和背景一样浅深各一份；选推荐存的是「第几个」，之后改背景或强调色会跟着重算。 */
+const SURFACES = [
+  {kind: 'card', field: 'cards', token: 'surface', name: '卡片色', recs: (t, e) => recommendCards(t.bg, e.accents[0], state.editingTheme)},
+  {kind: 'border', field: 'borders', token: 'border', name: '边框色', recs: (t, e) => recommendBorders(t.bg, t.surface, e.accents[0], state.editingTheme)},
+];
+// 浅深联动时，「推荐第 N 个」和「默认」两边一起套 —— 推荐是按各自背景现算的，浅深都成立；
+// 自定义的具体色值只改正在编辑的那一套，同一个色值不可能同时适合浅底和深底。
+function editSurface(field, patch) {
+  editColors(editor => {
+    const previous = rubricThemeParams(editor)[field], next = {...previous};
+    const themes = state.linked && patch.mode !== 'custom' ? ['light', 'dark'] : [state.editingTheme];
+    for (const theme of themes) next[theme] = {...previous[theme], ...patch};
+    return {...editor, [field]: next};
+  });
+}
+for (const {kind, field, name} of SURFACES) {
+  $(kind + '-color').addEventListener('input', e => editSurface(field, {mode: 'custom', color: e.target.value}));
+  $(kind + '-hex').addEventListener('change', e => {
+    const value = e.target.value.trim();
+    if (/^#?[\da-f]{6}$/i.test(value)) { e.target.setCustomValidity(''); editSurface(field, {mode: 'custom', color: (value.startsWith('#') ? value : '#' + value).toLowerCase()}); }
+    else { e.target.setCustomValidity(`请输入六位 HEX 色值作为${name}，例如 #F3F6FA`); e.target.reportValidity(); }
+  });
+  $(kind + '-hex').addEventListener('input', e => e.target.setCustomValidity(''));
+  $(kind + '-reset').onclick = () => editSurface(field, {mode: 'default'});
+}
+function paintSurfaceControls(editor, tokens) {
+  for (const {kind, field, token, name, recs} of SURFACES) {
+    const setting = rubricThemeParams(editor)[field][state.editingTheme];
+    $(kind + '-color').value = tokens[token];
+    if (document.activeElement !== $(kind + '-hex')) { $(kind + '-hex').value = tokens[token].toUpperCase(); $(kind + '-hex').setCustomValidity(''); }
+    $(kind + '-reset').setAttribute('aria-pressed', String(setting.mode === 'default'));
+    reconcile($(kind + '-recommend'), recs(tokens, editor), (_, i) => i, (_, i) => {
+      const button = document.createElement('button'); button.className = 'rec'; button.type = 'button';
+      button.onclick = () => editSurface(field, {mode: 'rec', variant: i});
+      return button;
+    }, (button, rec, i) => {
+      button.style.background = rec.hex;
+      button.title = `${rec.label} · ${rec.hex.toUpperCase()} · 随背景与主色变化`;
+      button.setAttribute('aria-label', `套用${name} · ${rec.label} ${rec.hex}`);
+      button.setAttribute('aria-pressed', String(setting.mode === 'rec' && setting.variant === i));
+    });
+  }
+}
 
 $('type-link').onclick = () => { state = toggleTypographyLink(state); render(); save(); };
 function selectEditingTheme(theme) { state.editingTheme = theme; render(); save(); }
@@ -195,12 +244,13 @@ const typeSlider = (id, label, min, max, step, value, shown) =>
 
 function render() {
   const editor = rubricEditorState(state);
-  document.querySelector('.console').dataset.editingTheme = state.editingTheme;
+  $('dock').dataset.editingTheme = state.editingTheme;
   $('edit-theme').value = state.editingTheme === 'dark' ? 1 : 0;
   $('edit-theme').setAttribute('aria-valuetext', state.editingTheme === 'dark' ? '深色' : '浅色');
   $('edit-status').textContent = state.linked ? '浅深联动' : '独立编辑';
   for (const button of document.querySelectorAll('[data-edit-theme]')) button.setAttribute('aria-pressed', String(button.dataset.editTheme === state.editingTheme));
   for (const [key] of sliders) { $(key).value = editor[key]; $(key + '-value').textContent = format[key](editor[key]); }
+
   const mode = modeOf();
   for (const button of document.querySelectorAll('.seg'))
     { button.setAttribute('aria-checked', String(button.dataset.mode === mode)); button.tabIndex = button.dataset.mode === mode ? 0 : -1; }
@@ -246,6 +296,7 @@ function render() {
   // Labels repeat (two split complements, triads and neighbors), so use the
   // slot as identity to keep focus without duplicating or moving buttons.
   $('recommend').hidden = editor.accents.length < 2;
+  $('mono-hint').hidden = !$('recommend').hidden;
   $('rec-note').textContent = recommendations()[0][2][0].neutral
     ? '主色接近黑白灰：对比色提供彩色点缀，同色阶提供深浅灰。相近颜色仍可选用。'
     : '对比色是跨色相搭配，同色阶是同一色系的深浅变化。相近颜色仍可选用。';
@@ -314,7 +365,7 @@ function render() {
   $('dark-state').textContent = state.linked ? '随当前配色生成' : '独立配色';
 
   $('type-link').setAttribute('aria-pressed', String(state.typeLinked));
-  $('type-link').textContent = state.typeLinked ? '推荐联动 · 开' : '推荐联动 · 关';
+  $('type-link').textContent = state.typeLinked ? '按推荐比例 · 开' : '按推荐比例 · 关';
   $('type-link').title = state.typeLinked
     ? '任意项均可带动同类参数：字号按比例、字重按差值联动；到达边界时整组停止。'
     : '开启后以当前正文为基准，按下方推荐关系对齐；关闭后可逐项调整。';
@@ -350,6 +401,11 @@ function render() {
   if (typeHints.length) parts.push(`<span>${typeHints.length} 条排版建议</span>`);
   if (issues.length) parts.push(`<span>${issues.length} 条配色建议</span>`);
   $('audit-summary').innerHTML = parts.length ? parts.join(' · ') : '已检查的对比度达标';
+  $('review-summary').innerHTML = parts.length
+    ? parts.join(' · ') + '<br><span class="dim">把鼠标移到右上角的检查摘要上可以看到每一条的原因和改法</span>'
+    : '浅深两套的文字与控件对比度全部达标，可以直接复制。';
+  paintPreview('light', light, lc); paintPreview('dark', dark, dc);
+  paintSurfaceControls(editor, activeTokens);
   const section = (title, items) => items.length
     ? `<section><h3>${title}</h3><ul>${items.map(([label, text]) => `<li><strong>${esc(label)}</strong><p>${esc(text)}</p></li>`).join('')}</ul></section>` : '';
   const colorName = index => index ? `强调色 ${index + 1}` : '主色';
@@ -429,7 +485,7 @@ function markdown() {
 }
 $('close-copy').onclick = () => $('copy-fallback').close();
 $('copy-fallback').addEventListener('close', () => $('copy').focus({preventScroll: true}));
-$('copy').onclick = async () => {
+const copySpec = async () => {
   const text = markdown();
   try {
     await navigator.clipboard.writeText(text);
@@ -441,5 +497,51 @@ $('copy').onclick = async () => {
   }
 };
 
+$('copy').onclick = copySpec;
+$('copy-final').onclick = copySpec;
+
+/* ── 实况预览：用生成的 token 直接画一小块界面 ─────────────────────────
+   结果不再是 22 行表格，而是一眼能看懂的样子：按钮、卡片、输入框、标签、正文与次级文字、
+   等宽代码，字重字号也跟着第四步走。浅深联动断开时，正在编辑的那一套加一圈描边。 */
+function paintPreview(name, tokens) {
+  const ui = $('pv-' + name), col = $('pv-' + name + '-col');
+  for (const [key, hex] of Object.entries(tokens)) ui.style.setProperty('--t-' + key, hex);
+  for (const [key, prop] of [['heading', 'h'], ['body', 'b'], ['strong', 's'], ['mono', 'm']]) {
+    ui.style.setProperty(`--t-${prop}-size`, state[key + 'Size'] + 'px');
+    ui.style.setProperty(`--t-${prop}-weight`, state[key + 'Weight']);
+  }
+  // 多色时，其余强调色以小圆点排在标题栏里
+  const extra = Object.keys(tokens).filter(k => /^accent-\d+$/.test(k));
+  ui.querySelector('.ui-accents').innerHTML = extra.map(k => `<i style="background:${tokens[k]}" title="--${k}"></i>`).join('');
+  const strip = $('strip-' + name);
+  reconcile(strip, Object.entries(tokens).filter(([k]) => !/-fg$/.test(k) || k === 'accent-fg'), ([k]) => k, () => document.createElement('i'), (dot, [k, hex]) => {
+    dot.style.background = hex; dot.title = `--${k} · ${hex.toUpperCase()}`;
+  });
+  col.classList.toggle('is-editing', !state.linked && state.editingTheme === name);
+  $('pv-' + name + '-state').textContent = name === 'dark' ? (state.linked ? '随浅色生成' : '独立配色') : '';
+}
+
+/* ── 步骤：强调色 → 背景与卡片 → 字体 → 复制，步骤条上任意一步都能直接跳 ── */
+const STEPS = ['强调色', '背景与卡片', '字体', '复制'];
+const STEP_STORE = 'luxel-rubric-step';
+let step = 0;
+try { step = Math.min(STEPS.length - 1, Math.max(0, Number(localStorage.getItem(STEP_STORE)) || 0)); } catch {}
+function paintSteps() {
+  $('steps').innerHTML = STEPS.map((name, i) => `<button type="button" data-step="${i}" class="${i < step ? 'done' : ''}" ${i === step ? 'aria-current="step"' : ''}><i>${i < step ? '✓' : i + 1}</i><span>${name}</span></button>`).join('');
+  for (const el of document.querySelectorAll('[data-for]')) el.hidden = !el.dataset.for.split(' ').includes(String(step));
+  $('prev').hidden = step === 0;
+  $('next').hidden = step === STEPS.length - 1;
+  $('next').textContent = step === STEPS.length - 2 ? '去复制 ›' : '下一步 ›';
+}
+function go(n) {
+  step = Math.min(STEPS.length - 1, Math.max(0, n));
+  try { localStorage.setItem(STEP_STORE, String(step)); } catch {}
+  paintSteps();
+}
+$('steps').onclick = e => { const b = e.target.closest('[data-step]'); if (b) go(Number(b.dataset.step)); };
+$('prev').onclick = () => go(step - 1);
+$('next').onclick = () => go(step + 1);
+
 function save() { try { localStorage.setItem(STORE, JSON.stringify(state)); } catch { toast('浏览器未能保存设置；可复制规范保留当前结果'); } }
 render();
+paintSteps();
