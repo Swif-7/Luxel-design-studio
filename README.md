@@ -1,90 +1,206 @@
-# Luxel — Shader Tools
+<div align="center">
 
-为设计师做的本地实时着色器工具集合。原生 WebGL + JavaScript，零 npm 依赖、无 CDN、无远程 API。项目代码 MIT。
+<img src="favicon.svg" width="72" height="72" alt="Luxel logo">
 
-- `/` — 首页，工具索引
-- `/rheo.html` — **Rheo**，实时流动着色器工作台
-- `/rubric.html` — **Rubric**，用滑块与取色整理配色和字重，一键复制成可交给 agent 的 UI 规范
-- `/rise.html` — **Rise**，粘贴数据做成会动的图表：18 种图表、10 套风格，导出 PNG / JPG / PNG 序列（可带透明）/ 视频 / HTML
+# Luxel
 
-字体为 IBM Plex（OFL），自托管于 `fonts/`，不走 CDN。Plex Sans 不含汉字，中文回落到系统字体。
+**Small design tools that run in your browser.**
+Palettes, image compression, screenshot polish and animated charts, all in one place.
 
-## 本地运行
+[**Live demo →**](https://swif-7.github.io/Luxel-design-studio/)
 
-Node.js 18+，无需安装依赖或构建：
+[![License: MIT](https://img.shields.io/badge/license-MIT-black.svg)](LICENSE)
+[![Deploy](https://github.com/Swif-7/Luxel-design-studio/actions/workflows/pages.yml/badge.svg)](https://github.com/Swif-7/Luxel-design-studio/actions/workflows/pages.yml)
+![Dependencies: 0](https://img.shields.io/badge/dependencies-0-black.svg)
+![Languages](https://img.shields.io/badge/i18n-中文%20·%20EN%20·%20한국어%20·%20日本語%20·%20FR-black.svg)
+
+English · [简体中文](README.zh-CN.md)
+
+</div>
+
+---
+
+## Overview
+
+Luxel (*lux* × *pixel*) is a set of design utilities for the small, repetitive jobs around design work: generating backgrounds, tidying a color system, compressing assets, dressing up screenshots and turning numbers into motion.
+
+Every tool is a static page that runs in the browser. Images and data are processed on your device and never sent anywhere. There's no account, no backend and no tracking.
+
+- **Zero dependencies.** Plain ES modules, WebGL and Canvas 2D. No framework, no bundler, no CDN.
+- **Private by design.** Files never leave the browser; settings are saved in `localStorage`.
+- **Five interface languages.** Simplified Chinese, English, Korean, Japanese and French, detected automatically and switchable on every page.
+- **Light and dark themes**, a monochrome interface, and layouts that work down to phone width.
+
+## Tools
+
+| Tool | What it does | Exports |
+|---|---|---|
+| [**Rheo**](https://swif-7.github.io/Luxel-design-studio/rheo.html) | Real-time flow shader studio: seeded color ribbons, depth of field, surface textures, particles and an ASCII glyph layer | PNG up to 4K · 10 s WebM video · JSON parameters · standalone HTML |
+| [**Rubric**](https://swif-7.github.io/Luxel-design-studio/rubric.html) | Builds a light and dark color and type system with sliders, checks contrast, and copies it as a Markdown UI spec for coding agents | Markdown spec (clipboard) |
+| [**Recast**](https://swif-7.github.io/Luxel-design-studio/recast.html) | Batch image compression, format conversion and resizing in a Web Worker | WebP · JPEG · PNG · AVIF (where supported) · ZIP |
+| [**Relief**](https://swif-7.github.io/Luxel-design-studio/relief.html) | Places a screenshot on a background, with cropping, corner radius, browser or phone frames, shadows, aspect ratios and 9 text layouts | PNG · JPG · clipboard |
+| [**Rise**](https://swif-7.github.io/Luxel-design-studio/rise.html) | Turns pasted data into animated charts: 18 chart types, 10 visual styles, up to 7 series | PNG · JPG · PNG sequence (with alpha) · MP4 or WebM · standalone HTML |
+| **Roll** | Online video editing | *In development, not part of this release* |
+
+<details>
+<summary><b>Rheo</b>: details</summary>
+
+- Four flow families (Tidal Spread, Confluence, Twin Vortex, Laminar Drift), 2–8 color stops, and a harmony-aware random palette in OKLCH.
+- Controls for flow, width, softness, density, angle, speed, scale, X/Y offset, twist and fold layers.
+- Background tint and diffusion, ribbon depth of field, surface textures (grain, pixel, halftone, dither) and particle layers.
+- ASCII glyph matrix with binary, numeric, Latin, symbol, Chinese, Japanese or custom character sets.
+- Deterministic seeds: the same seed and locks give the same parameters.
+- Full-resolution offline rendering for PNG and video (WebCodecs VP9 or VP8 with a WebM muxer written for this project).
+- A standalone HTML export that contains the renderer, parameters and license, with no external requests.
+
+</details>
+
+<details>
+<summary><b>Rubric</b>: details</summary>
+
+- Single or multiple accent colors (2–6), with contrasting and tonal suggestions.
+- Main background, card and border colors, each with a default, a custom value or a suggestion derived from the background and primary color.
+- Linked or independent light and dark themes; the dark theme is generated from the same parameters rather than inverted.
+- Four type roles (body, strong, heading, mono), each with its own weight and size, and optional linked ratios.
+- WCAG contrast checks for text and non-text elements, plus advisory notes on hue collisions, edge vibration and small-text weight.
+- The copied spec includes CSS custom-property tokens, contrast ratios and implementation rules, written in the current interface language.
+
+</details>
+
+<details>
+<summary><b>Recast</b>: details</summary>
+
+- Drop in JPG, PNG or WebP files, one at a time or in batches.
+- Choose the output format, quality and maximum edge (800–3840 px or original).
+- Encoding runs in a Web Worker. If an output would be larger than its source, Recast says so.
+- Before and after comparison, per-file size savings and a single ZIP download.
+
+</details>
+
+<details>
+<summary><b>Relief</b>: details</summary>
+
+- Five steps: Crop → Background → Composition → Text → Export.
+- Backgrounds: a Rheo flow generated on the spot (random colors or styles), a frame imported from Rheo, a solid color, or your own image with adjustable blur.
+- Browser and phone frames, adjustable shadow, radius and scale, and common aspect ratios.
+- Nine layouts, including heading on top, text left, caption, bleed off the bottom, corner tag, bullet list, quote and magazine.
+
+</details>
+
+<details>
+<summary><b>Rise</b>: details</summary>
+
+- Seven steps: Data → Chart → Style → Motion → Background → Layout → Export.
+- Pill-row data entry: paste CSV or tab-separated data, and thousands separators and decimal marks are detected. Any row can be set as the X-axis.
+- Batch mode renders each series separately; merge mode puts all series in one chart and explains why some chart types aren't available.
+- Spring-based motion with several easing curves and entrance styles.
+- Transparent PNG sequences for video editors, and a standalone HTML embed that replays on click.
+
+</details>
+
+## Quick start
+
+Use the hosted version at **<https://swif-7.github.io/Luxel-design-studio/>**, or run it locally.
+
+Requires Node.js 18 or later. There's nothing to install.
 
 ```sh
+git clone https://github.com/Swif-7/Luxel-design-studio.git
+cd Luxel-design-studio
 npm start
 ```
 
-打开 http://localhost:4173 。仅监听 127.0.0.1。更换端口：`PORT=4174 npm start`。
+Open <http://localhost:4173>. The dev server listens on `127.0.0.1` only. To use another port:
 
-页面样式分三层：`tokens.css`（色彩 token、字体、通用重置，两页共用）、`home.css`（首页）、`style.css`（Rheo）。
-改色请只改 `tokens.css`，见 [docs/BRAND.md](docs/BRAND.md)。
+```sh
+PORT=4174 npm start
+```
 
-## 创作
+Because the site is static, any static file server works too. All asset paths are relative, so it can be served from a sub-path.
 
-预览、播放栏和四类流动的选择条组成固定预览区。双栏布局下左右各自独立滚动：画面完整显示时左栏不产生任何滚动，只有窗口过矮、画面装不下时左栏才可滚；参数面板始终可滚。调参和换形态都不必来回翻页。窄屏（≤900px）仍为单列文档滚动，预览区吸附在顶部。宽窗口中预览固定在左侧；窄窗口中预览高度约占视口三成、选择条改为横向滑动；横屏等高度不足 560px 时取消吸附，按普通顺序滚动。参数面板在铺满整页宽度时自动把滑块和色标分成多列，不会拉成整屏宽的一行。
+## Browser support
 
-- 4 类流动：潮汐铺展、交汇融流、双涡卷流、层流漫涌。潮汐铺展替换原丝绸的迭代叠层：以大幅铺展的染料前沿形成清楚的一侧边界，另一侧连续渐淡；双涡与层流也使用不对称的前沿与扩散尾部，避免双边轮廓像固定宽度管道。保留多色层、同源背景扩散和色带景深。
-- 独立“随机配色”按钮：按邻近色、同色系或分裂互补关系生成，使用 OKLCH 控制明度和色度；适配当前背景，超出 sRGB 的颜色降低色度。保留背景、色标数量、种子、运动和其他参数；独立按钮不受整体随机的“锁定配色”影响。
-- 2–8 个丝带色标，支持颜色选择器、HEX、增删，以及独立背景色。
-- 色彩流动、宽度、柔度、浓度、角度、速度、主体大小、中心 X/Y 偏移、扭曲和折叠层次。
-- 背景染色与背景扩散独立可调：将未混背景的染料颜色与覆盖量一起做多尺度扩散，恢复染料颜色后再合成到背景，避免被白底冲淡；近处较浓、远处渐淡，浓密核心保留清晰，主体过渡区减少染色覆盖以保留景深反差。染色控制强度，扩散控制范围；设染色为零时完全关闭，主体柔度不改变背景范围。
-- “粉霞”已并入“多色与柔度”的配色预设，提供粉色、珊瑚、杏色和淡紫色；点击只切换背景与色标，保留当前形态、构图和运动参数。
-- 独立“色带景深”开关与“模糊程度”滑块：开启时保留清晰核心，两侧的模糊半径同时由主体密度和流动材质坐标决定，虚化随流体运动、缩放与偏移；逐级降采样柔化避免高强度下的重复边缘。潮汐、双涡与层流保留清晰的单侧前沿；交汇融流维持原渲染。关闭时整体柔焦；程度 0 完全旁路，建议用 50%–70% 对照。模糊作用于色带，纹理与粒子在后面叠加。
-- 独立表面纹理：光滑、颗粒、像素、网点、抖色；可调强度和尺寸。
-- 粒子层新增「字符点阵 · ASCII」，可与表面纹理同时使用。字符艺术使用系统字体的抗锯齿字形，提供二进制、数字、英文、符号、中文、日文和自定义字符（1–64 个），保留完整流动底图，叠加白色字符，字符以固定、等距、正向网格覆盖画面，色带主体经过时整字点亮，仅在主体边缘的窄范围内淡入淡出，外围完全熄灭；背景扩散不会点亮字符。支持大小、间距和统一亮度，均不受色带的缩放、偏移、扭曲影响。每格以不同节奏随机换字，短暂交叉淡化避免整屏同步闪烁；测量本机字形的实际笔画覆盖率，边缘优先稀疏字形、主体优先浓密字形。换字速度与疏密关联程度可调，跟随总动画时钟暂停和复现。字体在本机栅格化，不打包或下载字体文件，无新增依赖；字形外观取决于系统字体。细颗粒采样同一流动材质坐标，不再按帧刷新随机噪声；颗粒也参与景深柔化。
-- 独立粒子层：漂浮、环绕、流星，密度和大小可调。
-- 主体大小可调 0.25–3 倍；X/Y 中心偏移可调 ±1.5（以画布高度为单位），偏移不随主体大小变化。新路径具有有限长度，可通过缩小增加留白。
-- 输入种子回车应用；R 随机生成。默认锁定色标及形态。
-- 空格暂停/播放；从头播放归零。速度 0 冻结所有动画。
-- 预览工具栏的「导出」菜单提供 PNG、10 秒 WebM 视频、参数 JSON、独立 HTML。PNG 与视频共用当前画质：标准长边 1920、高清 2K 长边 2560、超清 4K 长边 3840，保持预览构图比例，另一边取最接近的偶数；16:9 时分别为 1920×1080、2560×1440、3840×2160。菜单显示实际输出尺寸，文件名包含尺寸。预览仍自适应窗口，与文件分辨率分开显示。
-- PNG 与视频使用独立的完整分辨率渲染器，重新计算着色器，不放大预览截图；不含页面文字。10 秒视频从当前动画时刻起，按当前速度生成 300 帧、30 FPS，无音轨；速度为零会生成静止视频，暂停状态下导出仍按所选速度生成动画。逐帧时间戳使生成耗时不会改变视频时长，支持进度、取消与失败提示。使用浏览器原生 WebCodecs VP9（不支持时尝试 VP8）和原创 MIT WebM 封装，无新增依赖；不支持的浏览器会提示，4K 生成耗时与设备性能有关。导出期间暂缓实时预览，结束或取消后恢复，导出始终使用启动时的参数快照。
-- JSON 保存完整设置，可从「随机与种子 → 导入参数」恢复；HTML 内置当前参数、动画进度、播放状态、原创渲染代码与 MIT 许可，无外部资源，提供播放／暂停。HTML 是自适应窗口的交互页面，不属于固定分辨率媒体；不同窗口比例会改变可见构图。自动保存仍保留。
-- 系统减少动态效果偏好会使初始动画暂停，可手动播放。
-- 浅色 / 深色双模式。默认跟随系统，点右上角按钮切换后记在本机（`rheo-theme`），并同步 `color-scheme` 与 `theme-color`。界面为单色：主按钮和激活态在浅色下是近黑、深色下是近白，整条色相留给画布。画布上方的文字按**着色器背景**亮度翻转，与界面主题无关。
+The latest two versions of Chrome, Edge, Safari and Firefox are supported.
 
-同一种子、相同锁定项及其值，会产生相同生成参数。手动调过的作品应保存完整 JSON。相同配置、时间、尺寸在同一 GPU 上可复现；不同 GPU 可能有浮点差异。JSON 不包含当前播放时间。导入重置时间为 0。
+| Feature | Requirement |
+|---|---|
+| Rheo rendering | WebGL with hardware acceleration |
+| Video export | Rheo uses WebCodecs (Chromium-based browsers, recent Safari); Rise records MP4 or WebM with `MediaRecorder` |
+| AVIF output (Recast) | A browser that can encode AVIF from a canvas |
+| Copy to clipboard | A secure context (HTTPS or `localhost`) |
 
-## 分析与实现
+When a feature isn't supported, the tool says so instead of failing silently.
 
-详见 [原站深入分析](docs/REFERENCE-ANALYSIS.md)，其中区分了公开代码可确认的机制、本地实现和仍未对齐的部分。
+## Project structure
 
-- `src/shader.js`：多层折叠场、离屏渲染及后处理。
-- `src/color.js`：标准 sRGB / OKLab 数学变换与多色调色板纹理。
-- `src/export.js`：自包含 HTML 打包，保留许可并安全嵌入参数。
-- `src/model.js`：参数、种子生成、2–8 色校验、导入迁移。
-- `src/app.js`：Rheo 的控件、播放与本地保存。
-- `src/home.js`：首页主题切换，以及工具卡上复用 `Renderer` 跑的实时缩略图（交汇融流）。
-- `src/spec.js`：Rubric 的纯逻辑 —— 由参数生成两套主题、算对比度、导出 Markdown，不碰 DOM。
-- `src/rubric.js`：Rubric 的控件、渲染与剪贴板。
-- `src/rise-data.js`：Rise 的数据解析 —— 一行一组、最多 7 组，自动分辨千分位逗号与分隔符。
-- `src/rise-core.js`：Rise 的图表类型、风格预设、排版、刻度、数字格式与动画时间，不 import 任何东西。
-- `src/rise-draw.js`：Rise 的图表绘制（只依赖 rise-core）；导出 HTML 时这两个文件原样内联。
-- `src/rise-render.js` / `src/rise.js`：Rise 的合成（背景复用 Relief）与页面控件、播放、导出。
-- `server.mjs`：Node 内置模块实现的本地服务器。
+```
+.
+├── index.html            # Home: tool index with live thumbnails
+├── rheo.html · rubric.html · recast.html · relief.html · rise.html
+├── tokens.css            # Shared design tokens (color, type, radius), light and dark
+├── *.css                 # One stylesheet per page
+├── src/
+│   ├── shader.js         # Rheo WebGL renderer and post-processing
+│   ├── model.js          # Rheo parameters, seeding, validation and migration
+│   ├── export.js         # Standalone HTML packaging
+│   ├── spec.js           # Rubric: theme generation, contrast, Markdown spec (no DOM)
+│   ├── recast-*.js       # Recast: formats, encoding worker, file inspection
+│   ├── relief-*.js       # Relief: layout math and canvas rendering
+│   ├── rise-*.js         # Rise: data parsing, chart model, drawing, compositing
+│   ├── i18n.js           # Translation lookup, pattern matching, font fallbacks
+│   ├── i18n-dom.js       # DOM auto-translation and the language switcher
+│   └── lang/             # Dictionaries: Chinese source → [en, ko, ja, fr]
+├── fonts/                # Self-hosted IBM Plex (SIL OFL 1.1)
+├── tests/                # node:test suites and in-browser GPU and media checks
+└── server.mjs            # Allowlist-based local dev server (Node built-ins only)
+```
 
-## 验证
+## Development
 
 ```sh
 npm test
 ```
 
-浏览器 GPU 检查：http://localhost:4173/tests/render.html 。实际渲染 t=0、1/60、2 秒并比较像素，验证时间连续性、确定性及各层生效。
+The suite uses Node's built-in test runner. It covers parameter models, spec generation, data parsing, chart math, encoding helpers, the render queue and **i18n coverage**: every Chinese UI string must have all four translations, and placeholders must match. Two in-browser checks are also included:
 
-## 兼容与许可
+- `tests/render.html`: GPU rendering determinism and continuity for Rheo.
+- `tests/media.html`: decoded size and duration of exported PNG and WebM files.
 
-参数格式现为 version 3，可导入 version 1/2。旧十种形态映射到四类：前六类映射到潮汐铺展（替换原丝绸），交叉/编织映射为交汇融流，波浪映射为层流漫涌，汇流映射为双涡卷流。保留颜色、种子和其他参数，旧版视觉输出不保证复现。自动保存继续使用 `flux-state-v3`，读取时按参数文件版本迁移。
+### Adding a translation
 
-全部项目代码采用 MIT，npm 依赖及传递依赖均为 0。IBM Plex 字体采用 SIL Open Font License 1.1，副本见 `fonts/LICENSE.txt`，随仓库分发但不构成项目代码的一部分。中文回落到系统字体。使用浏览器 WebGL、Node 内置模块。Node.js 及其随附组件许可见所安装发行版。原站脚本仅供分析，未作为依赖或项目源文件分发；原站平台 MIT 不被推定为覆盖其所有作品。
+Interface text is written in Chinese in the source, and a Chinese string is its own dictionary key. Add an entry to the matching file in `src/lang/`:
 
-需要 WebGL 硬件加速。实时预览的折叠场按画面比例限制在 850×650 内，PNG／视频导出使用完整目标尺寸，支持时使用半浮点中间纹理；不支持时回退 RGBA8 并在量化前抖色。放大使用无负权重的三次 B 样条重建，最终后处理保持选定分辨率。没有云部署或棱镜后处理，也没有声称完全复刻原站。
+```js
+'复制规范': ['Copy spec', '스펙 복사', '仕様をコピー', 'Copier la spéc.'],
+```
 
-边缘修正：取消每层平方收窄和 Fold 模式的层间亮度调制，使用更宽的重叠亮度分布，并平滑淡出末尾层，减少运动中的分层细线。GPU 检查包含固定种子在 0/2/4 秒的边缘回归及 RGBA8 兼容路径。
+Brand and tool names, file formats and technical terms (HEX, CSV, token, WCAG, FPS, KB/MB) stay in English in every language. `npm test` fails if a string is missing.
 
-景深视觉回归：打开 `http://localhost:4173/tests/render.html?depth-study`，并排查看四种流动的原画、局部景深与全画面模糊；可用 `seed` 和 `time` 查询参数复现不同帧。
+## Deployment
 
-`mode: 0` 现对应潮汐铺展，旧文件的参数与种子仍可导入，但旧丝绸画面不再复现；未新增第三方代码或依赖。
+The site deploys to GitHub Pages through [`.github/workflows/pages.yml`](.github/workflows/pages.yml) on every push to `main`. The workflow runs the tests, then publishes only the runtime files. Tests, docs and the dev server aren't published.
 
-媒体验证页：`http://localhost:4173/tests/media.html`。检查 PNG 的解码尺寸、10 秒视频的实际尺寸与时长，并跳转开头、中间、结尾验证可解码且画面运动；Node 测试解析 WebM 元数据及 300 帧时间戳。
+## Open-source scope
+
+The code in this repository is released under the **MIT License**. That covers everything published here: the five tools listed above, the shared design system and the i18n layer.
+
+Luxel is still in active development. **Future tools and features, including Roll and modules not yet published, may not be open-sourced.** They may be released under different terms or kept proprietary. The MIT license covers the code in this repository as published and grants no rights to work that hasn't been published here.
+
+## Contributing
+
+Issues and pull requests are welcome.
+
+- Run `npm test` before opening a PR.
+- Keep the project dependency-free. Please discuss before adding a package or build step.
+- New UI text needs translations in `src/lang/` for all four languages.
+- Match the surrounding code style: plain ES modules, short functions, comments where the reasoning isn't obvious.
+
+## Contact
+
+Email **[Mindshell@126.com](mailto:Mindshell@126.com)**, or use **Contact us** on the home page, which copies the address to your clipboard.
+
+## License
+
+[MIT](LICENSE) © 2026 Swif-7 and Luxel contributors.
+
+IBM Plex fonts are © IBM Corp. and licensed under the [SIL Open Font License 1.1](fonts/LICENSE.txt). They're distributed alongside the project and aren't covered by the MIT license.
