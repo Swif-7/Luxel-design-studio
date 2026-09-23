@@ -153,3 +153,18 @@ test('snapBox pulls a box onto the canvas centre line and reports the guide', ()
   const near = snapBox({ x: 99, y: 700, w: 1390, h: 10 }, W, H, [{ x: 96, y: 0, w: 40, h: 10 }], 8);
   assert.equal(near.dx, -3);
 });
+
+test('parseRheoFile reads parameters and progress back out of a Rheo HTML export', async () => {
+  const { parseRheoFile } = await import('../src/relief-core.js');
+  const { createStandaloneHtml } = await import('../src/export.js');
+  const state = { ...defaults, mode: 1, seed: 'flow-</script>-seed', speed: 1.4 };
+  const html = createStandaloneHtml({ state, time: 12.75, paused: false, sources: ['export class Renderer{}'], license: 'MIT' });
+  const out = parseRheoFile(html);
+  assert.equal(out.state.seed, 'flow-</script>-seed');
+  assert.equal(out.state.mode, 1);
+  assert.equal(out.state.speed, 1.4);
+  assert.equal(out.time, 12.75);
+  // 参数 JSON 也认，进度从 0 开始
+  assert.equal(parseRheoFile(JSON.stringify(state)).time, 0);
+  assert.throws(() => parseRheoFile('<html><body>not rheo</body></html>'), /Rheo 导出/);
+});

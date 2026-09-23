@@ -1,6 +1,8 @@
 // Relief 的绘制：背景 → 截图（含外框、圆角、阴影）→ 文字，全部画在一张 2D canvas 上。
 // 预览和导出走同一个 renderScene，只是像素尺寸不同 —— 看到的就是导出的。
 import { Renderer } from './shader.js';
+import { hashSeed } from './model.js';
+import { Blur } from './blur.js';
 import { cjkFonts, pageLang } from './i18n.js';
 import { TEMPLATES, frameAspect, placeShot, textBox, bulletsOf, wrapLines, browserBar, phoneBezel, PHONE_BAND, BROWSER_BAR as BROWSER_UNIT, isLight, clamp } from './relief-core.js';
 
@@ -33,6 +35,9 @@ function remember(key, make) {
   return v;
 }
 export const clearCache = () => cache.clear();
+/* 着色器要的是种子算出来的数（seedValue），不是种子文字 —— Rheo 页每次画都现算，这里也一样。
+   漏了它，种子就是 NaN，画出来只剩底色和一道模糊的斜带，也不会随时间变化。 */
+const withSeed = (rheo) => ({ ...rheo, seedValue: hashSeed(String(rheo.seed ?? '')) % 10000 });
 
 function drawCover(ctx, img, W, H, align = 'center', zoom = 1) {
   const iw = img.width, ih = img.height, k = Math.max(W / iw, H / ih) * zoom;
@@ -48,7 +53,7 @@ function rawBackground(bg, W, H) {
     if (bg.src === 'image' && bg.image) { drawCover(ctx, bg.image, W, H, 'center', bg.zoom); return c; }
     const r = rheoRenderer();
     if (r) {
-      r.draw({ ...bg.rheo, particles: false }, 6, c.width, c.height);
+      r.draw(withSeed({ ...bg.rheo, particles: false }), 6, c.width, c.height);
       ctx.drawImage(rheoCanvas, 0, 0, W, H);
     } else {                                           // 没有 WebGL：用 Rheo 的配色画一张柔和渐变
       const g = ctx.createLinearGradient(0, 0, W, H);
@@ -61,6 +66,21 @@ function rawBackground(bg, W, H) {
   });
 }
 
+/* GPU 高斯模糊（blur.js）：Chrome、Safari、Firefox 结果一致；没有 WebGL 才退回下面的 filter / 逐级缩放 */
+let gpu = null;
+function gpuBlur() {
+  if (gpu === false) return null;
+  if (!gpu) { try { gpu = new Blur(); } catch { gpu = false; return null; } }
+  return gpu;
+}
+function paintBlurred(ctx, src, W, H, radius) {
+  const g = gpuBlur();
+  if (!g) return false;
+  ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(g.apply(src, W, radius), 0, 0, W, H);
+  return true;
+}
+
 const supportsFilter = (() => { try { const c = document.createElement('canvas').getContext('2d'); c.filter = 'blur(2px)'; return c.filter === 'blur(2px)'; } catch { return false; } })();
 
 function blurred(bg, W, H) {
@@ -69,6 +89,7 @@ function blurred(bg, W, H) {
   return remember(`blur|${bg.key}|${bg.blur}|${W}x${H}`, () => {
     const out = canvas(W, H), o = out.getContext('2d');
     const radius = (bg.blur / 100) * Math.min(W, H) * 0.08;
+    if (paintBlurred(o, raw, W, H, radius)) return out;
     // 边缘取样会混进透明像素、拉出一圈暗边：四周多画出一圈再模糊
     const pad = radius * 2;
     if (supportsFilter) {
@@ -107,6 +128,32 @@ function blurred(bg, W, H) {
     o.drawImage(cur, pad, pad, W, H, 0, 0, W, H);
     return out;
   });
+}
+
+/* 流动的 Rheo 背景：每一帧按时间 time 现画，不进缓存。
+   有模糊时先按一半分辨率画（模糊本来就会抹掉细节），再用 GPU 高斯模糊放大铺满。
+   没有 WebGL 模糊时退回 canvas filter；再不行按模糊程度降低分辨率再放大。
+   没有 WebGL 就退回同一套参数的静态背景。 */
+let live = null;
+export function liveBackground(bg, W, H, time) {
+  const r = rheoRenderer();
+  if (!r) return blurred({ ...bg, live: false }, W, H);
+  const radius = (bg.blur / 100) * Math.min(W, H) * 0.08;
+  const g = radius ? gpuBlur() : null;
+  const k = !radius ? 1 : g || supportsFilter ? .5 : 1 / (1 + radius / 6);
+  r.draw(withSeed(bg.rheo), time, Math.max(1, Math.round(W * k)), Math.max(1, Math.round(H * k)));
+  if (!live || live.width !== W || live.height !== H) live = canvas(W, H);
+  const ctx = live.getContext('2d');
+  ctx.clearRect(0, 0, W, H);
+  ctx.imageSmoothingQuality = 'high';
+  if (g) paintBlurred(ctx, rheoCanvas, W, H, radius);
+  else if (radius && supportsFilter) {
+    const pad = radius * 2;
+    ctx.filter = `blur(${radius}px)`;
+    ctx.drawImage(rheoCanvas, -pad, -pad, W + pad * 2, H + pad * 2);
+    ctx.filter = 'none';
+  } else ctx.drawImage(rheoCanvas, 0, 0, W, H);
+  return live;
 }
 
 /* 采样背景平均亮度，决定「自动」文字颜色。 */
@@ -261,7 +308,7 @@ function drawText(ctx, s, W, H, ink, alphaK, shotBox) {
   const measureWith = (font) => { ctx.font = font; return (txt) => ctx.measureText(txt).width; };
   if (t.quote) {
     const qs = t.title * kT * u;
-    blocks.push({ owner: 'title', lines: ['“'], font: `700 ${qs * 2.6}px Georgia,"Times New Roman",serif`, size: qs * 2.6 * .55, alpha: .35, gap: qs * .2 });
+    blocks.push({ owner: 'title', lines: ['“'], font: `600 ${qs * 2.6}px ${FONT}`, size: qs * 2.6 * .55, alpha: .35, gap: qs * .2 });
   }
   if (t.behind) {
     // 杂志大字只占一行：按文字区宽度把字号收到正好放下，而不是折行（第二行会被截图挡住）；字号滑块在此基础上再放大缩小

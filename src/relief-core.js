@@ -211,6 +211,22 @@ export function parseRheoStyle(text) {
   return validate(value);
 }
 
+/* Rheo 导出的 HTML（或参数 JSON）→ { state, time }。
+   HTML 里 <script id="rheo-parameters"> 是完整参数，运行时代码里 `let elapsed=…` 是导出那一刻的动画进度；
+   拿到参数就能在这里用同一个渲染器把它「活」着画出来，而不是只有一张静态图。 */
+export function parseRheoFile(text) {
+  const src = String(text);
+  if (/<html|<script/i.test(src)) {
+    const m = src.match(/<script[^>]*id=["']rheo-parameters["'][^>]*>([\s\S]*?)<\/script>/i);
+    if (!m) throw Error('这个 HTML 不是 Rheo 导出的：请在 Rheo 页「导出」菜单选 HTML');
+    const state = parseRheoStyle(m[1]);
+    const e = src.match(/\blet elapsed=(-?[\d.]+(?:e[-+]?\d+)?)/i);
+    const time = e ? Number(e[1]) : 0;
+    return { state, time: Number.isFinite(time) && time >= 0 ? time : 0 };
+  }
+  return { state: parseRheoStyle(src), time: 0 };
+}
+
 /* 背景亮不亮 —— 决定「自动」文字颜色用深还是浅。 */
 export function isLight(r, g, b) {
   const lin = (c) => { c /= 255; return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; };

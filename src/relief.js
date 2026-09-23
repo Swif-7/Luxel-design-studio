@@ -1,6 +1,6 @@
 // Relief 页面：放入截图 → ① 裁切 → ② 背景 → ③ 构图（外框、排版、文字，都在画面上直接调）→ ④ 导出。
 // 一次只显示一步的控件（底部面板），预览和导出共用 relief-render.js 的 renderScene。
-import { RATIOS, RATIO_LABELS, canvasAspect, exportSize, frameAspect, TEMPLATES, fitRatioBox, dragBox, trimBounds, parseRheoStyle, snapBox, SCALE_MIN, SCALE_MAX, clamp } from './relief-core.js';
+import { RATIOS, RATIO_LABELS, canvasAspect, exportSize, frameAspect, TEMPLATES, fitRatioBox, dragBox, trimBounds, snapBox, SCALE_MIN, SCALE_MAX, parseRheoFile, clamp } from './relief-core.js';
 import { renderScene, makeCanvas, clearCache } from './relief-render.js';
 import { defaults, generate, randomizePalette } from './model.js';
 import { initI18n, mountLangSwitch } from './i18n-dom.js';
@@ -580,8 +580,9 @@ async function useFrame(blob) {
   saveSettings(); render();
   toast(`已导入 Rheo 画面 · ${img.naturalWidth} × ${img.naturalHeight}`);
 }
+// 参数：Rheo 导出的 HTML、参数 JSON 或旧版复制的参数文字。Relief 出的是静态图，按参数画一帧（取导出那一刻的进度）
 function useStyleText(text) {
-  s.rheo = { ...parseRheoStyle(text), particles: false };
+  s.rheo = { ...parseRheoFile(text).state, particles: false };
   rheoFrame = null; s.src = 'rheo'; saveSettings(); render(); toast('已导入 Rheo 样式');
 }
 async function importStyle() {
@@ -599,6 +600,10 @@ async function importStyle() {
   $('import-paste').focus();
 }
 async function takeImportFile(file) {
+  if (file && (/\.(html?|json)$/i.test(file.name) || /^(text\/html|application\/json)/.test(file.type))) {
+    try { useStyleText(await file.text()); $('import-dialog').close(); } catch (e) { $('import-error').textContent = e.message; }
+    return;
+  }
   if (!isImage(file)) { $('import-error').textContent = '剪贴板里没有图片：请先在 Rheo 页点「复制到 Relief」'; return; }
   try { await useFrame(file); $('import-dialog').close(); }
   catch { $('import-error').textContent = '这张图读不出来'; }

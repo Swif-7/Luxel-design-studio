@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
-import { keysOf, jsStrings } from './i18n-extract.mjs';
+import { keysOf, jsStrings, segments } from './i18n-extract.mjs';
 import { register, setLang, translateText } from '../src/i18n.js';
 
 const root = new URL('../', import.meta.url);
@@ -48,10 +48,11 @@ test('every Chinese UI string in the pages has a translation', () => {
     setLang(lang);
     for (const file of SOURCES) {
       const src = read(file);
-      // 整句在表里（比如带 <canvas> 标签、带前导空格的片段）就不再逐段查
-      const whole = file.endsWith('.js') ? new Set(jsStrings(src).map(s => s.text).filter(covered)) : new Set();
+      // 整句在表里（比如带 <canvas> 标签、带前导空格的片段）：它按标签切出来的那几段就不再逐段查。
+      // 只认「切出来的段」，不认任意子串 —— 否则「流动」会因为出现在另一句已翻译的话里被误判为有译文
+      const pieces = new Set(file.endsWith('.js') ? jsStrings(src).map(s => s.text).filter(covered).flatMap(segments) : []);
       for (const key of keysOf(src, file.endsWith('.html') ? 'html' : 'js')) {
-        if (covered(key) || [...whole].some(w => w.includes(key))) continue;
+        if (covered(key) || pieces.has(key)) continue;
         if (!/\{\d\}/.test(key) && translateText(key) !== null) continue;   // 句式能拼出来
         missing.push(`${lang} ${file}: ${JSON.stringify(key)}`);
       }

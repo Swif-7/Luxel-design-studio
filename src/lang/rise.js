@@ -177,4 +177,9 @@ export default {
   '已复制，可以直接粘贴到 Figma / Keynote / 聊天里': ['Copied — paste it straight into Figma, Keynote or a chat', '복사했습니다. Figma, Keynote, 채팅에 바로 붙여넣으세요', 'コピーしました。Figma や Keynote、チャットにそのまま貼り付けられます', 'Copié — collez-le directement dans Figma, Keynote ou une discussion'],
   'Rise 图表': ['Rise chart', 'Rise 차트', 'Rise のグラフ', 'Graphique Rise'],
   'Rise · Luxel 导出。整段 <canvas> 和 <script> 可以直接嵌进任何网页；点击图表重播。': ['Exported from Rise · Luxel. Paste the whole <canvas> and <script> into any web page; click the chart to replay.', 'Rise · Luxel에서 내보냄. <canvas>와 <script>를 통째로 어떤 웹페이지에든 넣을 수 있고, 차트를 누르면 다시 재생됩니다.', 'Rise · Luxel から書き出し。<canvas> と <script> をまとめてどのページにも埋め込めます。グラフをクリックすると再生し直します。', 'Exporté depuis Rise · Luxel. Collez tout le <canvas> et le <script> dans n’importe quelle page ; cliquez sur le graphique pour le rejouer.'],
+  '静止': ['Still', '정지', '静止', 'Fixe'],
+  '已导入 Rheo 画面，背景会跟着流动': ['Rheo flow imported — the background now moves', 'Rheo 화면을 가져왔습니다. 배경이 함께 흐릅니다', 'Rheo の画面を読み込みました。背景が流れます', 'Flux Rheo importé — l’arrière-plan s’anime'],
+  '想让背景跟着流动：在 Rheo「导出」菜单选 HTML，把导出的文件拖到下面或点击选择。': ['For a moving background: choose HTML in Rheo’s Export menu, then drop the exported file below or click to choose it.', '배경이 흐르게 하려면: Rheo의 내보내기 메뉴에서 HTML을 고른 뒤, 내보낸 파일을 아래로 드래그하거나 클릭해 선택하세요.', '背景を動かしたいときは、Rheo の「書き出し」メニューで HTML を選び、書き出したファイルを下にドロップするかクリックして選んでください。', 'Pour un arrière-plan animé : choisissez HTML dans le menu Exporter de Rheo, puis déposez le fichier ci-dessous ou cliquez pour le choisir.'],
+  '画面': ['Motion', '움직임', '動き', 'Mouvement'],
+  '流动': ['Flowing', '흐름', '流れる', 'Animé'],
 };

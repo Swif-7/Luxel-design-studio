@@ -95,6 +95,7 @@ Every tool is a static page that runs in the browser. Images and data are proces
 - Pill-row data entry: paste CSV or tab-separated data, and thousands separators and decimal marks are detected. Any row can be set as the X-axis.
 - Batch mode renders each series separately; merge mode puts all series in one chart and explains why some chart types aren't available.
 - Spring-based motion with several easing curves and entrance styles.
+- Moving Rheo backgrounds: drop in an HTML file exported from Rheo and the flow keeps moving behind the chart, in the preview and in video, PNG sequence and HTML exports.
 - Transparent PNG sequences for video editors, and a standalone HTML embed that replays on click.
 
 </details>

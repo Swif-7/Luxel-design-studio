@@ -2,11 +2,11 @@
 // 一次只显示一步的控件（底部面板）；中间的预览一直在播。预览和所有导出共用 rise-render.js 的 drawFrame。
 import { parseRows, rowsFromText, looksLikeAxis, SAMPLE, MIN_ROWS, MAX_ROWS } from './rise-data.js';
 import { CHARTS, STYLES, LAYOUTS, RATIOS, FONTS, recommend, chartSupport, styleById, chartById, exportSize, cycle, loopFrame, clamp } from './rise-core.js';
-import { drawFrame, prepare, clearStatic } from './rise-render.js';
+import { drawFrame, prepare, clearStatic, liveTime } from './rise-render.js';
 import { makeCanvas, clearCache } from './relief-render.js';
-import { parseRheoStyle } from './relief-core.js';
+import { parseRheoFile } from './relief-core.js';
 import { makeZip } from './recast-core.js';
-import { defaults, generate, randomizePalette } from './model.js';
+import { defaults, generate, randomizePalette, hashSeed } from './model.js';
 import { initI18n, mountLangSwitch } from './i18n-dom.js';
 import { t, joined, getLang, cjkFonts } from './i18n.js';
 import rise from './lang/rise.js';
@@ -65,6 +65,7 @@ const DEFAULTS = {
   chart: 'bar', style: 'glass', panel: false, grid: true, values: true, decimals: 'auto', abbr: 'auto',
   anim: { effect: 'grow', dur: 1.8, stagger: 45, ease: 'spring', hold: 1.6, loop: true },
   src: 'rheo', rheo: { ...defaults, particles: false }, solid: '#f1f3f5', blur: 30, rheoSize: 100, imageSize: 100, frameSize: 100,
+  rheoLive: false, rheoTime: 6,     // Rheo 背景流动起来；rheoTime 是起始进度（导入 Rheo 导出的 HTML 时取它导出那一刻的进度）
   ratio: '4:3', layout: 'top', scale: 90, title: t(DEFAULT_TEXT.title), sub: t(DEFAULT_TEXT.sub), note: t(DEFAULT_TEXT.note),
   fmt: 'png', size: 1920, fps: 30,
 };
@@ -109,7 +110,7 @@ function bgScene() {
   else if (s.src === 'solid') bg = { key: 'solid:' + s.solid, src: 'solid', solid: s.solid };
   else if (s.src === 'image' && bgImage) bg = { key: `image:${bgImageId}:${s.imageSize}`, src: 'image', image: bgImage, zoom: s.imageSize / 100 };
   else if (s.src === 'rheo' && rheoFrame) bg = { key: `frame:${bgImageId}:${s.frameSize}`, src: 'image', image: rheoFrame, zoom: s.frameSize / 100 };
-  else bg = { key: 'rheo:' + JSON.stringify(rheo), src: 'rheo', rheo };
+  else bg = { key: 'rheo:' + JSON.stringify(rheo) + (s.rheoLive ? '|live' : ''), src: 'rheo', rheo, live: s.rheoLive, t0: s.rheoTime };
   return { ...bg, blur: s.blur };
 }
 /* 渲染需要的那部分设置（数据原文、导出选项这些不影响画面，不进缓存键） */
@@ -123,6 +124,7 @@ const sceneOf = (over = {}) => {
 };
 const aspect = () => RATIOS[s.ratio] || 4 / 3;
 const transparentBg = () => s.src === 'none';
+const liveBg = () => s.src === 'rheo' && !rheoFrame && s.rheoLive;
 
 /* ── 视图 ───────────────────────────────────────────────────────── */
 function render() {
@@ -294,6 +296,7 @@ function controls() {
       ctl('来源', seg('src', [['rheo', 'Rheo'], ['solid', '纯色'], ['image', '导入图片'], ['none', '透明']], s.src)),
       s.src === 'rheo' && rheoFrame ? ctl('Rheo', `<div class="row"><span class="chip">已导入画面 · ${rheoFrame.naturalWidth} × ${rheoFrame.naturalHeight}</span><button type="button" class="pill" data-act="importStyle">重新导入</button><button type="button" class="pill ghost" data-act="clearFrame">改回随机生成</button></div>`)
       : s.src === 'rheo' ? ctl('Rheo', '<div class="row"><button type="button" class="pill" data-act="rndColor">随机颜色</button><button type="button" class="pill" data-act="rndStyle">随机样式</button><button type="button" class="pill" data-act="importStyle">导入样式</button></div>')
+        + ctl('画面', seg('rheoLive', [['0', '静止'], ['1', '流动']], s.rheoLive ? '1' : '0'))
         : s.src === 'solid' ? ctl('颜色', `<div class="swatches">${SOLIDS.map(c => `<button type="button" data-act="solid" data-v="${c}" style="background:${c}" aria-label="${c}" aria-pressed="${c === s.solid}"></button>`).join('')}<label title="自定义颜色"><input type="color" data-act="solidPick" value="${s.solid}" aria-label="自定义颜色"></label></div>`)
           : s.src === 'image' ? ctl('图片', `<label class="pill" style="cursor:pointer;border:1px solid var(--border-control);border-radius:999px;background:var(--surface-2)">${bgImage ? '换一张图…' : '选择图片…'}<input type="file" accept="image/*" data-act="bgFile" hidden></label>`)
             : `<p class="hint" style="max-width:260px">背景透明：导出 PNG、PNG 序列和 HTML 时保留透明通道。${styleById(s.style).fill === 'glass' ? '玻璃风格没有东西可透，建议打开卡片底板。' : ''}</p>`,
@@ -353,6 +356,7 @@ $('dock').addEventListener('click', async (e) => {
     case 'chart': s.chart = v; restart(); break;
     case 'layout': s.layout = v; break;
     case 'loop': s.anim.loop = v === '1'; break;
+    case 'rheoLive': s.rheoLive = v === '1'; break;
     case 'size': case 'fps': s[act] = +v; break;
     case 'mode': s.mode = v; s.current = 0; ensureChart(); restart(); break;
     default:
@@ -446,7 +450,7 @@ function schedulePreview() {
   previewQueued = true;
   requestAnimationFrame(() => { previewQueued = false; paintPreview(); });
 }
-let lastRegions = [], lastK = 1, lastInk = '#16202e';
+let lastRegions = [], lastK = 1, lastInk = '#16202e', bgElapsed = 0, bgLast = null;
 function paintPreview() {
   const wrap = $('canvas-wrap').getBoundingClientRect(), a = aspect();
   if (wrap.width < 10 || wrap.height < 10) return;
@@ -458,14 +462,19 @@ function paintPreview() {
   if (cv.width !== W || cv.height !== H) { cv.width = W; cv.height = H; }
   Object.assign(cv.style, { width: Math.round(w) + 'px', height: Math.round(h) + 'px', left: Math.round((wrap.width - w) / 2) + 'px', top: Math.round((wrap.height - h) / 2) + 'px' });
   const { t, fade } = frameAt();
-  const out = drawFrame(cv.getContext('2d'), sceneOf(), W, H, t, { interactive: step === 5, hide: editing, fade });
+  // 流动背景用一条自己的连续时钟：图表循环跳回开头、拖进度条时背景照常往前流，不跟着跳
+  const tick = performance.now();
+  if (playing && bgLast !== null) bgElapsed += Math.min(.1, (tick - bgLast) / 1000);
+  bgLast = playing ? tick : null;
+  const scene = sceneOf();
+  const out = drawFrame(cv.getContext('2d'), scene, W, H, t, { interactive: step === 5, hide: editing, fade, bgTime: scene.bg.live ? liveTime(scene.bg, bgElapsed) : undefined });
   lastRegions = out.regions; lastK = W / w; lastInk = out.frame.statics.ink;
   const len = cycle(s.anim);
   $('scrub').value = String(Math.round(Math.min(1, t / (len || 1)) * 1000));
   $('clock').textContent = `${Math.min(t, len).toFixed(1)} / ${len.toFixed(1)} s`;
   paintTextLayer();
   // 还在动就继续：只播一次且已经播完、或暂停时停下
-  if (playing && (s.anim.loop || now() < len)) schedulePreview();
+  if (playing && (s.anim.loop || now() < len || liveBg())) schedulePreview();
 }
 
 /* ── 在画面上直接改字（照搬 Relief）───────────────────────────────── */
@@ -535,9 +544,12 @@ async function useFrame(blob) {
   saveSettings(); render();
   toast(`已导入 Rheo 画面 · ${img.naturalWidth} × ${img.naturalHeight}`);
 }
+/* 参数（Rheo 导出的 HTML、参数 JSON，或旧版复制的参数文字）：用同一个渲染器活着画，默认直接流动起来。
+   粒子 / 字符点阵照原样保留 —— 流动时就是 Rheo 页上看到的那一幅。 */
 function useStyleText(text) {
-  s.rheo = { ...parseRheoStyle(text), particles: false };
-  rheoFrame = null; s.src = 'rheo'; saveSettings(); render(); toast('已导入 Rheo 样式');
+  const { state, time } = parseRheoFile(text);
+  s.rheo = state; s.rheoTime = time || DEFAULTS.rheoTime; s.rheoLive = true; bgElapsed = 0;
+  rheoFrame = null; s.src = 'rheo'; saveSettings(); render(); toast('已导入 Rheo 画面，背景会跟着流动');
 }
 async function importStyle() {
   try {
@@ -551,7 +563,12 @@ async function importStyle() {
   $('import-dialog').showModal();
   $('import-paste').focus();
 }
+const isRheoText = (f) => f && (/\.(html?|json)$/i.test(f.name) || /^(text\/html|application\/json)/.test(f.type));
 async function takeImportFile(file) {
+  if (isRheoText(file)) {
+    try { useStyleText(await file.text()); $('import-dialog').close(); } catch (e) { $('import-error').textContent = e.message; }
+    return;
+  }
   if (!file?.type.startsWith('image/')) { $('import-error').textContent = '剪贴板里没有图片：请先在 Rheo 页点「复制到 Relief」'; return; }
   try { await useFrame(file); $('import-dialog').close(); } catch { $('import-error').textContent = '这张图读不出来'; }
 }
@@ -638,9 +655,19 @@ async function drawBundle() {
   bundleCache = { code: strip(core) + '\n' + strip(draw), fonts };
   return bundleCache;
 }
+/* 流动背景：导出的 HTML 里也要能画 Rheo —— 把 Rheo 自己的渲染代码（和它导出 HTML 时用的是同一套）装进一个独立作用域 */
+let rheoBundle = null;
+async function rheoCode() {
+  if (rheoBundle) return rheoBundle;
+  const srcs = await Promise.all(['glyphs.js', 'color.js', 'shader.js', 'blur.js'].map(u => fetch(new URL(u, import.meta.url)).then(r => { if (!r.ok) throw Error('导出失败'); return r.text(); })));
+  rheoBundle = srcs.map(x => x.replace(/^import .*?;\s*$/gm, '').replace(/^export /gm, '')).join('\n');
+  return rheoBundle;
+}
 async function htmlFile(over, W, H, title) {
   const { code, fonts } = await drawBundle();
-  const p = prepare(sceneOf(over), W, H, {});
+  const scene = sceneOf(over), live = !!scene.bg.live;
+  const rheo = live ? await rheoCode() : '';
+  const p = prepare(scene, W, H, {});
   const layer = await toBlob(p.layer, 'image/png');
   const layerUrl = await new Promise((r) => { const fr = new FileReader(); fr.onload = () => r(fr.result); fr.readAsDataURL(layer); });
   const face = (fam, w, url) => url ? `@font-face{font-family:"${fam}";src:url(${url}) format("woff2");font-weight:${w};font-display:block}` : '';
@@ -663,17 +690,39 @@ const cv = document.currentScript.previousElementSibling, ctx = cv.getContext('2
 const bg = new Image(); bg.src = ${JSON.stringify(layerUrl)};
 let start = null, raf = 0;
 const len = cycle(DYN.anim);
+${live ? `// 流动背景：Rheo 的渲染器在一张不挂到页面上的 WebGL 画布里画，每帧（模糊后）铺到图表下面；背景的时钟不随图表重播而跳回
+const { Renderer, Blur } = (() => {
+${rheo}
+return { Renderer, Blur };
+})();
+const RHEO = ${JSON.stringify({ ...scene.bg.rheo, seedValue: hashSeed(String(scene.bg.rheo.seed ?? '')) % 10000 }).replace(/</g, '\\u003c')}, T0 = ${Number(scene.bg.t0) || 0};
+const BLUR = ${(scene.bg.blur / 100) * Math.min(W, H) * 0.08};
+const FILTER = (() => { try { const c = document.createElement('canvas').getContext('2d'); c.filter = 'blur(2px)'; return c.filter === 'blur(2px)'; } catch { return false; } })();
+const gl = document.createElement('canvas');
+let renderer = null; try { renderer = new Renderer(gl); } catch {}
+let blurer = null; if (BLUR) try { blurer = new Blur(); } catch {}
+const born = performance.now();
+function backdrop(now) {
+  if (!renderer) return;
+  const k = !BLUR ? 1 : blurer || FILTER ? .5 : 1 / (1 + BLUR / 6);
+  try { renderer.draw(RHEO, T0 + (now - born) / 1000 * RHEO.speed, Math.max(1, Math.round(cv.width * k)), Math.max(1, Math.round(cv.height * k))); } catch { renderer = null; return; }
+  if (blurer) { ctx.imageSmoothingQuality = 'high'; ctx.drawImage(blurer.apply(gl, cv.width, BLUR), 0, 0, cv.width, cv.height); }
+  else if (BLUR && FILTER) { const pad = BLUR * 2; ctx.filter = 'blur(' + BLUR + 'px)'; ctx.drawImage(gl, -pad, -pad, cv.width + pad * 2, cv.height + pad * 2); ctx.filter = 'none'; }
+  else ctx.drawImage(gl, 0, 0, cv.width, cv.height);
+}` : 'const backdrop = () => {};'}
 function frame(now) {
   if (start === null) start = now;
   const { t, fade } = loopFrame((now - start) / 1000, { ...DYN.anim, loop: LOOP });
   ctx.clearRect(0, 0, cv.width, cv.height);
+  backdrop(now);
   ctx.drawImage(bg, 0, 0, cv.width, cv.height);
   drawDynamic(ctx, DYN, t, fade);
-  if (LOOP || t < len) raf = requestAnimationFrame(frame);
+  if (LOOP || t < len${live ? ' || renderer' : ''}) raf = requestAnimationFrame(frame);
 }
 const play = () => { cancelAnimationFrame(raf); start = null; raf = requestAnimationFrame(frame); };
 cv.addEventListener('click', play);
 Promise.all([bg.decode().catch(() => {}), document.fonts ? Promise.all(['400 20px "IBM Plex Sans"', '600 20px "IBM Plex Sans"', '400 20px "IBM Plex Mono"'].map(f => document.fonts.load(f))).catch(() => {}) : 0]).then(() => {
+  backdrop(performance.now());
   ctx.drawImage(bg, 0, 0, cv.width, cv.height);
   if ('IntersectionObserver' in window) {
     const io = new IntersectionObserver((es) => { if (es.some(e => e.isIntersecting)) { io.disconnect(); play(); } }, { threshold: .35 });
@@ -756,6 +805,10 @@ addEventListener('drop', async (e) => {
   const f = [...e.dataTransfer.files][0];
   if (!f) return;
   if (f.type.startsWith('image/') && step === 4) { try { bgImage = await loadImage(URL.createObjectURL(f)); bgImageId++; s.src = 'image'; render(); } catch { toast('这张图读不出来'); } return; }
+  if (/\.html?$/i.test(f.name) || f.type === 'text/html') {        // Rheo 导出的 HTML：直接当流动背景
+    try { useStyleText(await f.text()); step = 4; render(); } catch (err) { toast(err.message); }
+    return;
+  }
   if (!/\.(csv|tsv|txt)$/i.test(f.name) && !f.type.startsWith('text/')) { toast('只能读 CSV / TSV / TXT 文本'); return; }
   const text = (await f.text()).replace(/^﻿/, '');
   const r = rowsFromText(text); setRows(r.rows, r.axisRow); step = 0; render();

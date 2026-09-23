@@ -30,7 +30,8 @@
   <form method="dialog">
     <h2>导入 Rheo 画面</h2>
     <p>在 <a href="rheo.html" target="_blank" rel="noopener">Rheo</a> 页右上角「导出」菜单里点「复制到 Relief」，回到这里按 <kbd>⌘V</kbd> 粘贴。</p>
-    <label id="import-paste" class="import-paste" tabindex="0">按 ⌘V 粘贴，或点击选择 Rheo 保存的 PNG<input id="import-file" type="file" accept="image/*" title="选择 Rheo 保存的图片"></label>
+    <p>想让背景跟着流动：在 Rheo「导出」菜单选 HTML，把导出的文件拖到下面或点击选择。</p>
+    <label id="import-paste" class="import-paste" tabindex="0">按 ⌘V 粘贴，或点击 / 拖入 Rheo 保存的 PNG、导出的 HTML<input id="import-file" type="file" accept="image/*,.html,.htm,.json" title="选择 Rheo 保存的图片或导出的 HTML"></label>
     <p id="import-error" class="import-error" role="alert"></p>
     <div class="import-actions"><button value="cancel" class="ghost">取消</button></div>
   </form>

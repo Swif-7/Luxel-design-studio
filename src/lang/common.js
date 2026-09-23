@@ -52,8 +52,8 @@ export default {
   '在': ['In', '', '', 'Dans'],
   '页右上角「导出」菜单里点「复制到 Relief」，回到这里按': [', open the Export menu at the top right and click “Copy to Relief”, then come back here and press', ' 페이지 오른쪽 위 ‘내보내기’ 메뉴에서 ‘Relief로 복사’를 누른 뒤, 여기로 돌아와', ' ページ右上の「書き出し」メニューで「Relief にコピー」をクリックし、ここに戻って', ', ouvrez le menu Exporter en haut à droite, cliquez sur « Copier vers Relief », puis revenez ici et appuyez sur'],
   '粘贴。': ['to paste.', '를 눌러 붙여넣으세요.', 'で貼り付けます。', 'pour coller.'],
-  '按 ⌘V 粘贴，或点击选择 Rheo 保存的 PNG': ['Press ⌘V to paste, or click to choose a PNG saved from Rheo', '⌘V로 붙여넣거나 클릭해 Rheo에서 저장한 PNG를 선택하세요', '⌘V で貼り付けるか、クリックして Rheo で保存した PNG を選択', 'Appuyez sur ⌘V pour coller, ou cliquez pour choisir un PNG enregistré depuis Rheo'],
-  '选择 Rheo 保存的图片': ['Choose an image saved from Rheo', 'Rheo에서 저장한 이미지 선택', 'Rheo で保存した画像を選択', 'Choisir une image enregistrée depuis Rheo'],
+  '按 ⌘V 粘贴，或点击 / 拖入 Rheo 保存的 PNG、导出的 HTML': ['Press ⌘V to paste, or click / drop a PNG saved from Rheo or an HTML file exported from it', '⌘V로 붙여넣거나, Rheo에서 저장한 PNG나 내보낸 HTML을 클릭 / 드래그해 넣으세요', '⌘V で貼り付けるか、Rheo で保存した PNG や書き出した HTML をクリック / ドロップ', 'Appuyez sur ⌘V, ou cliquez / déposez un PNG enregistré ou un HTML exporté depuis Rheo'],
+  '选择 Rheo 保存的图片或导出的 HTML': ['Choose an image saved from Rheo or an HTML file exported from it', 'Rheo에서 저장한 이미지나 내보낸 HTML 선택', 'Rheo で保存した画像や書き出した HTML を選択', 'Choisir une image enregistrée ou un HTML exporté depuis Rheo'],
   '已导入 Rheo 画面 · {0} × {1}': ['Rheo frame imported · {0} × {1}', 'Rheo 화면을 가져왔습니다 · {0} × {1}', 'Rheo の画面を読み込みました · {0} × {1}', 'Image Rheo importée · {0} × {1}'],
   '已导入 Rheo 样式': ['Rheo style imported', 'Rheo 스타일을 가져왔습니다', 'Rheo のスタイルを読み込みました', 'Style Rheo importé'],
   '剪贴板里没有图片：请先在 Rheo 页点「复制到 Relief」': ['No image on the clipboard: click “Copy to Relief” in Rheo first', '클립보드에 이미지가 없습니다. 먼저 Rheo에서 ‘Relief로 복사’를 누르세요', 'クリップボードに画像がありません。先に Rheo で「Relief にコピー」をクリックしてください', 'Aucune image dans le presse-papiers : cliquez d’abord sur « Copier vers Relief » dans Rheo'],
@@ -61,4 +61,5 @@ export default {
   '当前浏览器不支持复制图片，请用下载': ['This browser can’t copy images — please use Download', '이 브라우저는 이미지 복사를 지원하지 않습니다. 다운로드를 이용하세요', 'このブラウザは画像のコピーに対応していません。ダウンロードをご利用ください', 'Ce navigateur ne peut pas copier d’images — utilisez Télécharger'],
   '浏览器没有给剪贴板权限，请用下载': ['The browser denied clipboard access — please use Download', '브라우저가 클립보드 권한을 허용하지 않았습니다. 다운로드를 이용하세요', 'ブラウザがクリップボードへのアクセスを許可していません。ダウンロードをご利用ください', 'Le navigateur a refusé l’accès au presse-papiers — utilisez Télécharger'],
   '复制失败，请用下载': ['Copy failed — please use Download', '복사에 실패했습니다. 다운로드를 이용하세요', 'コピーに失敗しました。ダウンロードをご利用ください', 'Échec de la copie — utilisez Télécharger'],
+  '这个 HTML 不是 Rheo 导出的：请在 Rheo 页「导出」菜单选 HTML': ['This HTML wasn’t exported from Rheo: choose HTML in Rheo’s Export menu', '이 HTML은 Rheo에서 내보낸 파일이 아닙니다. Rheo의 내보내기 메뉴에서 HTML을 고르세요', 'この HTML は Rheo から書き出したものではありません。Rheo の「書き出し」メニューで HTML を選んでください', 'Ce HTML ne vient pas de Rheo : choisissez HTML dans le menu Exporter de Rheo'],
 };
