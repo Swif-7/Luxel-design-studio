@@ -67,9 +67,9 @@ body{height:100dvh;display:flex;overflow:hidden}
 .wordmark{margin:0;writing-mode:vertical-rl;line-height:1;
   font-weight:600;letter-spacing:-.02em;
   font-size:min(calc(38vh / 2.875), 13vw)}
-/* 公式落在右下角，与左下的说明构成对角 —— 四角各有一处落点。 */
-.formula{position:absolute;right:var(--pad);bottom:30px;
-  font:10px var(--mono);color:var(--text-3);letter-spacing:.08em;white-space:nowrap}
+/* 公式落在右下角，与左下的说明构成对角 —— 四角各有一处落点。联系我们叠在公式上方。 */
+.corner{position:absolute;right:var(--pad);bottom:30px;display:flex;flex-direction:column;align-items:flex-end;gap:10px}
+.formula{font:10px var(--mono);color:var(--text-3);letter-spacing:.08em;white-space:nowrap}
 
 /* 灰阶条：16 级自上而下由实到空，与字标同向（深色都在顶部）。
    与字标精确等长 —— 两者是同一 flex 行的兄弟，stretch 对齐即可。 */
@@ -339,16 +339,16 @@ body{height:100dvh;display:flex;overflow:hidden}
 .tool-card h2{margin:0;font-size:14px;font-weight:600;letter-spacing:-.01em}
 .tool-card p{margin:0;font-size:11.5px;color:var(--text-3);line-height:1.45}
 
-/* 说明 ＋ 联系我们：画面左下，与工具卡拉开层级 */
-.intro{position:absolute;left:var(--pad);bottom:30px;display:flex;flex-direction:column;align-items:flex-start;gap:12px}
+/* 说明：画面左下，与工具卡拉开层级 */
+.intro{position:absolute;left:var(--pad);bottom:30px}
 .blurb{margin:0;max-width:34ch;
   font-size:13px;line-height:1.75;color:var(--text-2)}
 /* 点一下把邮箱复制到剪贴板；复制后短暂换成「邮箱已复制」 */
-.contact{display:inline-flex;align-items:center;gap:7px;height:30px;padding:0 13px 0 11px;border:0;border-radius:var(--r-pill);
-  background:var(--surface);color:var(--text-2);font:inherit;font-size:12px;cursor:pointer;white-space:nowrap}
+.contact{display:inline-flex;align-items:center;gap:5px;height:26px;padding:0 10px 0 9px;border:0;border-radius:var(--r-pill);
+  background:var(--surface);color:var(--text-2);font:inherit;font-size:11px;cursor:pointer;white-space:nowrap}
 .contact:hover{background:var(--surface-3);color:var(--text)}
 .contact:focus-visible{outline:2px solid var(--text);outline-offset:2px}
-.contact svg{width:14px;height:14px;flex:none}
+.contact svg{width:12px;height:12px;flex:none}
 .contact.copied{color:var(--text)}
 .contact .email{font-family:var(--mono);user-select:all}
 
@@ -356,7 +356,7 @@ body{height:100dvh;display:flex;overflow:hidden}
   .stage{--pad:22px;padding:26px var(--pad)}
   .intro{bottom:26px}
   .blurb{font-size:12.5px;max-width:32ch}
-  .formula{bottom:26px}
+  .corner{bottom:26px}
   .masthead{gap:10px}
   .masthead{padding-top:18px}
 }
@@ -365,6 +365,8 @@ body{height:100dvh;display:flex;overflow:hidden}
   .tool-name{font-size:7.5px}
   .rail-text{display:none}
   .formula{display:none}
+  /* 手机上一行放不下说明和联系我们：说明抬到按钮上方，按钮独占右下角 */
+  .intro{bottom:calc(26px + 26px + 12px)}
   .tools{padding-top:12px}
 }
 /* 矮窗口：一屏放不下就别硬撑 */
@@ -373,6 +375,7 @@ body{height:100dvh;display:flex;overflow:hidden}
   /* 静态排布后仍要贴住屏幕右缘，用负边距抵掉 stage 的内边距 */
   .masthead{position:static;align-self:stretch;justify-content:flex-end;margin:0 calc(var(--pad) * -1) 18px 0}
   .intro{position:static;margin-top:20px}
+  .corner{position:static;align-self:flex-end;margin-top:14px}
   .stage{justify-content:flex-start}
 }
 @media(prefers-reduced-motion:reduce){*{transition:none!important}}
