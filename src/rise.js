@@ -128,7 +128,7 @@ function ensureChart() {
    默认 5 行，最多 8 行（1 行横轴 + 7 组）。每行末尾的按钮把这一行设为横轴，其余非空行都是数据组；
    再点一次取消，所有行都当数据组。整段粘贴 / 拖入 CSV 会按行分进去，并猜第一行是不是横轴。 */
 const esc = (t) => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
-const AXIS_ICON = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 2.5v10.5h10.5"/><path d="M6 13v-1.6M9 13v-1.6M12 13v-1.6"/></svg>';
+const AXIS_ICON = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1.8 8.2h11.9"/><path d="M11.2 5.6l2.6 2.6-2.6 2.6"/><path d="M4.6 8.2v3M8.2 8.2v3"/></svg>';
 function reparse() {
   data = parseRows(s.rows, s.axisRow, s.overrides);
   // 只保留还有歧义的那几行的千分位选择
