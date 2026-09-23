@@ -1,7 +1,13 @@
 // 首页脚本：主题切换 ＋ 工具卡上的实时缩略图。
 // 与 app.js 共用 rheo-theme 这个键，两页之间切换不会来回跳。
+import { initI18n, mountLangSwitch } from './i18n-dom.js';
+import { t } from './i18n.js';
+import home from './lang/home.js';
 import { Renderer } from './shader.js';
 import { defaults, hashSeed } from './model.js';
+
+initI18n(home);
+mountLangSwitch(document.querySelector('.rail-foot'), { place: 'prepend', compact: true }).classList.add('up');
 
 /* ── 主题 ───────────────────────────────────────────────────────────── */
 const themeButton = document.getElementById('theme');
@@ -26,6 +32,36 @@ themeButton.onclick = () => {
 };
 darkQuery.addEventListener('change', () => { if (!document.documentElement.dataset.theme) paintTheme(); });
 paintTheme();
+
+/* ── 联系我们：点一下把邮箱复制到剪贴板 ─────────────────────────────
+   剪贴板接口不可用（非安全上下文、权限被拒）时退回 execCommand；
+   再不行就把邮箱直接显示在按钮上，可以手动选中复制。 */
+const contact = document.getElementById('contact');
+const contactLabel = contact.querySelector('span');
+const EMAIL = contact.dataset.email;
+const idleLabel = contactLabel.textContent;
+let contactTimer;
+contact.title = t('点击复制邮箱 {0}', {0: EMAIL});
+function legacyCopy(text) {
+  const area = document.createElement('textarea');
+  area.value = text; area.setAttribute('readonly', ''); area.style.cssText = 'position:fixed;opacity:0';
+  document.body.append(area); area.select();
+  let ok = false;
+  try { ok = document.execCommand('copy'); } catch {}
+  area.remove();
+  return ok;
+}
+contact.onclick = async () => {
+  let ok = false;
+  try { await navigator.clipboard.writeText(EMAIL); ok = true; } catch { ok = legacyCopy(EMAIL); }
+  clearTimeout(contactTimer);
+  contact.classList.toggle('copied', ok);
+  if (ok) contactLabel.textContent = t('邮箱已复制');
+  else { contactLabel.className = 'email'; contactLabel.textContent = EMAIL; }
+  contactTimer = setTimeout(() => {
+    contact.classList.remove('copied'); contactLabel.className = ''; contactLabel.textContent = idleLabel;
+  }, ok ? 2000 : 8000);
+};
 
 /* ── 工具堆叠 ────────────────────────────────────────────────────────
    左栏是 PS 式工具条：点中谁，谁就到堆叠最前，其余按列表顺序循环叠在后方。

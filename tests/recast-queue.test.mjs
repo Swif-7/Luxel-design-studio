@@ -24,6 +24,7 @@ async function setup() {
   const ctx=vm.createContext({...core,Blob,URL:{createObjectURL:()=> 'blob:test',revokeObjectURL(){}},Worker,
     document:{getElementById:get,documentElement:{dataset:{}},querySelector:()=>new Element(),querySelectorAll:()=>[],createElement:()=>new Element(),addEventListener(){},body:new Element()},
     matchMedia:()=>({matches:false,addEventListener(){}}),localStorage:{getItem(){return null},setItem(){}},navigator:{hardwareConcurrency:8},addEventListener(){},
+    initI18n(){},mountLangSwitch(){},recast:{},
     canUseWorkers:true,probeEncoders:async()=>new Set(['image/jpeg','image/png','image/webp']),encodeImage:async()=>{throw Error('unexpected fallback')},inspectImage:async()=>({mime:'image/png',width:100,height:100}),
     setTimeout(fn){const id=++timerId;timers.set(id,fn);return id},clearTimeout(id){timers.delete(id)} });
   let source=await fs.readFile(new URL('../src/recast.js',import.meta.url),'utf8');

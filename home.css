@@ -28,8 +28,8 @@ body{height:100dvh;display:flex;overflow:hidden}
 /* 工具条：选中项把对应卡片推到堆叠最前，未选中的留在后方。 */
 /* 按钮组的中心要对齐封面（缩略图）的中心，而不是左栏中心：
    卡组居中时包含下方 56px 的文字块，封面中心比卡组中心高 28px；
-   左栏上 logo 22px、下主题键 34px，按钮组本身又比栏中心低 6px。合计上移 28 − 6 = 22px。 */
-.tool-list{display:flex;flex-direction:column;align-items:center;gap:6px;width:100%;translate:0 -22px}
+   左栏上 logo 22px、下面是语言 + 主题两颗键共 74px，按钮组因此比栏中心高 26px。合计 28 − 26 = 2px。 */
+.tool-list{display:flex;flex-direction:column;align-items:center;gap:6px;width:100%;translate:0 -2px}
 /* 工具按钮是「胶囊一律给可点元素」这条规则的例外：它里面是图标＋英文名，
    名字一长（RUBRIC）做成圆形就几乎贴到两侧。改成大圆角方形，宽度跟随左栏，
    给名字留出左右余量。 */
@@ -40,6 +40,9 @@ body{height:100dvh;display:flex;overflow:hidden}
 .tool-name{font:8.5px var(--mono);letter-spacing:.06em;text-transform:uppercase;line-height:1}
 .tool-btn:hover{background:var(--surface-3);border-color:transparent;color:var(--text-2)}
 .tool-btn[aria-pressed=true]{background:var(--accent);border-color:var(--accent);color:var(--accent-fg)}
+/* 左栏底部：语言 + 深浅模式，两颗叠在一起 */
+.rail-foot{flex:none;display:flex;flex-direction:column;align-items:center;gap:6px}
+.rail-foot .lang-btn{background:var(--surface-2);border-color:transparent}
 #theme{flex:none;padding:0;width:34px;height:34px;display:grid;place-items:center;
   background:var(--surface-2);border-color:transparent;color:var(--text-2)}
 #theme:hover{background:var(--surface-3);color:var(--text)}
@@ -288,7 +291,7 @@ body{height:100dvh;display:flex;overflow:hidden}
 .rf-bar i{width:1.6cqw;height:1.6cqw;border-radius:50%;background:#ff6b6b}
 .rf-bar i:nth-child(2){background:#fcc419}.rf-bar i:nth-child(3){background:#51cf66}
 .rf-bar s{flex:1;max-width:34cqw;height:2.2cqw;margin-left:3cqw;border-radius:9px;background:#0000000d}
-.rf-pic{flex:1;background:url(/png/rheo-card.png) center/cover}
+.rf-pic{flex:1;background:url(png/rheo-card.png) center/cover}
 @keyframes rf-mount{
   0%,14%{inset:0;border-radius:0;box-shadow:0 0 0 0 #0000}
   42%,86%{inset:16% 15% 16% 15%;border-radius:2.6cqw;box-shadow:0 1.6cqw 5cqw -1cqw #1b2a4a59,0 0 0 1px #ffffff99}
@@ -336,13 +339,23 @@ body{height:100dvh;display:flex;overflow:hidden}
 .tool-card h2{margin:0;font-size:14px;font-weight:600;letter-spacing:-.01em}
 .tool-card p{margin:0;font-size:11.5px;color:var(--text-3);line-height:1.45}
 
-/* 说明：画面左下，与工具卡拉开层级 */
-.blurb{position:absolute;left:var(--pad);bottom:30px;margin:0;max-width:34ch;
+/* 说明 ＋ 联系我们：画面左下，与工具卡拉开层级 */
+.intro{position:absolute;left:var(--pad);bottom:30px;display:flex;flex-direction:column;align-items:flex-start;gap:12px}
+.blurb{margin:0;max-width:34ch;
   font-size:13px;line-height:1.75;color:var(--text-2)}
+/* 点一下把邮箱复制到剪贴板；复制后短暂换成「邮箱已复制」 */
+.contact{display:inline-flex;align-items:center;gap:7px;height:30px;padding:0 13px 0 11px;border:0;border-radius:var(--r-pill);
+  background:var(--surface);color:var(--text-2);font:inherit;font-size:12px;cursor:pointer;white-space:nowrap}
+.contact:hover{background:var(--surface-3);color:var(--text)}
+.contact:focus-visible{outline:2px solid var(--text);outline-offset:2px}
+.contact svg{width:14px;height:14px;flex:none}
+.contact.copied{color:var(--text)}
+.contact .email{font-family:var(--mono);user-select:all}
 
 @media(max-width:860px){
   .stage{--pad:22px;padding:26px var(--pad)}
-  .blurb{bottom:26px;font-size:12.5px;max-width:26ch}
+  .intro{bottom:26px}
+  .blurb{font-size:12.5px;max-width:32ch}
   .formula{bottom:26px}
   .masthead{gap:10px}
   .masthead{padding-top:18px}
@@ -359,7 +372,11 @@ body{height:100dvh;display:flex;overflow:hidden}
   body{height:auto;min-height:100dvh;overflow:auto}
   /* 静态排布后仍要贴住屏幕右缘，用负边距抵掉 stage 的内边距 */
   .masthead{position:static;align-self:stretch;justify-content:flex-end;margin:0 calc(var(--pad) * -1) 18px 0}
-  .blurb{position:static;margin-top:20px}
+  .intro{position:static;margin-top:20px}
   .stage{justify-content:flex-start}
 }
 @media(prefers-reduced-motion:reduce){*{transition:none!important}}
+
+/* 拉丁字母的语言：一句话比中文长得多，放宽说明文字，免得两句折成四行 */
+:is(:lang(en),:lang(fr)) .blurb{max-width:52ch}
+@media(max-width:860px){:is(:lang(en),:lang(fr)) .blurb{max-width:min(52ch,calc(100% - var(--pad) * 2))}}

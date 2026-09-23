@@ -1,7 +1,7 @@
 <!doctype html>
-<html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Recast — Luxel</title><meta name="description" content="在浏览器里压缩图片、转换格式、批量缩放并打包下载，全程本地处理，不上传。"><meta name="theme-color" content="#ffffff"><link rel="icon" href="/favicon.svg?v=3"><link rel="stylesheet" href="/tokens.css"><link rel="stylesheet" href="/recast.css"><script>try{var t=localStorage.getItem("rheo-theme");if(t)document.documentElement.dataset.theme=t}catch(e){}</script></head>
+<html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Recast — Luxel</title><meta name="description" content="在浏览器里压缩图片、转换格式、批量缩放并打包下载，全程本地处理，不上传。"><meta name="theme-color" content="#ffffff"><link rel="icon" href="favicon.svg?v=3"><link rel="stylesheet" href="tokens.css"><link rel="stylesheet" href="recast.css"><script>try{var t=localStorage.getItem("rheo-theme");if(t)document.documentElement.dataset.theme=t;var l=localStorage.getItem("luxel-lang");if(!/^(zh|en|ko|ja|fr)$/.test(l||"")){l="en";for(var n=navigator.languages||[navigator.language],i=0;i<n.length;i++){var c=String(n[i]).slice(0,2).toLowerCase();if(/^(zh|en|ko|ja|fr)$/.test(c)){l=c;break}}}document.documentElement.lang={zh:"zh-CN",en:"en",ko:"ko",ja:"ja",fr:"fr"}[l];if(l!=="zh"){document.documentElement.classList.add("i18n-wait");setTimeout(function(){document.documentElement.classList.remove("i18n-wait")},1500)}}catch(e){}</script></head>
 <body>
-<header><a class="brand" href="/" aria-label="返回 Luxel 首页"><svg class="brand-mark" viewBox="0 0 64 64" fill="currentColor" aria-hidden="true"><rect x="12" y="12" width="20" height="20"/><rect x="32" y="12" width="20" height="20" fill-opacity=".62"/><rect x="12" y="32" width="20" height="20" fill-opacity=".38"/><rect x="32" y="32" width="20" height="20" fill-opacity=".16"/></svg> Luxel <span class="brand-sub">RECAST · IMAGE</span></a>
+<header><a class="brand" href="./" aria-label="返回 Luxel 首页"><svg class="brand-mark" viewBox="0 0 64 64" fill="currentColor" aria-hidden="true"><rect x="12" y="12" width="20" height="20"/><rect x="32" y="12" width="20" height="20" fill-opacity=".62"/><rect x="12" y="32" width="20" height="20" fill-opacity=".38"/><rect x="32" y="32" width="20" height="20" fill-opacity=".16"/></svg> Luxel <span class="brand-sub">RECAST · IMAGE</span></a>
 <div class="header-right"><label class="head-btn" id="add-wrap" hidden>＋ 添加图片<input id="add" type="file" accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp" multiple hidden></label><button id="clear" class="head-btn" type="button" hidden>清空</button><button id="theme" aria-label="切换深浅模式"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"></svg></button></div></header>
 
 <main>
@@ -54,6 +54,6 @@
 
 <div id="veil" class="veil" hidden><span>松开即可添加</span></div>
 <p id="toast" class="toast" role="status" hidden></p>
-<script type="module" src="/src/recast.js"></script>
+<script type="module" src="src/recast.js"></script>
 </body>
 </html>

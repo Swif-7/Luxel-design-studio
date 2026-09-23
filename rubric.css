@@ -178,9 +178,12 @@ main{flex:1;min-height:0;display:flex;flex-direction:column;align-items:center;p
 .accent-picker{position:absolute;inset:0;opacity:0;width:100%;height:100%;pointer-events:none;outline:none!important}
 .accent-chip code{font:11px var(--mono);color:var(--text-2)}
 .accent-chip .tag{font:9.5px var(--mono);color:var(--text-3)}
-.recommend{display:flex;flex-direction:column;gap:8px}
-.rec-group{display:flex;align-items:center;gap:10px}
+/* 两行推荐排成两列的网格：标签列按最长的那个定宽（译文长短不一），色块始终对齐 */
+.recommend{display:grid;grid-template-columns:minmax(42px,max-content) auto;gap:8px 10px;align-items:center}
+.recommend[hidden]{display:none}
+.rec-group{display:contents}
 .rec-label{flex:none;width:42px;font-size:11px;color:var(--text-3)}
+.recommend .rec-label{width:auto}
 .rec-list{display:flex;gap:7px;flex-wrap:wrap}
 .rec{width:26px;height:26px;padding:0;border-radius:var(--r-pill);border-color:var(--border);cursor:pointer}
 .rec:hover{border-color:var(--text-3);transform:translateY(-1px)}
@@ -228,11 +231,13 @@ dialog p{line-height:1.7;white-space:pre-line}
 
 /* ── 窄屏：步骤条换到第二行，舞台单列，面板折行 ── */
 @media(max-width:1000px){
-  body>header{grid-template-columns:1fr auto;height:auto;padding:10px 16px;row-gap:10px}
+  body>header{grid-template-columns:auto minmax(0,1fr);height:auto;padding:10px 16px;row-gap:10px;column-gap:16px}
   body>header .brand-sub{display:none}
   .steps{grid-column:1/-1;grid-row:2;justify-self:center;max-width:100%;overflow-x:auto}
-  body>header .header-right{grid-column:2}
-  .audit{max-width:40vw;overflow:hidden;text-overflow:ellipsis}
+  body>header .header-right{grid-column:2;max-width:100%}
+  /* 检查摘要是顶栏里唯一能让位的：放不下就省略，悬停面板里有全文 */
+  .audit-wrap{flex:0 1 auto}
+  .audit{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis}
   .audit-panel{position:fixed;top:60px;right:16px}
   main{padding:14px 16px 0}
   .dock{flex-wrap:wrap;justify-content:center;gap:12px 16px;margin:12px 0 14px}
@@ -248,5 +253,8 @@ dialog p{line-height:1.7;white-space:pre-line}
   /* 控件多的步骤（背景与灰阶）面板最多占屏幕一半多一点，里面滚动，给预览留出位置 */
   .dock{max-height:56dvh;overflow-y:auto;overscroll-behavior:contain}
 }
-@media(max-width:480px){.steps button{font-size:0;gap:0;padding:4px}.steps button i{font-size:11px}.audit{display:none}}
+@media(max-width:480px){.steps button{font-size:0;gap:0;padding:4px}.steps button i{font-size:11px}.audit{display:none}
+  /* 手机上顶栏放不下复制的文字：只留图标（第四步里还有带文字的复制按钮） */
+  body>header .header-right{gap:8px}
+  body>header .header-copy{font-size:0;gap:0;width:34px;height:34px;padding:0;justify-content:center}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important;animation:none!important}}

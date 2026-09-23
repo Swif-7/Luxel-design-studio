@@ -12,12 +12,13 @@
    主题由 prefers-color-scheme 决定，可被 <html> 上的 [data-theme] 覆盖。
    ──────────────────────────────────────────────────────────────────────── */
 
-@font-face{font-family:"IBM Plex Sans";src:url(/fonts/IBMPlexSans-Regular.woff2)format("woff2");font-weight:400;font-style:normal;font-display:swap}
-@font-face{font-family:"IBM Plex Sans";src:url(/fonts/IBMPlexSans-SemiBold.woff2)format("woff2");font-weight:600;font-style:normal;font-display:swap}
-@font-face{font-family:"IBM Plex Mono";src:url(/fonts/IBMPlexMono-Regular.woff2)format("woff2");font-weight:400;font-style:normal;font-display:swap}
+@font-face{font-family:"IBM Plex Sans";src:url(fonts/IBMPlexSans-Regular.woff2)format("woff2");font-weight:400;font-style:normal;font-display:swap}
+@font-face{font-family:"IBM Plex Sans";src:url(fonts/IBMPlexSans-SemiBold.woff2)format("woff2");font-weight:600;font-style:normal;font-display:swap}
+@font-face{font-family:"IBM Plex Mono";src:url(fonts/IBMPlexMono-Regular.woff2)format("woff2");font-weight:400;font-style:normal;font-display:swap}
 
 :root{
   --sans:"IBM Plex Sans",-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;
+  /* 日文、韩文页面：汉字 / 谚文先用本语言的系统字体，不借中文字形 */
   --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
 
   /* 圆角只有三级，按「这东西是什么」而不是「它多大」来选：
@@ -95,3 +96,27 @@ input[type=checkbox]{accent-color:var(--accent)}
 .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)}
 .eyebrow{font:10px ui-monospace,monospace;letter-spacing:2px;color:var(--text-3)}
 
+
+:lang(ja){--sans:"IBM Plex Sans",-apple-system,BlinkMacSystemFont,"Hiragino Sans","Hiragino Kaku Gothic ProN","Yu Gothic UI","Meiryo","PingFang SC",sans-serif}
+:lang(ko){--sans:"IBM Plex Sans",-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic","Noto Sans KR","PingFang SC",sans-serif}
+
+/* 非中文页面：翻译完成前先不显示，免得中文一闪而过 */
+.i18n-wait body{visibility:hidden}
+
+/* 语言切换：一颗胶囊按钮 + 下拉的小菜单 */
+.lang-switch{position:relative;flex:none}
+.lang-btn{display:inline-flex;align-items:center;gap:6px;height:34px;padding:0 12px 0 10px;border-radius:var(--r-pill);border:1px solid var(--border);
+  background:transparent;color:var(--text-2);font-size:12.5px;white-space:nowrap;cursor:pointer}
+.lang-btn:hover{background:var(--surface-3);color:var(--text)}
+.lang-btn svg{width:15px;height:15px;flex:none}
+.lang-switch.compact .lang-btn{width:34px;padding:0;justify-content:center;gap:0;font:600 10px/1 var(--mono)}
+.lang-switch.compact .lang-btn svg{display:none}
+.lang-menu{position:absolute;right:0;top:calc(100% + 6px);z-index:90;display:flex;flex-direction:column;gap:2px;min-width:132px;padding:5px;
+  border-radius:var(--r-card);background:var(--surface-2);box-shadow:0 12px 32px -12px #0006,inset 0 0 0 1px var(--border)}
+.lang-menu[hidden]{display:none}
+.lang-menu button{border:0;background:transparent;color:var(--text);text-align:left;padding:7px 12px;border-radius:var(--r-pill);font-size:13px;cursor:pointer;white-space:nowrap}
+.lang-menu button:hover,.lang-menu button:focus-visible{background:var(--surface-3);outline:none}
+.lang-menu button[aria-checked=true]{background:var(--accent);color:var(--accent-fg)}
+.lang-switch.up .lang-menu{top:auto;bottom:calc(100% + 6px);left:0;right:auto}
+/* 窄屏的顶栏挤：只留地球图标，语言名在 aria-label 里 */
+@media(max-width:1000px){.lang-switch:not(.compact) .lang-btn{width:34px;padding:0;justify-content:center;gap:0}.lang-switch:not(.compact) .lang-btn span{display:none}}

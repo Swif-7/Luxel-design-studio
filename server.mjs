@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 const root = new URL('./', import.meta.url);
 const allowed = new Set(['index.html', 'rheo.html', 'rubric.html', 'recast.html', 'relief.html', 'rise.html', 'tokens.css', 'style.css', 'home.css', 'rubric.css', 'recast.css', 'relief.css', 'rise.css',
-  'src/media.js', 'src/export.js', 'src/rubric.js', 'src/spec.js', 'src/recast.js', 'src/relief.js', 'src/relief-core.js', 'src/relief-render.js', 'src/rise.js', 'src/rise-data.js', 'src/rise-core.js', 'src/rise-draw.js', 'src/rise-render.js', 'src/recast-core.js', 'src/recast-encode.js', 'src/recast-worker.js', 'src/recast-inspect.js', 'LICENSE', 'src/app.js', 'src/home.js', 'src/model.js', 'src/color.js', 'src/shader.js', 'src/glyphs.js',
+  'src/media.js', 'src/export.js', 'src/rubric.js', 'src/spec.js', 'src/recast.js', 'src/relief.js', 'src/relief-core.js', 'src/relief-render.js', 'src/i18n.js', 'src/i18n-dom.js', 'src/lang/common.js', 'src/lang/home.js', 'src/lang/rheo.js', 'src/lang/rubric.js', 'src/lang/spec.js', 'src/lang/recast.js', 'src/lang/relief.js', 'src/lang/rise.js', 'src/rise.js', 'src/rise-data.js', 'src/rise-core.js', 'src/rise-draw.js', 'src/rise-render.js', 'src/recast-core.js', 'src/recast-encode.js', 'src/recast-worker.js', 'src/recast-inspect.js', 'LICENSE', 'src/app.js', 'src/home.js', 'src/model.js', 'src/color.js', 'src/shader.js', 'src/glyphs.js',
   'favicon.svg', 'png/rheo-card.png',
   'fonts/IBMPlexSans-Regular.woff2', 'fonts/IBMPlexSans-SemiBold.woff2', 'fonts/IBMPlexMono-Regular.woff2',
   'tests/media.html', 'tests/render.html']);

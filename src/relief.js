@@ -3,8 +3,13 @@
 import { RATIOS, RATIO_LABELS, canvasAspect, exportSize, frameAspect, TEMPLATES, fitRatioBox, dragBox, trimBounds, parseRheoStyle, clamp } from './relief-core.js';
 import { renderScene, makeCanvas, clearCache } from './relief-render.js';
 import { defaults, generate, randomizePalette } from './model.js';
+import { initI18n, mountLangSwitch } from './i18n-dom.js';
+import { t } from './i18n.js';
+import relief from './lang/relief.js';
 
 const $ = (id) => document.getElementById(id);
+initI18n(relief);
+mountLangSwitch($('theme'), { place: 'before' });
 
 /* ── 主题：与其他页面共用 rheo-theme ─────────────────────────────── */
 const darkQuery = matchMedia('(prefers-color-scheme: dark)');
@@ -34,12 +39,14 @@ const STEPS = ['裁切', '背景', '构图', '文字', '导出'];
 const SOLIDS = ['#f1f3f5', '#ffffff', '#16202e', '#ffe066', '#a5d8ff', '#ffc9c9', '#b2f2bb'];
 const INKS = ['#16202e', '#ffffff', '#3b5bdb', '#e8590c'];
 const SETTINGS_KEY = 'relief-settings';
+const DEFAULT_TITLES = new Set(['点击修改文本', 'Click to edit text', '클릭해서 텍스트 수정', 'クリックしてテキストを編集', 'Cliquez pour modifier le texte']);
+const DEFAULT_SUBS = new Set(['点击修改副标题', 'Click to edit subtitle', '클릭해서 부제목 수정', 'クリックしてサブタイトルを編集', 'Cliquez pour modifier le sous-titre']);
 const DEFAULTS = {
   cropRatio: 'free', radius: 14,
   src: 'rheo', rheo: { ...defaults, particles: false }, solid: '#f1f3f5', blur: 0,
   rheoSize: 100, imageSize: 100, frameSize: 100,   // 背景大小：生成的 Rheo 30–200%；导入的图片 / Rheo 画面 30–300%（缩到 100% 以下时四周透明，预览显示棋盘格）
   frame: 'browser', shadow: 55, ratio: '4:3', scale: 74,
-  tpl: 1, title: '点击修改文本', sub: '点击修改副标题', ink: 'auto', inkAlpha: 100, textShift: 0,
+  tpl: 1, title: t('点击修改文本'), sub: t('点击修改副标题'), ink: 'auto', inkAlpha: 100, textShift: 0,     // 画在图上的默认文字：跟界面语言走
   fmt: 'png', x: 2,
 };
 let s = { ...DEFAULTS };
@@ -50,6 +57,9 @@ try {
   // 旧版默认文案和「深 / 浅」颜色迁移到新版
   if (s.title === '让截图自己会说话') s.title = DEFAULTS.title;
   if (s.sub === '本地处理 · 一键复制 · 8 种排版') s.sub = DEFAULTS.sub;
+  // 换了界面语言：还是某种语言的默认文字（没被改过）就换成当前语言的
+  if (DEFAULT_TITLES.has(s.title)) s.title = DEFAULTS.title;
+  if (DEFAULT_SUBS.has(s.sub)) s.sub = DEFAULTS.sub;
   if (s.ink === 'black') s.ink = '#16202e'; else if (s.ink === 'white') s.ink = '#ffffff';
 } catch {}
 const saveSettings = () => {

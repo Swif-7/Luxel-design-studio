@@ -2,6 +2,7 @@
 // Rubric 的纯逻辑层：由少量参数生成两套主题、算对比度、导出 Markdown。
 // 不碰 DOM，便于单独测试。
 import {hexToLab, lchToHex} from './color.js';
+import { t, tc, translateText } from './i18n.js';
 
 const PALETTE = ['#3b5bdb', '#e8590c', '#2f9e44', '#c2255c', '#7048e8', '#0c8599'];
 export const RUBRIC_DEFAULTS = {
@@ -453,13 +454,15 @@ export function recommendTonal(baseHex) {
 
 /* ── Markdown ────────────────────────────────────────────────────────
    写给 agent 看，所以给的是可直接落地的 token 和规则，不是形容词。 */
+// 规范按界面语言生成：结构不变，每一段中文都经过 t()；已经填好数字的句子（排版建议、配色关系）按句式翻（tr）
+const tr = (text) => translateText(text) ?? text;
 const table = (tokens, checks) => {
   const by = Object.fromEntries(checks.map(c => [c.key, c]));
-  return ['| Token | 值 | 用途 | 对比度 |', '|---|---|---|---|',
+  return [t('| Token | 值 | 用途 | 对比度 |'), '|---|---|---|---|',
     ...Object.entries(tokens).map(([key, hex]) => {
       const c = by[key];
-      const note = c ? `${c.ratio}${c.pass ? '' : ' ⚠ 低于 ' + c.need}` : '—';
-      return `| \`--${key}\` | \`${hex.toUpperCase()}\` | ${ROLES[key] || ''} | ${note} |`;
+      const note = c ? `${c.ratio}${c.pass ? '' : ' ' + t('⚠ 低于 {0}', {0: c.need})}` : '—';
+      return `| \`--${key}\` | \`${hex.toUpperCase()}\` | ${ROLES[key] ? t(ROLES[key]) : ''} | ${note} |`;
     })].join('\n');
 };
 
@@ -473,58 +476,59 @@ export function toMarkdown({params, light, dark, type}) {
     const source = theme === 'dark' && params.linked === false ? params.darkSnapshot : params;
     const setting = cleanBackgrounds(source?.backgrounds)[theme];
     return setting.mode === 'linked'
-      ? `随${setting.accentIndex ? '强调色 ' + (setting.accentIndex + 1) : '主色'}推荐生成`
-      : setting.mode === 'custom' ? '自定义' : '默认';
+      ? t('随{0}推荐生成', {0: setting.accentIndex ? t('强调色 {0}', {0: setting.accentIndex + 1}) : tc('md', '主色')})
+      : tc('md', setting.mode === 'custom' ? '自定义' : '默认');
   };
   const surfaceNote = (field, theme) => {
     const source = theme === 'dark' && params.linked === false ? params.darkSnapshot : params;
     const setting = cleanSurfaces(source?.[field])[theme];
-    return setting.mode === 'rec' ? `按背景与主色推荐（第 ${setting.variant + 1} 种）` : setting.mode === 'custom' ? '自定义' : '默认';
+    return setting.mode === 'rec' ? t('按背景与主色推荐（第 {0} 种）', {0: setting.variant + 1}) : tc('md', setting.mode === 'custom' ? '自定义' : '默认');
   };
-  return `# UI 设计规范
+  const comma = t('，');
+  return `${t('# UI 设计规范')}
 
-由 Luxel Rubric 生成。可放入项目设计文档，作为实现界面的参考。
+${t('由 Luxel Rubric 生成。可放入项目设计文档，作为实现界面的参考。')}
 
-## 色彩
+${t('## 色彩')}
 
-${params.linked === false ? '浅色原色' : '模式'}：${params.accents.length === 1 ? '单色' : '多色'}（${params.accents.map((c, i) => `${i ? '强调 ' + (i + 1) : '主强调'} \`${c.toUpperCase()}\``).join('，')}）
+${t('{0}：{1}（{2}）', {0: t(params.linked === false ? '浅色原色' : '模式'), 1: tc('md', params.accents.length === 1 ? '单色' : '多色'), 2: params.accents.map((c, i) => `${i ? t('强调 {0}', {0: i + 1}) : t('主强调')} \`${c.toUpperCase()}\``).join(comma)})}
 
-以上为所选原色；实际使用值以各主题下方的 token 为准。
-当前颜色处理：${params.adaptAccents === false ? '保留原色，不自动修改明度。' : '自动适配浅深背景，可能调整强调色明度。'}
+${t('以上为所选原色；实际使用值以各主题下方的 token 为准。')}
+${t('当前颜色处理：{0}', {0: t(params.adaptAccents === false ? '保留原色，不自动修改明度。' : '自动适配浅深背景，可能调整强调色明度。')})}
 
-主体背景：浅色 ${backgroundNote('light')}，深色 ${backgroundNote('dark')}。背景与文字的对比度纳入下方检查。
-卡片色：浅色 ${surfaceNote('cards', 'light')}，深色 ${surfaceNote('cards', 'dark')}。边框色：浅色 ${surfaceNote('borders', 'light')}，深色 ${surfaceNote('borders', 'dark')}。
+${t('主体背景：浅色 {0}，深色 {1}。背景与文字的对比度纳入下方检查。', {0: backgroundNote('light'), 1: backgroundNote('dark')})}
+${t('卡片色：浅色 {0}，深色 {1}。边框色：浅色 {2}，深色 {3}。', {0: surfaceNote('cards', 'light'), 1: surfaceNote('cards', 'dark'), 2: surfaceNote('borders', 'light'), 3: surfaceNote('borders', 'dark')})}
 
-### 浅色
+${t('### 浅色')}
 
 ${table(light, lc)}
 
-### 深色
+${t('### 深色')}
 
 ${table(dark, dc)}
 
-${params.linked === false ? `浅深色独立编辑，分别保存参数，互不影响。深色原色：${params.darkSnapshot?.accents.map(c => `\`${c.toUpperCase()}\``).join('，')}。深色颜色处理：${params.darkSnapshot?.adaptAccents === false ? '保留原色' : '自动适配'}。` : '深色由同一组参数独立生成，与当前浅色设置联动，并非逐色反相。'}
+${params.linked === false ? t('浅深色独立编辑，分别保存参数，互不影响。深色原色：{0}。深色颜色处理：{1}。', {0: params.darkSnapshot?.accents.map(c => `\`${c.toUpperCase()}\``).join(comma), 1: tc('md', params.darkSnapshot?.adaptAccents === false ? '保留原色' : '自动适配')}) : t('深色由同一组参数独立生成，与当前浅色设置联动，并非逐色反相。')}
 
-## 字体
+${t('## 字体')}
 
-${params.typeLinked ? '推荐联动已开启：正文 / 强调 / 标题 / 等宽的字号比例为 1 / 1 / 1.6 / 0.9333，显示值取整；字重相对正文为 0 / +200 / +250 / 0。这是一组工具预设，不是通用排版标准。' : '字体参数独立设置。'}
+${t(params.typeLinked ? '推荐联动已开启：正文 / 强调 / 标题 / 等宽的字号比例为 1 / 1 / 1.6 / 0.9333，显示值取整；字重相对正文为 0 / +200 / +250 / 0。这是一组工具预设，不是通用排版标准。' : '字体参数独立设置。')}
 
-| 用途 | 字重 | 字号 | 字族 |
+${t('| 用途 | 字重 | 字号 | 字族 |')}
 |---|---|---|---|
-${type.map(r => `| ${r.label} | ${r.weight} | ${r.size}px | ${r.mono ? '等宽' : '比例'} |`).join('\n')}
+${type.map(r => `| ${t(r.label)} | ${r.weight} | ${r.size}px | ${t(r.mono ? '等宽' : '比例')} |`).join('\n')}
 
-机器值（ID、色值、时间、数字读数）一律等宽字体，人读文案一律比例字体。
-字重和字号为目标设定；项目字体须提供对应字重。工具中预览字体的可用字重有限，不代表任意字体都能精确呈现这些值。
-${typeAdvice.length ? `\n### 排版建议\n\n以下是工具的经验性提醒，不是 WCAG 不合格判定；须结合实际字体与用途确认。\n\n${typeAdvice.map(item => `- ${item.label} · **${item.kind}**：${item.text}`).join('\n')}\n` : ''}
+${t('机器值（ID、色值、时间、数字读数）一律等宽字体，人读文案一律比例字体。')}
+${t('字重和字号为目标设定；项目字体须提供对应字重。工具中预览字体的可用字重有限，不代表任意字体都能精确呈现这些值。')}
+${typeAdvice.length ? `\n${t('### 排版建议')}\n\n${t('以下是工具的经验性提醒，不是 WCAG 不合格判定；须结合实际字体与用途确认。')}\n\n${typeAdvice.map(item => t('- {0} · **{1}**：{2}', {0: t(item.label), 1: t(item.kind), 2: tr(item.text)})).join('\n')}\n` : ''}
 
-## 实现规则
+${t('## 实现规则')}
 
-1. 所有颜色以 CSS 自定义属性定义在 \`:root\`，深色模式用 \`prefers-color-scheme\` 覆盖，并允许 \`[data-theme]\` 手动覆盖。
-2. 不要为深色模式单独写一套组件样式，只换 token。
-3. 正文类文字对底色至少 4.5:1；大字（至少 24px，或粗体至少 18.67px）及有辨识需求的非文本控件至少 3:1。强调色按非文本填充检查，不代表可直接用于正文链接。
-4. 焦点态用 \`--text\` 实色描边，不要只靠改变底色表示焦点。
-5. 激活 / 选中状态不能只用颜色区分，同时改变填充或字重，保证色觉障碍下仍可分辨。
-检查范围：正文 / 次级 / 元信息文字、控件描边、强调色及其文字；背景包括页面、面板、输入框和悬停。配色关系是设计建议，不是 WCAG 合规判定；此工具不检查键盘操作、语义或完整页面的无障碍要求。
-${issues.length ? `\n### 配色关系\n\n${issues.map(i => `- ${i.theme} **${i.kind}**（强调 ${i.pair[0] + 1} 与 强调 ${i.pair[1] + 1}）：${i.text}`).join('\n')}\n` : ''}${failed.length ? `\n> ⚠ 本规范有 ${failed.length} 处对比度未达标：${failed.map(c => `${c.theme} \`--${c.key}\`(${c.ratio})`).join('、')}。落地前请调整。` : '\n已检查的颜色组合对比度达标；不代表整个界面通过 WCAG AA。'}
+${t('1. 所有颜色以 CSS 自定义属性定义在 `:root`，深色模式用 `prefers-color-scheme` 覆盖，并允许 `[data-theme]` 手动覆盖。')}
+${t('2. 不要为深色模式单独写一套组件样式，只换 token。')}
+${t('3. 正文类文字对底色至少 4.5:1；大字（至少 24px，或粗体至少 18.67px）及有辨识需求的非文本控件至少 3:1。强调色按非文本填充检查，不代表可直接用于正文链接。')}
+${t('4. 焦点态用 `--text` 实色描边，不要只靠改变底色表示焦点。')}
+${t('5. 激活 / 选中状态不能只用颜色区分，同时改变填充或字重，保证色觉障碍下仍可分辨。')}
+${t('检查范围：正文 / 次级 / 元信息文字、控件描边、强调色及其文字；背景包括页面、面板、输入框和悬停。配色关系是设计建议，不是 WCAG 合规判定；此工具不检查键盘操作、语义或完整页面的无障碍要求。')}
+${issues.length ? `\n${t('### 配色关系')}\n\n${issues.map(i => t('- {0} **{1}**（强调 {2} 与 强调 {3}）：{4}', {0: t(i.theme), 1: t(i.kind), 2: i.pair[0] + 1, 3: i.pair[1] + 1, 4: tr(i.text)})).join('\n')}\n` : ''}${failed.length ? `\n${t('> ⚠ 本规范有 {0} 处对比度未达标：{1}。落地前请调整。', {0: failed.length, 1: failed.map(c => `${t(c.theme)} \`--${c.key}\`(${c.ratio})`).join(t('、'))})}` : `\n${t('已检查的颜色组合对比度达标；不代表整个界面通过 WCAG AA。')}`}
 `;
 }

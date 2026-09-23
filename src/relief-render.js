@@ -1,9 +1,11 @@
 // Relief 的绘制：背景 → 截图（含外框、圆角、阴影）→ 文字，全部画在一张 2D canvas 上。
 // 预览和导出走同一个 renderScene，只是像素尺寸不同 —— 看到的就是导出的。
 import { Renderer } from './shader.js';
+import { cjkFonts, pageLang } from './i18n.js';
 import { TEMPLATES, frameAspect, placeShot, textBox, shiftOffset, bulletsOf, wrapLines, BROWSER_BAR, PHONE_BEZEL, isLight, clamp } from './relief-core.js';
 
-export const FONT = '"IBM Plex Sans","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif';
+// 汉字 / 谚文的后备字体按页面语言排（日文、韩文页面不借中文字形）
+export const FONT = `"IBM Plex Sans",${cjkFonts(pageLang())},sans-serif`;
 export const MONO = '"IBM Plex Mono",ui-monospace,Menlo,monospace';
 
 const canvas = (w, h) => { const c = document.createElement('canvas'); c.width = Math.max(1, Math.round(w)); c.height = Math.max(1, Math.round(h)); return c; };

@@ -2,8 +2,12 @@
 import { FORMATS, FORMAT_ORDER, resolveFormat, formatBytes, savings, outputName, makeZip } from './recast-core.js';
 import { inspectImage } from './recast-inspect.js';
 import { encodeImage, probeEncoders, canUseWorkers } from './recast-encode.js';
+import { initI18n, mountLangSwitch } from './i18n-dom.js';
+import recast from './lang/recast.js';
 
 const $ = (id) => document.getElementById(id);
+initI18n(recast);
+mountLangSwitch($('theme'), { place: 'before' });
 
 /* ── 主题：与首页、Rheo、Rubric 共用 rheo-theme ─────────────────────── */
 const darkQuery = matchMedia('(prefers-color-scheme: dark)');
@@ -342,7 +346,7 @@ function paintSummary() {
   const errors = items.length - done.length - working;
   $('totals').innerHTML = !items.length ? '' :
     `${items.length} 张 · ${formatBytes(before)} → <b>${formatBytes(after)}</b> <span class="${p >= 0 ? 'good' : ''}">${p >= 0 ? '−' + p : '+' + -p}%</span>`
-    + (working ? ` · 处理中 ${working}` : '') + (errors ? ` · 失败 ${errors}` : '');
+    + (working ? `<span> · 处理中 ${working}</span>` : '') + (errors ? `<span> · 失败 ${errors}</span>` : '');   // 各占一个节点，翻译时整句对得上
   const dl = $('download');
   const many = view() === 'batch';
   dl.disabled = !done.length || working > 0 || (view() !== 'batch' && selected()?.status !== 'done');

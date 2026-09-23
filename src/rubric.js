@@ -3,8 +3,17 @@
 import {audit, toMarkdown, roleOf, themeHarmonyIssues, recommend, recommendTonal, deltaE,
         normalizeRubricState, resizeRubricPalette, toggleRubricLink, buildRubricThemes, rubricThemeParams, recommendCards, recommendBorders, updateTypography, toggleTypographyLink, typographyBounds, typographyAdvice, rubricEditorState, updateRubricColors, recommendBackgrounds, backgroundTextWarnings} from './spec.js';
 
+import {initI18n, mountLangSwitch} from './i18n-dom.js';
+import {t, joined, translateText} from './i18n.js';
+import rubric from './lang/rubric.js';
+import spec from './lang/spec.js';
+
 const $ = id => document.getElementById(id);
 const STORE = 'luxel-rubric-v3';
+initI18n(rubric, spec);
+mountLangSwitch($('theme'), {place: 'before'});
+const tr = (text) => translateText(text) ?? text;   // 已经填好数字的句子（排版 / 配色建议）按句式翻
+let backgroundToast = false;                         // 提示条当前是不是背景对比度警告
 
 /* 字体四行，每行自己的字重与字号。
    原先等宽行没有任何滑块、标题字号由「基准 × 字阶」推导，滑块和样本对不上号；
@@ -97,15 +106,16 @@ function editBackground(patch) {
     return {...editor, backgrounds: {...previous, [theme]: {...previous[theme], ...patch}}};
   });
   const warnings = backgroundTextWarnings(themes()[state.editingTheme]);
-  if (warnings.length) toast(`背景与${warnings.map(w => roleOf(w.key)).join('、')}对比度不足，请调整背景或文字对比。`);
-  else if ($('toast').textContent.startsWith('背景与')) { clearTimeout(toastTimer); $('toast').classList.remove('show'); }
+  // 提示条是不是背景对比度警告：记一个标记，不靠文字内容判断（换了界面语言文字就不一样了）
+  if (warnings.length) { toast(t('背景与{0}对比度不足，请调整背景或文字对比。', {0: warnings.map(w => t(roleOf(w.key))).join(t('、'))})); backgroundToast = true; }
+  else if (backgroundToast && $('toast').classList.contains('show')) { clearTimeout(toastTimer); $('toast').classList.remove('show'); backgroundToast = false; }
 }
 $('background-color').addEventListener('input', e => editBackground({mode: 'custom', color: e.target.value}));
 $('background-hex').addEventListener('change', e => {
   const value = e.target.value.trim();
   if (/^#?[\da-f]{6}$/i.test(value)) {
     e.target.setCustomValidity(''); editBackground({mode: 'custom', color: (value.startsWith('#') ? value : '#' + value).toLowerCase()});
-  } else { e.target.setCustomValidity('请输入六位 HEX 色值，例如 #F3F6FA'); e.target.reportValidity(); }
+  } else { e.target.setCustomValidity(t('请输入六位 HEX 色值，例如 #F3F6FA')); e.target.reportValidity(); }
 });
 $('background-hex').addEventListener('input', e => e.target.setCustomValidity(''));
 $('background-reset').onclick = () => editBackground({mode: 'default'});
@@ -137,7 +147,8 @@ for (const {kind, field, name} of SURFACES) {
   $(kind + '-hex').addEventListener('change', e => {
     const value = e.target.value.trim();
     if (/^#?[\da-f]{6}$/i.test(value)) { e.target.setCustomValidity(''); editSurface(field, {mode: 'custom', color: (value.startsWith('#') ? value : '#' + value).toLowerCase()}); }
-    else { e.target.setCustomValidity(`请输入六位 HEX 色值作为${name}，例如 #F3F6FA`); e.target.reportValidity(); }
+    // 浏览器原生的校验气泡不在页面文字里，要自己翻
+    else { e.target.setCustomValidity(t('请输入六位 HEX 色值作为{0}，例如 #F3F6FA', {0: t(name)})); e.target.reportValidity(); }
   });
   $(kind + '-hex').addEventListener('input', e => e.target.setCustomValidity(''));
   $(kind + '-reset').onclick = () => editSurface(field, {mode: 'default'});
@@ -154,8 +165,8 @@ function paintSurfaceControls(editor, tokens) {
       return button;
     }, (button, rec, i) => {
       button.style.background = rec.hex;
-      button.title = `${rec.label} · ${rec.hex.toUpperCase()} · 随背景与主色变化`;
-      button.setAttribute('aria-label', `套用${name} · ${rec.label} ${rec.hex}`);
+      button.title = t('{0} · {1} · 随背景与主色变化', {0: t(rec.label), 1: rec.hex.toUpperCase()});
+      button.setAttribute('aria-label', t('套用{0} · {1} {2}', {0: t(name), 1: t(rec.label), 2: rec.hex}));
       button.setAttribute('aria-pressed', String(setting.mode === 'rec' && setting.variant === i));
     });
   }
@@ -232,7 +243,7 @@ function renderRows(container, tokens, checks) {
     row.querySelector('.hex').textContent = hex;
     ratio.hidden = !c; ratio.textContent = c ? c.ratio : ''; ratio.classList.toggle('low', Boolean(c && !c.pass));
     warning.hidden = !c || c.pass;
-    const message = c && !c.pass ? `对比度 ${c.ratio}，低于${c.kind}要求的 ${c.need}。把这个颜色的明度朝远离底色的方向调。` : '';
+    const message = c && !c.pass ? t('对比度 {0}，低于{1}要求的 {2}。把这个颜色的明度朝远离底色的方向调。', {0: c.ratio, 1: t(c.kind), 2: c.need}) : '';
     warning.setAttribute('aria-label', message); warning.querySelector('.tip').textContent = message;
   });
 }
@@ -284,10 +295,10 @@ function render() {
     const selected = i === editor.selectedAccent;
     chip.classList.toggle('is-selected', selected);
     const button = chip.querySelector('.accent-select');
-    const action = `${selected ? '修改' : '选中'}${i ? '强调色 ' + (i + 1) : '主色'}`;
+    const action = t(selected ? '修改{0}' : '选中{0}', {0: i ? t('强调色 {0}', {0: i + 1}) : t('主色')});
     button.setAttribute('aria-pressed', String(selected));
     button.setAttribute('aria-label', action);
-    button.title = selected ? '再次点击打开调色板' : '点击选中，再次点击修改颜色';
+    button.title = t(selected ? '再次点击打开调色板' : '点击选中，再次点击修改颜色');
     chip.querySelector('.accent-swatch').style.background = hex;
     chip.querySelector('code').textContent = hex.toUpperCase();
   });
@@ -311,11 +322,12 @@ function render() {
     // Similarity is advice, not a constraint: pastel palettes intentionally
     // share lightness and chroma, and manual color editing already allows it.
     const same = duplicate >= 0 && editor.accents[duplicate].toLowerCase() === r.hex.toLowerCase();
-    const advice = duplicate >= 0 ? `；与${duplicate ? '强调色 ' + (duplicate + 1) : '主色'}${same ? '相同' : '相近'}，仍可选用` : '';
+    const other = duplicate ? t('强调色 {0}', {0: duplicate + 1}) : t('主色');
+    const advice = duplicate >= 0 ? t(same ? '；与{0}相同，仍可选用' : '；与{0}相近，仍可选用', {0: other}) : '';
     button.disabled = false;
     button.setAttribute('aria-pressed', String(editor.accents[editor.selectedAccent].toLowerCase() === r.hex.toLowerCase()));
-    button.title = `${scheme} · ${r.label} · ${r.hex.toUpperCase()}${advice}`;
-    button.setAttribute('aria-label', `套用${scheme} · ${r.label} ${r.hex} 到${editor.selectedAccent ? '强调色 ' + (editor.selectedAccent + 1) : '主色'}${advice}`);
+    button.title = joined(`${t(scheme)} · ${t(r.label)} · ${r.hex.toUpperCase()}`, advice);
+    button.setAttribute('aria-label', joined(t('套用{0} · {1} {2} 到{3}', {0: t(scheme), 1: t(r.label), 2: r.hex, 3: editor.selectedAccent ? t('强调色 {0}', {0: editor.selectedAccent + 1}) : t('主色')}), advice));
   });
 
   // 配色冲突：挂在「强调色」这一组的标题上，鼠标移上去说明原因和改法
@@ -326,8 +338,9 @@ function render() {
   $('background-color').value = activeTokens.bg;
   if (document.activeElement !== $('background-hex')) { $('background-hex').value = activeTokens.bg.toUpperCase(); $('background-hex').setCustomValidity(''); }
   $('background-link').setAttribute('aria-pressed', String(background.mode === 'linked' && Math.min(background.accentIndex, editor.accents.length - 1) === sourceIndex));
-  $('background-link').title = background.mode === 'linked' ? `当前背景随${background.accentIndex ? '强调色 ' + (background.accentIndex + 1) : '主色'}联动；可关闭或改为当前选中的颜色` : '背景随当前选中的强调色变化';
-  $('background-source').textContent = `随${sourceIndex ? '强调色 ' + (sourceIndex + 1) : '主色'}推荐`;
+  const accentName = i => i ? t('强调色 {0}', {0: i + 1}) : t('主色');
+  $('background-link').title = background.mode === 'linked' ? t('当前背景随{0}联动；可关闭或改为当前选中的颜色', {0: accentName(background.accentIndex)}) : t('背景随当前选中的强调色变化');
+  $('background-source').textContent = t('随{0}推荐', {0: accentName(sourceIndex)});
   reconcile($('background-recommend'), recommendBackgrounds(editor.accents[sourceIndex], state.editingTheme), (_, i) => i, (_, i) => {
     const button = document.createElement('button'); button.className = 'rec'; button.type = 'button';
     button.onclick = () => {
@@ -337,18 +350,18 @@ function render() {
     return button;
   }, (button, rec, i) => {
     button.style.background = rec.hex;
-    button.setAttribute('aria-label', `套用背景 · ${rec.label} ${rec.hex}`);
-    button.title = `${rec.label} · ${rec.hex.toUpperCase()} · 随强调色联动`;
+    button.setAttribute('aria-label', t('套用背景 · {0} {1}', {0: t(rec.label), 1: rec.hex}));
+    button.title = t('{0} · {1} · 随强调色联动', {0: t(rec.label), 1: rec.hex.toUpperCase()});
     button.setAttribute('aria-pressed', String(background.mode === 'linked' && Math.min(background.accentIndex, editor.accents.length - 1) === sourceIndex && background.variant === i));
   });
   const backgroundWarnings = backgroundTextWarnings(activeTokens);
-  const backgroundMessage = backgroundWarnings.map(w => `${roleOf(w.key)}与主体背景对比度 ${w.ratio}:1，低于 4.5:1。`).join('\n');
+  const backgroundMessage = joined(backgroundWarnings.map(w => t('{0}与主体背景对比度 {1}:1，低于 4.5:1。', {0: t(roleOf(w.key)), 1: w.ratio})).join('\n'));
   $('background-warning').innerHTML = backgroundWarnings.length ? warnMark(backgroundMessage) : '';
   $('background-alert').hidden = !backgroundWarnings.length;
   $('background-alert').textContent = backgroundWarnings.length ? backgroundMessage : '';
   const issues = themeHarmonyIssues(light, dark);
   $('harmony-slot').innerHTML = issues.length
-    ? warnMark(issues.map(i => `${i.theme} · ${i.kind}（强调 ${i.pair[0] + 1} 与 ${i.pair[1] + 1}）：${i.text}`).join('\n\n'), true)
+    ? warnMark(joined(issues.map(i => t('{0} · {1}（强调 {2} 与 {3}）：{4}', {0: t(i.theme), 1: t(i.kind), 2: i.pair[0] + 1, 3: i.pair[1] + 1, 4: tr(i.text)})).join('\n\n')), true)
     : '';
 
   $('link').setAttribute('aria-pressed', String(state.linked));
@@ -382,7 +395,7 @@ function render() {
     const weight = state[key + 'Weight'], size = state[key + 'Size'];
     const hint = typeHints.find(item => item.key === key), warning = cell.querySelector('.type-warning');
     warning.hidden = !hint;
-    const message = hint ? `${hint.kind}：${hint.text}\n\n这是工具的经验性建议，不是无障碍不合格判定。` : '';
+    const message = hint ? t('{0}：{1}\n\n这是工具的经验性建议，不是无障碍不合格判定。', {0: t(hint.kind), 1: tr(hint.text)}) : '';
     warning.querySelector('.warn').setAttribute('aria-label', message);
     warning.querySelector('.tip').textContent = message;
     cell.querySelector('.sample').style.fontWeight = weight;
@@ -397,27 +410,27 @@ function render() {
 
   const failed = [...lc.map(c => ({...c, theme: '浅'})), ...dc.map(c => ({...c, theme: '深'}))].filter(c => !c.pass);
   const parts = [];
-  if (failed.length) parts.push(`<span class="bad">${failed.length} 处对比度不足</span>`);
-  if (typeHints.length) parts.push(`<span>${typeHints.length} 条排版建议</span>`);
-  if (issues.length) parts.push(`<span>${issues.length} 条配色建议</span>`);
-  $('audit-summary').innerHTML = parts.length ? parts.join(' · ') : '已检查的对比度达标';
+  if (failed.length) parts.push(`<span class="bad">${t('{0} 处对比度不足', {0: failed.length})}</span>`);
+  if (typeHints.length) parts.push(`<span>${t('{0} 条排版建议', {0: typeHints.length})}</span>`);
+  if (issues.length) parts.push(`<span>${t('{0} 条配色建议', {0: issues.length})}</span>`);
+  $('audit-summary').innerHTML = parts.length ? parts.join(' · ') : t('已检查的对比度达标');
   $('review-summary').innerHTML = parts.length
-    ? parts.join(' · ') + '<br><span class="dim">把鼠标移到右上角的检查摘要上可以看到每一条的原因和改法</span>'
-    : '浅深两套的文字与控件对比度全部达标，可以直接复制。';
+    ? parts.join(' · ') + `<br><span class="dim">${t('把鼠标移到右上角的检查摘要上可以看到每一条的原因和改法')}</span>`
+    : t('浅深两套的文字与控件对比度全部达标，可以直接复制。');
   paintPreview('light', light, lc); paintPreview('dark', dark, dc);
   paintSurfaceControls(editor, activeTokens);
   const section = (title, items) => items.length
     ? `<section><h3>${title}</h3><ul>${items.map(([label, text]) => `<li><strong>${esc(label)}</strong><p>${esc(text)}</p></li>`).join('')}</ul></section>` : '';
-  const colorName = index => index ? `强调色 ${index + 1}` : '主色';
-  $('audit-panel').innerHTML = section('对比度不足', failed.map(c => [
-    `${c.theme}色 · ${roleOf(c.key)}`,
-    `对比度 ${c.ratio}，低于${c.kind}要求的 ${c.need}。可拉开与背景的明度差，或启用颜色自动适配。`,
-  ])) + section('排版建议', typeHints.map(hint => [`${hint.label} · ${hint.kind}`, hint.text]))
-    + section('配色建议', issues.map(issue => [
-      `${issue.theme} · ${colorName(issue.pair[0])}与${colorName(issue.pair[1])} · ${issue.kind}`, issue.text,
+  const colorName = index => index ? t('强调色 {0}', {0: index + 1}) : t('主色');
+  $('audit-panel').innerHTML = section(t('对比度不足'), failed.map(c => [
+    t('{0}色 · {1}', {0: t(c.theme), 1: t(roleOf(c.key))}),
+    t('对比度 {0}，低于{1}要求的 {2}。可拉开与背景的明度差，或启用颜色自动适配。', {0: c.ratio, 1: t(c.kind), 2: c.need}),
+  ])) + section(t('排版建议'), typeHints.map(hint => [joined(`${t(hint.label)} · ${t(hint.kind)}`), tr(hint.text)]))
+    + section(t('配色建议'), issues.map(issue => [
+      t('{0} · {1}与{2} · {3}', {0: t(issue.theme), 1: colorName(issue.pair[0]), 2: colorName(issue.pair[1]), 3: t(issue.kind)}), tr(issue.text),
     ]))
-    + (parts.length ? '<p class="audit-footnote">配色与排版建议仅供参考，可按实际用途保留。</p>'
-      : '<p class="audit-empty">已检查的文字与控件对比度达标，当前没有配色或排版建议。</p>');
+    + (parts.length ? `<p class="audit-footnote">${t('配色与排版建议仅供参考，可按实际用途保留。')}</p>`
+      : `<p class="audit-empty">${t('已检查的文字与控件对比度达标，当前没有配色或排版建议。')}</p>`);
 }
 
 // The panel floats below the header; hovering into it keeps it readable and
@@ -469,6 +482,7 @@ $('audit-detail').addEventListener('close', () => {
 /* ── 导出 ───────────────────────────────────────────────────────────── */
 let toastTimer;
 function toast(message) {
+  backgroundToast = false;
   $('toast').textContent = message;
   $('toast').classList.add('show');
   clearTimeout(toastTimer);

@@ -1,14 +1,37 @@
 // Rise 页面：① 数据 → ② 图表 → ③ 风格 → ④ 动效 → ⑤ 背景 → ⑥ 排版 → ⑦ 导出。
 // 一次只显示一步的控件（底部面板）；中间的预览一直在播。预览和所有导出共用 rise-render.js 的 drawFrame。
 import { parseRows, rowsFromText, looksLikeAxis, SAMPLE, MIN_ROWS, MAX_ROWS } from './rise-data.js';
-import { CHARTS, STYLES, LAYOUTS, RATIOS, recommend, chartSupport, styleById, chartById, exportSize, cycle, loopFrame, clamp } from './rise-core.js';
+import { CHARTS, STYLES, LAYOUTS, RATIOS, FONTS, recommend, chartSupport, styleById, chartById, exportSize, cycle, loopFrame, clamp } from './rise-core.js';
 import { drawFrame, prepare, clearStatic } from './rise-render.js';
 import { makeCanvas, clearCache } from './relief-render.js';
 import { parseRheoStyle } from './relief-core.js';
 import { makeZip } from './recast-core.js';
 import { defaults, generate, randomizePalette } from './model.js';
+import { initI18n, mountLangSwitch } from './i18n-dom.js';
+import { t, joined, getLang, cjkFonts } from './i18n.js';
+import rise from './lang/rise.js';
 
 const $ = (id) => document.getElementById(id);
+initI18n(rise);
+mountLangSwitch($('theme'), { place: 'before' });
+$('tabs').setAttribute('translate', 'no');             // 切换条上是用户自己的组名，不参与翻译
+// 画布上的汉字 / 谚文按界面语言挑字体（日文、韩文不借中文字形）
+FONTS.sans = FONTS.sans.replace('"PingFang SC","Hiragino Sans GB","Microsoft YaHei"', cjkFonts());
+FONTS.mono = FONTS.mono.replace('"PingFang SC"', cjkFonts());
+
+/* 示例数据、默认文字、画在图上的词：跟界面语言走 */
+const SAMPLES = {
+  zh: SAMPLE,
+  en: 'Month Jan Feb Mar Apr May Jun\nNew users: 1,280 1,960 1,720 2,640 2,310 3,480\nReturning: 860 1,120 1,340 1,500 1,980 2,210',
+  ko: '월 1월 2월 3월 4월 5월 6월\n신규 사용자: 1,280 1,960 1,720 2,640 2,310 3,480\n재방문: 860 1,120 1,340 1,500 1,980 2,210',
+  ja: '月 1月 2月 3月 4月 5月 6月\n新規ユーザー：1,280 1,960 1,720 2,640 2,310 3,480\nリピーター：860 1,120 1,340 1,500 1,980 2,210',
+  fr: 'Mois janv. févr. mars avr. mai juin\nNouveaux : 1,280 1,960 1,720 2,640 2,310 3,480\nRécurrents : 860 1,120 1,340 1,500 1,980 2,210',
+};
+const sample = () => ({ rows: rowsFromText(SAMPLES[getLang()] || SAMPLE).rows, axisRow: 0 });
+const DEFAULT_TEXT = { title: '点击修改标题', sub: '点击修改副标题', note: '数据来源：点击修改' };
+const groupName = (n) => t('第 {0} 组', { 0: n });
+const UNITS = { ja: ['億', '万'], ko: ['억', '만'] }[getLang()] || ['亿', '万'];
+const words = { total: t('合计') };
 
 /* ── 主题：与其他页面共用 rheo-theme ─────────────────────────────── */
 const darkQuery = matchMedia('(prefers-color-scheme: dark)');
@@ -37,12 +60,12 @@ const STEPS = ['数据', '图表', '风格', '动效', '背景', '排版', '导�
 const SOLIDS = ['#f1f3f5', '#ffffff', '#16202e', '#eef1ff', '#fff4e6', '#e6fcf5', '#f8f0fc'];
 const SETTINGS_KEY = 'rise-settings';
 const DEFAULTS = {
-  rows: rowsFromText(SAMPLE).rows, axisRow: 0, overrides: {},
+  rows: sample().rows, axisRow: 0, overrides: {},
   mode: 'merge', splitView: 'each', current: 0,
   chart: 'bar', style: 'glass', panel: false, grid: true, values: true, decimals: 'auto', abbr: 'auto',
   anim: { effect: 'grow', dur: 1.8, stagger: 45, ease: 'spring', hold: 1.6, loop: true },
   src: 'rheo', rheo: { ...defaults, particles: false }, solid: '#f1f3f5', blur: 30, rheoSize: 100, imageSize: 100, frameSize: 100,
-  ratio: '4:3', layout: 'top', scale: 90, title: '点击修改标题', sub: '点击修改副标题', note: '数据来源：点击修改',
+  ratio: '4:3', layout: 'top', scale: 90, title: t(DEFAULT_TEXT.title), sub: t(DEFAULT_TEXT.sub), note: t(DEFAULT_TEXT.note),
   fmt: 'png', size: 1920, fps: 30,
 };
 const padRows = (rows) => { const r = rows.slice(0, MAX_ROWS); while (r.length < MIN_ROWS) r.push(''); return r; };
@@ -57,6 +80,10 @@ try {
     const r = rowsFromText(saved.text); s.rows = r.rows; s.axisRow = r.axisRow; s.overrides = {};
   }
   delete s.text;
+  // 换了界面语言：还是默认的标题 / 示例数据（没被改过）就换成当前语言的
+  for (const f of ['title', 'sub', 'note']) if (rise[DEFAULT_TEXT[f]]?.includes(s[f]) || s[f] === DEFAULT_TEXT[f]) s[f] = DEFAULTS[f];
+  const filled = (rows) => (rows || []).map(r => r.trim()).filter(Boolean).join('\n');
+  if (Object.values(SAMPLES).some(x => filled(rowsFromText(x).rows) === filled(s.rows))) { const x = sample(); s.rows = x.rows; s.axisRow = x.axisRow; s.overrides = {}; }
   s.rows = padRows(s.rows);
   if (s.axisRow !== null && !(s.axisRow >= 0 && s.axisRow < s.rows.length)) s.axisRow = null;
   if (!saved.motion) s.anim = { ...s.anim, ease: 'spring', dur: Math.max(s.anim.dur, 1.8) };   // 第一版的默认缓动偏硬，换成「自然」
@@ -69,7 +96,7 @@ const flushSettings = () => { clearTimeout(saveTimer); try { localStorage.setIte
 const saveSettings = () => { clearTimeout(saveTimer); saveTimer = setTimeout(flushSettings, 250); };   // 拖滑块时别每一下都写
 addEventListener('pagehide', flushSettings);
 
-let data = parseRows(s.rows, s.axisRow, s.overrides);
+let data = parseRows(s.rows, s.axisRow, s.overrides, groupName);
 let step = 0;
 let bgImage = null, bgImageId = 0, rheoFrame = null;
 let editing = null;
@@ -92,7 +119,7 @@ const viewSettings = (over = {}) => {
 };
 const sceneOf = (over = {}) => {
   const bg = bgScene();
-  return { data, s: viewSettings(over), bg, bgKey: bg.key + '|' + bg.blur, dataKey: JSON.stringify([s.rows, s.axisRow, s.overrides]) };
+  return { data, s: viewSettings(over), bg, bgKey: bg.key + '|' + bg.blur, dataKey: JSON.stringify([s.rows, s.axisRow, s.overrides]), units: UNITS, words };
 };
 const aspect = () => RATIOS[s.ratio] || 4 / 3;
 const transparentBg = () => s.src === 'none';
@@ -123,7 +150,7 @@ function ensureChart() {
   if (!data.groups.length || support(s.chart).ok) return;
   const from = chartById(s.chart).name;
   s.chart = recommended()[0] || CHARTS.find(c => support(c.id).ok).id;
-  if (chartNoticeReady) toast(`${from}画不了现在的数据，已换成${chartById(s.chart).name}`);
+  if (chartNoticeReady) toast(t('{0}画不了现在的数据，已换成{1}', { 0: t(from), 1: t(chartById(s.chart).name) }));
 }
 
 /* ── 数据栏：一行一个胶囊输入框 ──────────────────────────────────────
@@ -132,12 +159,12 @@ function ensureChart() {
 const esc = (t) => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 const AXIS_ICON = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1.8 8.2h11.9"/><path d="M11.2 5.6l2.6 2.6-2.6 2.6"/><path d="M4.6 8.2v3M8.2 8.2v3"/></svg>';
 function reparse() {
-  data = parseRows(s.rows, s.axisRow, s.overrides);
+  data = parseRows(s.rows, s.axisRow, s.overrides, groupName);
   // 只保留还有歧义的那几行的千分位选择
   const live = new Set(data.ambiguousLines.map(a => String(a.line)));
   let stale = false;
   for (const k of Object.keys(s.overrides)) if (!live.has(k)) { delete s.overrides[k]; stale = true; }
-  if (stale) data = parseRows(s.rows, s.axisRow, s.overrides);
+  if (stale) data = parseRows(s.rows, s.axisRow, s.overrides, groupName);
   if (s.current >= data.groups.length) s.current = 0;
   ensureChart();
   saveSettings();
@@ -170,7 +197,9 @@ function paintRows() {
     meta.innerHTML = m;
   });
   const n = data.groups.length;
-  $('ed-count').textContent = n ? `${n} 组${data.labels ? ` · 横轴 ${data.axisName ? data.axisName + ' ' : ''}${data.labels.length} 项` : ''}` : '';
+  // 汇总里夹着用户自己的横轴名称，整句按当前语言拼好再放上去（这个节点不参与自动翻译）
+  const axisPart = !data.labels ? '' : ' · ' + (data.axisName ? t('横轴 {0} · {1} 项', { 0: data.axisName, 1: data.labels.length }) : t('横轴 {0} 项', { 0: data.labels.length }));
+  $('ed-count').textContent = n ? t('{0} 组', { 0: n }) + axisPart : '';
   $('add-row').disabled = s.rows.length >= MAX_ROWS;
 }
 const parseLineCount = (text) => parseRows([text], null).groups.length;
@@ -215,14 +244,14 @@ $('rows').addEventListener('paste', (e) => {
   got.rows.forEach((line, k) => { if (start + k < MAX_ROWS) rows[start + k] = line; });
   const lost = got.extra + Math.max(0, start + got.rows.length - MAX_ROWS);
   setRows(rows, got.axisRow === 0 ? start : s.axisRow);
-  toast(`已分成 ${Math.min(got.rows.length, MAX_ROWS - start)} 行${got.axisRow === 0 ? '，第一行当横轴' : ''}${lost ? `；还有 ${lost} 行放不下（最多 ${MAX_ROWS} 行）` : ''}`);
+  toast(joined(t('已分成 {0} 行', { 0: Math.min(got.rows.length, MAX_ROWS - start) }), got.axisRow === 0 ? t('，第一行当横轴') : '', lost ? t('；还有 {0} 行放不下（最多 {1} 行）', { 0: lost, 1: MAX_ROWS }) : ''));
 });
 $('add-row').onclick = () => {
   if (s.rows.length >= MAX_ROWS) return;
   s.rows.push(''); saveSettings(); renderRows();
   $('rows').querySelector(`.dval[data-i="${s.rows.length - 1}"]`)?.focus();
 };
-$('sample').onclick = () => { const r = rowsFromText(SAMPLE); setRows(r.rows, r.axisRow); };
+$('sample').onclick = () => { const r = sample(); setRows(r.rows, r.axisRow); };
 $('clear').onclick = () => { setRows([], null); $('rows').querySelector('.dval')?.focus(); };
 
 /* ── 底部面板 ─────────────────────────────────────────────────────── */
@@ -236,7 +265,8 @@ function controls() {
   switch (step) {
     case 0: return [
       ctl('多组数据', seg('mode', [['merge', '合成一张图'], ['split', '每组一张图']], s.mode)),
-      ctl('数字缩写', seg('abbr', [['auto', '自动'], ['none', '不缩写'], ['cn', '万 / 亿'], ['en', 'k / M']], s.abbr)),
+      // 万 / 亿 只对中日韩的读者有意义：其他语言下不列出来（已经选了的照旧显示）
+      ctl('数字缩写', seg('abbr', [['auto', '自动'], ['none', '不缩写'], ...(['zh', 'ja', 'ko'].includes(getLang()) || s.abbr === 'cn' ? [['cn', t('万 / 亿')]] : []), ['en', 'k / M']], s.abbr)),
       ctl('小数位', seg('decimals', [['auto', '自动'], ['0', '0'], ['1', '1'], ['2', '2']], s.decimals))];
     case 1: {
       const rec = recommended();
@@ -283,14 +313,14 @@ function controls() {
       if (noAlpha.includes(s.fmt)) s.fmt = 'png';
       if (s.fmt === 'video' && !videoType) s.fmt = 'png';
       const moving = s.fmt === 'seq' || s.fmt === 'video';
-      const note = s.fmt === 'seq' ? `${frames} 帧 · ${secs(cycle(s.anim))}，打包成 zip，剪辑软件里按图片序列导入${transparentBg() ? '；背景透明' : '；背景选「透明」可带透明通道'}`
-        : s.fmt === 'video' ? `${secs(cycle(s.anim))} · ${videoType?.includes('mp4') ? 'MP4' : 'WebM'}，按实际时长录制`
-          : s.fmt === 'html' ? `单个 .html 文件，滚动到它时播放、点击重播${transparentBg() ? '，背景透明' : ''}`
-            : s.fmt === 'jpg' ? '不带透明通道' : transparentBg() ? '带透明通道' : '动画最后一帧';
+      const note = s.fmt === 'seq' ? joined(t('{0} 帧 · {1}，打包成 zip，剪辑软件里按图片序列导入', { 0: frames, 1: secs(cycle(s.anim)) }), t(transparentBg() ? '；背景透明' : '；背景选「透明」可带透明通道'))
+        : s.fmt === 'video' ? t('{0} · {1}，按实际时长录制', { 0: secs(cycle(s.anim)), 1: videoType?.includes('mp4') ? 'MP4' : 'WebM' })
+          : s.fmt === 'html' ? joined(t('单个 .html 文件，滚动到它时播放、点击重播'), transparentBg() ? t('，背景透明') : '')
+            : t(s.fmt === 'jpg' ? '不带透明通道' : transparentBg() ? '带透明通道' : '动画最后一帧');
       return [
         ctl('格式', seg('fmt', [['png', 'PNG'], ['jpg', 'JPG'], ['seq', 'PNG 序列'], ['video', '视频'], ['html', 'HTML']], s.fmt, [...noAlpha, ...(videoType ? [] : ['video'])])),
         `<div class="col">${ctl('长边', seg('size', [['1280', '1280'], ['1920', '1920'], ['3840', '3840']], s.size))}${moving ? ctl('帧率', seg('fps', [['30', '30'], ['60', '60']], s.fps)) : ''}</div>`,
-        `<div class="col" style="max-width:220px">${ctl('尺寸', `<span class="readout">${width} × ${height} px${n > 1 ? ` · ${n} 份` : ''}</span>`)}<p class="hint">${note}${videoType ? '' : '（这个浏览器录不了视频）'}</p>`
+        `<div class="col" style="max-width:220px">${ctl('尺寸', `<span class="readout">${n > 1 ? t('{0} × {1} px · {2} 份', { 0: width, 1: height, 2: n }) : `${width} × ${height} px`}</span>`)}<p class="hint">${joined(note, videoType ? '' : t('（这个浏览器录不了视频）'))}</p>`
           + `<div class="row">${s.fmt === 'png' && n === 1 ? '<button type="button" class="pill" data-act="copy">复制</button>' : ''}<button type="button" class="pill primary" data-act="download">${n > 1 || s.fmt === 'seq' ? '下载 zip' : '下载'}</button></div></div>`];
     }
   }
@@ -595,12 +625,12 @@ async function recordVideo(over, W, H, onTick) {
 let bundleCache = null;
 async function drawBundle() {
   if (bundleCache) return bundleCache;
-  const [core, draw] = await Promise.all(['/src/rise-core.js', '/src/rise-draw.js'].map(u => fetch(u).then(r => r.text())));
+  const [core, draw] = await Promise.all(['rise-core.js', 'rise-draw.js'].map(u => fetch(new URL(u, import.meta.url)).then(r => r.text())));
   const strip = (src) => src.replace(/^import .*$/gm, '').replace(/^export \{[^}]*\};?$/gm, '').replace(/^export /gm, '');
   const fonts = {};
-  for (const [name, url] of [['sans400', '/fonts/IBMPlexSans-Regular.woff2'], ['sans600', '/fonts/IBMPlexSans-SemiBold.woff2'], ['mono400', '/fonts/IBMPlexMono-Regular.woff2']]) {
+  for (const [name, url] of [['sans400', '../fonts/IBMPlexSans-Regular.woff2'], ['sans600', '../fonts/IBMPlexSans-SemiBold.woff2'], ['mono400', '../fonts/IBMPlexMono-Regular.woff2']]) {
     try {
-      const b = new Uint8Array(await (await fetch(url)).arrayBuffer());
+      const b = new Uint8Array(await (await fetch(new URL(url, import.meta.url))).arrayBuffer());
       let bin = ''; for (let i = 0; i < b.length; i += 0x8000) bin += String.fromCharCode(...b.subarray(i, i + 0x8000));
       fonts[name] = 'data:font/woff2;base64,' + btoa(bin);
     } catch {}
@@ -616,16 +646,17 @@ async function htmlFile(over, W, H, title) {
   const face = (fam, w, url) => url ? `@font-face{font-family:"${fam}";src:url(${url}) format("woff2");font-weight:${w};font-display:block}` : '';
   const dyn = JSON.stringify(p.frame.dyn).replace(/</g, '\\u003c');
   return `<!doctype html>
-<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(title || 'Rise 图表')}</title>
+<html lang="${document.documentElement.lang}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(title || t('Rise 图表'))}</title>
 <style>${face('IBM Plex Sans', 400, fonts.sans400)}${face('IBM Plex Sans', 600, fonts.sans600)}${face('IBM Plex Mono', 400, fonts.mono400)}
 html,body{margin:0;background:transparent}
 .rise-chart{display:block;width:100%;max-width:${Math.round(W / 2)}px;aspect-ratio:${W}/${H};margin:0 auto;cursor:pointer}</style></head>
 <body>
-<!-- Rise · Luxel 导出。整段 <canvas> 和 <script> 可以直接嵌进任何网页；点击图表重播。 -->
-<canvas class="rise-chart" width="${W}" height="${H}" role="img" aria-label="${esc(title || '图表')}"></canvas>
+<!-- ${t('Rise · Luxel 导出。整段 <canvas> 和 <script> 可以直接嵌进任何网页；点击图表重播。')} -->
+<canvas class="rise-chart" width="${W}" height="${H}" role="img" aria-label="${esc(title || t('图表'))}"></canvas>
 <script>
 (() => {
 ${code}
+FONTS.sans = ${JSON.stringify(FONTS.sans)}; FONTS.mono = ${JSON.stringify(FONTS.mono)};
 const DYN = ${dyn};
 const LOOP = ${s.anim.loop ? 'true' : 'false'};
 const cv = document.currentScript.previousElementSibling, ctx = cv.getContext('2d');
@@ -678,10 +709,10 @@ async function download(btn) {
         for (let f = 0; f < frames; f++) {
           drawFrame(ctx, scene, W, H, f / s.fps, {});
           files.push({ name: `${dir}/${String(f + 1).padStart(4, '0')}.png`, data: await bytes(await toBlob(cv, 'image/png')) });
-          if (f % 3 === 0) toast(`正在导出 PNG 序列${single ? '' : ` · 第 ${k + 1} / ${scenes.length} 组`} · ${f + 1} / ${frames} 帧`, true);
+          if (f % 3 === 0) toast(joined(t('正在导出 PNG 序列'), single ? '' : t(' · 第 {0} / {1} 组', { 0: k + 1, 1: scenes.length }), t(' · {0} / {1} 帧', { 0: f + 1, 1: frames })), true);
         }
       } else if (s.fmt === 'video') {
-        const blob = await recordVideo(sc.over, W, H, (p) => toast(`正在录制视频${single ? '' : ` · 第 ${k + 1} / ${scenes.length} 组`} · ${Math.round(p * 100)}%`, true));
+        const blob = await recordVideo(sc.over, W, H, (p) => toast(joined(t('正在录制视频'), single ? '' : t(' · 第 {0} / {1} 组', { 0: k + 1, 1: scenes.length }), ` · ${Math.round(p * 100)}%`), true));
         files.push({ name: `${base}${tag}.${videoType.includes('mp4') ? 'mp4' : 'webm'}`, data: await bytes(blob) });
       } else if (s.fmt === 'html') {
         const html = await htmlFile(sc.over, W, H, s.title);

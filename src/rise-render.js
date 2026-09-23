@@ -16,7 +16,7 @@ export function prepare(scene, W, H, opts = {}) {
   if (cache.has(key)) { const hit = cache.get(key); cache.delete(key); cache.set(key, hit); return hit; }
   let bgLayer = null, bgLight = true;
   if (scene.bg.src !== 'none') { const b = backgroundLayer(scene.bg, W, H); bgLayer = b.canvas; bgLight = b.light; }
-  const frame = buildFrame(scene.data, scene.s, W, H, { interactive: opts.interactive, hide: opts.hide, bgLight });
+  const frame = buildFrame(scene.data, scene.s, W, H, { interactive: opts.interactive, hide: opts.hide, bgLight, units: scene.units, words: scene.words });
   const layer = makeCanvas(W, H), ctx = layer.getContext('2d');
   if (bgLayer) ctx.drawImage(bgLayer, 0, 0, W, H);
   const regions = drawStatic(ctx, frame.statics);

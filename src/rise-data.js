@@ -16,7 +16,9 @@ export const MAX_GROUPS = 7;
 
 const SEP = /[\s，、;；|]+/;
 const NUM = /^([^\d\-−+.(]*?)(\(?)([-−+]?)(\d[\d,]*(?:\.\d+)?|\.\d+)(?:[eE]([-+]?\d+))?(\)?)(.*)$/;
-const MULT = { k: 1e3, K: 1e3, '千': 1e3, w: 1e4, W: 1e4, '万': 1e4, M: 1e6, '百万': 1e6, '亿': 1e8, B: 1e9 };
+const MULT = { k: 1e3, K: 1e3, '千': 1e3, '천': 1e3, w: 1e4, W: 1e4, '万': 1e4, '만': 1e4, M: 1e6, '百万': 1e6, '亿': 1e8, '億': 1e8, '억': 1e8, B: 1e9 };
+/* 「1月」「2월」「3日」「2024年」这类是标签（横轴上的日期），不是带单位的数 */
+const DATE_SUFFIX = /^(月|日|年|号|号|월|일|년|時|点|分|秒|시)$/;
 const PREFIX_OK = /^[¥￥$€£₩₹]?$/;
 
 /* 单个记号 → 数。千分位的逗号在这之前已经决定好（thousands=true 时去掉逗号）。
@@ -33,6 +35,7 @@ export function parseNumber(token) {
     if (suffix.startsWith(key)) { mult = MULT[key]; scaled = key; suffix = suffix.slice(key.length).trim(); break; }
   }
   if (suffix && !/^[%‰a-zA-Z一-鿿°℃]{1,4}$/.test(suffix)) return null;
+  if (DATE_SUFFIX.test(suffix) && !scaled) return null;
   let value = Number(digits.replace(/,/g, '')) * (exp ? 10 ** Number(exp) : 1) * mult;
   if (!Number.isFinite(value)) return null;
   if (sign === '-' || sign === '−' || open) value = -value;
@@ -157,7 +160,8 @@ export function axisLabels(line) {
   return { name, labels };
 }
 
-export function parseRows(rows, axisRow = null, overrides = {}) {
+/* groupName(n)：没写组名时怎么叫第 n 组（页面按界面语言给） */
+export function parseRows(rows, axisRow = null, overrides = {}, groupName = (n) => `第 ${n} 组`) {
   let labels = null, axisName = '';
   if (axisRow !== null && (rows[axisRow] || '').trim()) ({ name: axisName, labels } = axisLabels(rows[axisRow]));
   const groups = [], ambiguousLines = [];
@@ -169,7 +173,7 @@ export function parseRows(rows, axisRow = null, overrides = {}) {
     if (!g.items.length) return;
     if (groups.length >= MAX_GROUPS) { dropped++; return; }
     if (g.ambiguous) ambiguousLines.push({ line: i, mode: g.mode });
-    groups.push({ line: i, name: g.name || `第 ${groups.length + 1} 组`, values: g.items.map(x => x.value), itemLabels: g.items.map(x => x.label),
+    groups.push({ line: i, name: g.name || groupName(groups.length + 1), values: g.items.map(x => x.value), itemLabels: g.items.map(x => x.label),
       prefix: g.items.find(x => x.prefix)?.prefix || '', suffix: g.items.find(x => x.suffix)?.suffix || '', scaled: g.items.find(x => x.scaled)?.scaled || '',
       ambiguous: g.ambiguous, mode: g.mode });
   });

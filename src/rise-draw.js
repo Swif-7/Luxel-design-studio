@@ -416,7 +416,7 @@ function pies(ctx, c, d) {
     const k = Math.min(1, R / (u * 22));
     text(ctx, formatValue(total * (all.fade ? countEase(all.x) : sweep), c.fmt), cx, cy + u * .4,        // 合计跟着幕走：揭开多少，就数到多少
       { size: TEXT.title * u * .9 * k, st, color: d.ink, align: 'center', base: 'middle', weight: st.weight, a: smooth(all.x * 2.5) });
-    text(ctx, '合计', cx, cy + TEXT.title * u * .75 * k, { size: TEXT.label * u, st, color: d.ink, align: 'center', base: 'middle', a: .55 * smooth(all.x * 2.5) });
+    text(ctx, d.words?.total ?? '合计', cx, cy + TEXT.title * u * .75 * k, { size: TEXT.label * u, st, color: d.ink, align: 'center', base: 'middle', a: .55 * smooth(all.x * 2.5) });
   }
 }
 /* 扇区里的文字：浅色块上用深字，深色块上用白字（玻璃风格的块是泛白的，一律深字） */

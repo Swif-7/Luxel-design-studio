@@ -3,7 +3,10 @@ import {glyphGroups,glyphsFor} from './glyphs.js';
 import {Renderer} from './shader.js';
 import {exportSize,exportPng,exportVideo} from './media.js';
 import {exportStandaloneHtml} from './export.js';
-const $=id=>document.getElementById(id);let state={...defaults,colors:[...defaults.colors]};let elapsed=0,paused=matchMedia('(prefers-reduced-motion: reduce)').matches,last=0,frames=0,fpsStart=0,renderer,toastTimer,lost=false,exporting=false,exportAbort;
+import {initI18n,mountLangSwitch} from './i18n-dom.js';
+import {t} from './i18n.js';
+import rheo from './lang/rheo.js';
+const $=id=>document.getElementById(id);initI18n(rheo);mountLangSwitch($('theme'),{place:'before'});let state={...defaults,colors:[...defaults.colors]};let elapsed=0,paused=matchMedia('(prefers-reduced-motion: reduce)').matches,last=0,frames=0,fpsStart=0,renderer,toastTimer,lost=false,exporting=false,exportAbort;
 try{const saved=localStorage.getItem('flux-state-v3');if(saved)state=validate(JSON.parse(saved));}catch{}
 const controls=[['asciiRate','换字速度',0,4,.05,'character-sliders'],['asciiDensity','疏密随色带',0,1,.01,'character-sliders'],['asciiOpacity','字符亮度',0,1,.01,'character-sliders'],['asciiSize','字符大小',.5,3,.01,'character-sliders'],['asciiSpacing','字符间距',.85,2,.01,'character-sliders'],['blur','模糊程度',0,100,1,'blur-controls'],['colorFlow','色彩流动',0,2,.01,'light-controls'],['textureStrength','纹理强度',0,1,.01,'texture-controls'],['textureScale','纹理尺寸',.5,3,.01,'texture-controls'],['width','色带宽度',.3,2,.01,'light-controls'],['softness','边缘柔度',.1,2,.01,'light-controls'],['backgroundTint','背景染色',0,2,.01,'light-controls'],['backgroundSpread','背景扩散',.5,3,.01,'light-controls'],['angle','色带角度',-90,90,1,'motion-controls'],['glow','色彩浓度',.2,2.5,.01,'light-controls'],['speed','运动速度',0,2,.01,'motion-controls'],['scale','主体大小',.25,3,.01,'motion-controls'],['offsetX','中心 X 偏移',-1.5,1.5,.01,'motion-controls'],['offsetY','中心 Y 偏移',-1.5,1.5,.01,'motion-controls'],['distortion','扭曲程度',0,2,.01,'motion-controls'],['detail','流动细节',1,7,.1,'motion-controls'],['density','粒子密度',0,100,1,'particle-sliders'],['particleSize','粒子大小',.4,3,.1,'particle-sliders']];
 for(const [key,label,min,max,step,parent] of controls){const div=document.createElement('div');div.className='range-field';div.innerHTML=`<div class="range-head"><label for="${key}">${label}</label><output id="${key}-value" for="${key}"></output></div><input type="range" id="${key}" min="${min}" max="${max}" step="${step}">` ;$(parent).append(div);$(key).addEventListener('input',e=>{state[key]=Number(e.target.value);sync(false);save();});}
@@ -35,13 +38,13 @@ function renderColors(){
 $('random-palette').onclick=()=>{
  const seed=new Uint32Array(1);crypto.getRandomValues(seed);
  const result=randomizePalette(seed[0].toString(36),state);
- state=result.state;sync();save();toast('已生成'+result.harmony+'配色');
+ state=result.state;sync();save();toast(`已生成${result.harmony}配色`);
 };
 $('add-color').onclick=()=>{if(state.colors.length>=8)return;state.colors.push('#80e8de');sync();save();};
-palettes.forEach((p,i)=>{const b=document.createElement('button');b.className='palette';b.style.background=`linear-gradient(110deg,${p.slice(1).join(',')})`;b.setAttribute('aria-label',['虹彩','清透青','落日','紫晶','深海','粉霞'][i]+'配色');b.title=b.getAttribute('aria-label');b.onclick=()=>{state.background=p[0];state.colors=p.slice(1);[state.primary,state.accent]=state.colors;sync();save();};$('palettes').append(b);});
+palettes.forEach((p,i)=>{const b=document.createElement('button');b.className='palette';b.style.background=`linear-gradient(110deg,${p.slice(1).join(',')})`;b.setAttribute('aria-label',`${['虹彩','清透青','落日','紫晶','深海','粉霞'][i]}配色`);b.title=b.getAttribute('aria-label');b.onclick=()=>{state.background=p[0];state.colors=p.slice(1);[state.primary,state.accent]=state.colors;sync();save();};$('palettes').append(b);});
 $('background').oninput=e=>{state.background=e.target.value;sync(false);save();};
 $('ascii-group').onchange=e=>{state.asciiGroup=e.target.value;sync();save();};
-$('ascii-custom').oninput=e=>{const text=e.target.value;if(!glyphsFor('custom',text).length||Array.from(text).length>64){e.target.setCustomValidity('请输入 1–64 个可见字符');return;}e.target.setCustomValidity('');state.asciiCustom=text;sync(false);save();};
+$('ascii-custom').oninput=e=>{const text=e.target.value;if(!glyphsFor('custom',text).length||Array.from(text).length>64){e.target.setCustomValidity(t('请输入 1–64 个可见字符'));return;}e.target.setCustomValidity('');state.asciiCustom=text;sync(false);save();};
 $('ascii-custom').onchange=e=>{if(!e.target.checkValidity()){e.target.reportValidity();toast('自定义字符需为 1–64 个可见字符，暂时保留上一次设置');}};
 $('texture').onchange=e=>{state.texture=Number(e.target.value);sync();save();};
 $('quality').onchange=e=>{state.quality=Number(e.target.value);sync();save();};$('particle-type').onchange=e=>{state.particleType=Number(e.target.value);sync();save();};for(const [id,key] of [['regional-blur','regionalBlur'],['particles','particles'],['lock-colors','lockColors'],['lock-mode','lockMode']])$(id).onchange=e=>{state[key]=e.target.checked;sync();save();};
@@ -77,14 +80,14 @@ $('copy-style').onclick=async()=>{
  if(!navigator.clipboard?.write||typeof ClipboardItem==='undefined'){toast('当前浏览器不支持复制图片，请用「保存图片」后在 Relief 里选择这张图');return;}
  const snapshot={...state,colors:[...state.colors],seedValue:hashSeed(state.seed)%10000},time=elapsed,size=mediaSize();
  try{await navigator.clipboard.write([new ClipboardItem({'image/png':exportPng(snapshot,time,size)})]);toast(`当前画面已复制 · ${size.width} × ${size.height}，到 Relief 背景里点「导入样式」`);}
- catch(error){toast(error.name==='NotAllowedError'?'浏览器没有给剪贴板权限，请用「保存图片」':'复制失败：'+error.message);}
+ catch(error){toast(error.name==='NotAllowedError'?'浏览器没有给剪贴板权限，请用「保存图片」':`复制失败：${error.message}`);}
 };
 $('export-html').onclick=async()=>{
  if(!renderer||lost){toast('画面尚未就绪');return;}
  const snapshot={...state,colors:[...state.colors],seedValue:hashSeed(state.seed)%10000},time=elapsed,stopped=paused;
  exportTrigger.disabled=true;
- try{const html=await exportStandaloneHtml(snapshot,time,stopped);download(new Blob([html],{type:'text/html;charset=utf-8'}),'rheo-'+hashSeed(snapshot.seed)+'.html');toast('独立网页已导出');}
- catch(error){toast('导出失败：'+error.message);}finally{exportTrigger.disabled=false;}
+ try{const html=await exportStandaloneHtml(snapshot,time,stopped,{play:t('播放'),pause:t('暂停'),playLabel:t('播放动画'),pauseLabel:t('暂停动画'),cantShow:t('无法显示效果：'),suspended:t('图形上下文已暂停，等待恢复…'),title:t('Rheo · 流动作品'),canvas:t('流动视觉效果'),lang:document.documentElement.lang});download(new Blob([html],{type:'text/html;charset=utf-8'}),'rheo-'+hashSeed(snapshot.seed)+'.html');toast('独立网页已导出');}
+ catch(error){toast(`导出失败：${error.message}`);}finally{exportTrigger.disabled=false;}
 };
 function mediaSize(){const rect=$('canvas').getBoundingClientRect();return exportSize(state.quality,rect.width,rect.height);}
 function updateExportSizes(){const {width,height}=mediaSize();$('png-size').textContent=`${width} × ${height} · 当前画面`;$('copy-size').textContent=`${width} × ${height} · 粘贴到 Relief 当背景`;$('video-size').textContent=`${width} × ${height} · 10 秒 · 30 帧 / 秒`;}
@@ -103,16 +106,16 @@ async function saveMedia(video){
   }}):await exportPng(snapshot,time,size);
   download(blob,`rheo-${hashSeed(snapshot.seed)}-${size.width}x${size.height}${video?'-10s.webm':'.png'}`);
   toast(`${video?'10 秒视频':'图片'}已导出 · ${size.width} × ${size.height}`);
- }catch(error){toast(error.name==='AbortError'?'已取消导出':'导出失败：'+error.message);}
+ }catch(error){toast(error.name==='AbortError'?'已取消导出':`导出失败：${error.message}`);}
  finally{exporting=false;exportAbort=null;exportTrigger.disabled=false;$('export-progress').hidden=true;last=0;}
 }
 $('snapshot').onclick=()=>saveMedia(false);$('export-video').onclick=()=>saveMedia(true);
-$('export').onclick=()=>{download(new Blob([JSON.stringify(state,null,2)],{type:'application/json'}),'rheo-parameters.json');toast('参数已导出');};$('import-button').onclick=()=>$('import').click();$('import').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{if(f.size>20000)throw Error('参数文件过大');state=validate(JSON.parse(await f.text()));elapsed=0;sync();save();toast('参数已恢复');}catch(error){toast('导入失败：'+error.message);}finally{e.target.value='';}};
+$('export').onclick=()=>{download(new Blob([JSON.stringify(state,null,2)],{type:'application/json'}),'rheo-parameters.json');toast('参数已导出');};$('import-button').onclick=()=>$('import').click();$('import').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{if(f.size>20000)throw Error('参数文件过大');state=validate(JSON.parse(await f.text()));elapsed=0;sync();save();toast('参数已恢复');}catch(error){toast(`导入失败：${error.message}`);}finally{e.target.value='';}};
 document.addEventListener('keydown',e=>{if(/INPUT|SELECT|TEXTAREA|BUTTON/.test(e.target.tagName)||e.metaKey||e.ctrlKey||e.altKey)return;if(e.key.toLowerCase()==='r')$('random').click();if(e.code==='Space'){e.preventDefault();$('pause').click();}});
 function fail(message){$('error').textContent=message;$('error').hidden=false;}
-function init(){try{renderer=new Renderer($('canvas'));lost=false;$('error').hidden=true;sync();}catch(error){fail('无法渲染：'+error.message);}}
+function init(){try{renderer=new Renderer($('canvas'));lost=false;$('error').hidden=true;sync();}catch(error){fail(`无法渲染：${error.message}`);}}
 $('canvas').addEventListener('webglcontextlost',e=>{e.preventDefault();lost=true;fail('图形上下文已暂停，正在等待浏览器恢复…');});$('canvas').addEventListener('webglcontextrestored',init);
 init();
 // Render static previews in one temporary context; no six extra animation loops.
 try{const c=document.createElement('canvas');const preview=new Renderer(c);document.querySelectorAll('.preset img').forEach(img=>{preview.draw({...defaults,mode:Number(img.closest('.preset').dataset.mode),seedValue:hashSeed(defaults.seed)%10000,particles:false},3,240,150);img.src=c.toDataURL();});preview.destroy();}catch{}
-function frame(now){const delta=last?Math.min((now-last)/1000,.1):0;last=now;if(!document.hidden&&!lost&&!exporting){if(!paused)elapsed+=delta*state.speed;draw();frames++;if(now-fpsStart>1000){$('fps').textContent=Math.round(frames*1000/(now-fpsStart))+' FPS';frames=0;fpsStart=now;$('resolution').textContent='预览 '+$('canvas').width+' × '+$('canvas').height;}const seconds=Math.floor(elapsed);$('time').textContent=String(Math.floor(seconds/60)).padStart(2,'0')+':'+String(seconds%60).padStart(2,'0');}requestAnimationFrame(frame);}requestAnimationFrame(frame);
+function frame(now){const delta=last?Math.min((now-last)/1000,.1):0;last=now;if(!document.hidden&&!lost&&!exporting){if(!paused)elapsed+=delta*state.speed;draw();frames++;if(now-fpsStart>1000){$('fps').textContent=Math.round(frames*1000/(now-fpsStart))+' FPS';frames=0;fpsStart=now;$('resolution').textContent=`预览 ${$('canvas').width} × ${$('canvas').height}`;}const seconds=Math.floor(elapsed);$('time').textContent=String(Math.floor(seconds/60)).padStart(2,'0')+':'+String(seconds%60).padStart(2,'0');}requestAnimationFrame(frame);}requestAnimationFrame(frame);

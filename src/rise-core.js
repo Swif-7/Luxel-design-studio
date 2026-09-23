@@ -107,7 +107,9 @@ export const FONTS = {
 const ABBR = { cn: [[1e8, '亿'], [1e4, '万']], en: [[1e9, 'B'], [1e6, 'M'], [1e3, 'k']] };
 export function formatValue(v, fmt = {}) {
   let n = v, unit = '';
-  for (const [k, u] of ABBR[fmt.abbr] || []) if (Math.abs(v) >= k) { n = v / k; unit = u; break; }
+  // 万 / 亿 的写法跟界面语言走：日文 万 / 億，韩文 만 / 억（fmt.units 由页面给，顺序同 ABBR.cn：大的在前）
+  const table = fmt.abbr === 'cn' && fmt.units ? ABBR.cn.map(([k], i) => [k, fmt.units[i]]) : ABBR[fmt.abbr] || [];
+  for (const [k, u] of table) if (Math.abs(v) >= k) { n = v / k; unit = u; break; }
   const d = fmt.decimals === 'auto' || fmt.decimals === undefined
     ? (Number.isInteger(n) ? 0 : Math.abs(n) >= 100 ? 0 : Math.abs(n) >= 10 ? 1 : 2)
     : fmt.decimals;
@@ -282,7 +284,8 @@ export function layoutScene(o) {
 }
 
 /* ── 一帧的完整描述 ────────────────────────────────────────────────────
-   data：parseData 的结果；s：页面设置；opts：{ interactive, bgLight（背景亮不亮，决定没有卡片时的文字颜色） }。
+   data：parseData 的结果；s：页面设置；opts：{ interactive, bgLight（背景亮不亮，决定没有卡片时的文字颜色）,
+   units（万 / 亿 按语言的写法）, words（画在图上的词，比如「合计」，按语言给） }。
    返回 { layout, statics（静态层）, dyn（动态层） }，分别交给 drawStatic / drawDynamic。 */
 export function resolveAbbr(abbr, groups) {
   if (abbr !== 'auto') return abbr;
@@ -301,7 +304,7 @@ export function buildFrame(data, s, W, H, opts = {}) {
   const style = styleById(s.style), type = chartById(s.chart).id;
   const sets = chartsToDraw(data, s);
   const abbr = resolveAbbr(s.abbr, data.groups);
-  const fmtOf = (g) => ({ prefix: g.prefix, suffix: g.suffix, decimals: s.decimals, abbr, group: true });
+  const fmtOf = (g) => ({ prefix: g.prefix, suffix: g.suffix, decimals: s.decimals, abbr, group: true, units: opts.units });
   const perItem = PER_ITEM.has(type);
   const multi = sets.length === 1 && sets[0].length > 1;
   const labels = data.labels || null;
@@ -329,6 +332,6 @@ export function buildFrame(data, s, W, H, opts = {}) {
   return {
     layout,
     statics: { layout, style, ink, u, panel: onPanel ? style.panel : null, texts: { title: s.title || '', sub: s.sub || '', note: s.note || '' }, legend, heads: sets.length > 1 ? sets.map(set => set[0].g.name) : [], hide: opts.hide || null },
-    dyn: { u, style, ink, panel: style.panel, onPanel, anim: s.anim, show: { grid: s.grid, values: s.values }, charts, kpi, align: layout.align },
+    dyn: { u, style, ink, panel: style.panel, onPanel, anim: s.anim, show: { grid: s.grid, values: s.values }, charts, kpi, align: layout.align, words: opts.words || {} },
   };
 }
