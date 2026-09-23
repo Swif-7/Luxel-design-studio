@@ -365,9 +365,20 @@ const itemColor = (c, d, i) => d.style.palette[i % d.style.palette.length];
 function pies(ctx, c, d) {
   const s = firstSeries(c), u = d.u, st = d.style, box = c.box;
   const vals = s.values.map(v => Math.max(0, v)), total = vals.reduce((a, b) => a + b, 0) || 1;
-  const cx = box.x + box.w / 2, cy = box.y + box.h / 2, R = Math.min(box.w, box.h) / 2 * .88;
-  const donut = c.type === 'donut', rose = c.type === 'rose', inner = donut ? R * .6 : 0;
+  const cx = box.x + box.w / 2, cy = box.y + box.h / 2;
+  const donut = c.type === 'donut', rose = c.type === 'rose';
   const max = Math.max(...vals) || 1;
+  // 占比标签：放得进扇区就写在里面，放不下就写在环外；有块要写到外面时饼缩小一点，给外圈的字留地方
+  const pctOf = (v) => { const p = v / total * 100; return (p >= 1 ? Math.round(p) : p >= .1 ? p.toFixed(1) : '<0.1') + '%'; };
+  const lsize = TEXT.label * u * 1.05;
+  ctx.font = font(st, lsize, st.weight);
+  const fitsIn = (v, R) => {
+    const inner = donut ? R * .6 : 0, lr = donut ? (R + inner) / 2 : R * .64;
+    return (v / total) * TAU * lr >= ctx.measureText(pctOf(v)).width + lsize * .7;
+  };
+  let R = Math.min(box.w, box.h) / 2 * .88;
+  if (!rose && d.show.values && vals.some(v => v > 0 && !fitsIn(v, R))) R *= .86;
+  const inner = donut ? R * .6 : 0;
   // 饼 / 环：扇区大小一开始就是对的，由一道从 12 点钟方向顺时针扫开的「幕」揭出来；
   // 同时整张饼从 -40° 转回原位、从 88% 放大到 100% —— 像被轻轻推进画面
   const all = enter(d, 0, 1, { ...d.anim, stagger: 0 });
@@ -400,19 +411,31 @@ function pies(ctx, c, d) {
       ctx.restore();
       // 占比标签：幕扫过这一块的中线之后才浮出来
       const midFrac = (a0 + span / 2 + Math.PI / 2) / TAU;
-      const shown = rose ? e.lab : all.fade ? all.lab : smooth((sweep - midFrac) * 7);
-      if (d.show.values && shown > 0 && (rose || share >= .06)) {
-        const mid = (from + to) / 2, lr = rose ? r + u * 2.2 : donut ? (R + inner) / 2 : R * .64;
-        labels.push({ label: rose ? formatValue(v * counted(e), c.fmt) : Math.round(v / total * 100) + '%', x: cx + Math.cos(mid) * lr, y: cy + Math.sin(mid) * lr, shown, color: rose ? d.ink : contrastOn(itemColor(c, d, i), st), size: TEXT.label * u * (rose ? 1 : 1.05) });
+      // 淡入跨 1/7 圈；离终点不足 1/7 的块（最后一两块）按剩下的那段走完，扫完时正好全显，不会一直半透明
+      const shown = rose ? e.lab : all.fade ? all.lab : smooth((sweep - midFrac) / Math.max(1e-3, Math.min(1 / 7, 1 - midFrac)));
+      if (d.show.values && shown > 0 && v > 0) {
+        const mid = (from + to) / 2, inside = rose || fitsIn(v, R);
+        const lr = rose ? r + u * 2.2 : !inside ? R + lsize * 1.25 : donut ? (R + inner) / 2 : R * .64;
+        labels.push({ label: rose ? formatValue(v * counted(e), c.fmt) : pctOf(v), x: cx + Math.cos(mid) * lr, y: cy + Math.sin(mid) * lr, shown, outside: !inside,
+          color: rose || !inside ? d.ink : contrastOn(itemColor(c, d, i), st), size: rose ? TEXT.label * u : lsize });
       }
     }
     a0 += span;
   });
   ctx.restore();
-  // 标签画在幕外面，不被裁掉；位置跟着饼一起转、一起缩放
+  // 标签画在幕外面，不被裁掉；位置跟着饼一起转、一起缩放。
+  // 环外的字彼此可能挨着（连着几块小扇区）：和已经放下的外圈字重叠就不画
+  const placed = [];
+  ctx.font = font(st, lsize, st.weight);
   for (const l of labels) {
     const dx = l.x - cx, dy = l.y - cy, cs = Math.cos(spin), sn = Math.sin(spin);
-    text(ctx, l.label, cx + (dx * cs - dy * sn) * zoom, cy + (dx * sn + dy * cs) * zoom, { size: l.size, st, color: l.color, align: 'center', base: 'middle', weight: st.weight, a: l.shown });
+    const x = cx + (dx * cs - dy * sn) * zoom, y = cy + (dx * sn + dy * cs) * zoom;
+    if (l.outside) {
+      const w = ctx.measureText(l.label).width + lsize * .4, h = lsize * 1.2;
+      if (placed.some(p => Math.abs(p.x - x) < (p.w + w) / 2 && Math.abs(p.y - y) < (p.h + h) / 2)) continue;
+      placed.push({ x, y, w, h });
+    }
+    text(ctx, l.label, x, y, { size: l.size, st, color: l.color, align: 'center', base: 'middle', weight: st.weight, a: l.shown });
   }
   if (donut) {
     const k = Math.min(1, R / (u * 22));
