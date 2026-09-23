@@ -143,3 +143,37 @@ test('merging several groups rules out the one-group charts, with a reason for e
   assert.ok(CHARTS.every(c => chartSupport(c.id, one, 'merge').ok));        // 只有一组时合成也没问题
   assert.equal(chartSupport('radar', short, 'split').ok, false);            // 雷达要 3 个方向
 });
+
+/* 画布上画出来的字不能出现 NaN / undefined：所有图表 × 入场效果 × 模式 × 几个时间点都画一遍，收集 fillText */
+test('no chart draws NaN or undefined text at any point of the animation', async () => {
+  const { drawDynamic, drawStatic } = await import('../src/rise-draw.js');
+  const texts = [];
+  const noop = () => {};
+  const grad = { addColorStop: noop };
+  const ctx = new Proxy({}, {
+    get(target, key) {
+      if (key in target) return target[key];
+      if (key === 'fillText' || key === 'strokeText') return (s) => texts.push(String(s));
+      if (key === 'measureText') return (s) => ({ width: String(s).length * 7, actualBoundingBoxAscent: 8, actualBoundingBoxDescent: 2 });
+      if (/^create(Linear|Radial|Conic)Gradient$|^createPattern$/.test(key)) return () => grad;
+      if (key === 'getLineDash') return () => [];
+      if (key === 'isPointInPath') return () => false;
+      return noop;
+    },
+    set(target, key, value) { target[key] = value; return true; },
+  });
+  const data = parseData(SAMPLE);
+  const bad = new Set();
+  for (const chart of CHARTS) for (const effect of ['grow', 'fade', 'pop']) for (const mode of ['merge', 'split']) {
+    const s = { mode, splitView: 'each', current: 0, chart: chart.id, style: 'glass', panel: true, grid: true, values: true, decimals: 'auto', abbr: 'auto',
+      anim: { effect, dur: 1.6, stagger: 45, ease: 'spring', hold: 1.6, loop: true }, layout: 'top', scale: 90, title: 'T', sub: 'S', note: 'N' };
+    const f = buildFrame(data, s, 1600, 1200, { units: ['亿', '万'], words: { total: '合计' } });
+    drawStatic(ctx, f.statics);
+    for (const t of [0.2, 0.6, 1, 1.5, 2.5, 4]) {
+      texts.length = 0;
+      drawDynamic(ctx, f.dyn, t);
+      for (const x of texts) if (/NaN|undefined|Infinity/.test(x)) bad.add(`${chart.id}/${effect}/${mode}@${t}: ${x}`);
+    }
+  }
+  assert.deepEqual([...bad], []);
+});

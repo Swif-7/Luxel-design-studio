@@ -339,8 +339,10 @@ function lines(ctx, c, d) {
     }
     // 数据点：笔尖经过时弹出来；数值标签再晚一点浮上来
     const dots = N <= 16;
+    // 弹出按「笔尖越过这个点多远」算；笔尖最后停在末点上，所以给它多走一个弹出宽度，末点才能完整弹出
+    const pop = slot * .9 + u, popReach = x0 + (x1 - x0 + pop) * draw;
     pts.forEach(([x, y], i) => {
-      const passed = e.fade ? e.x : clamp((reach - x) / (slot * .9 + u), 0, 1);
+      const passed = e.fade ? e.x : clamp((popReach - x) / pop, 0, 1);
       if (passed <= 0) return;
       if (dots) {
         const r = u * .62 * (st.heavy ? 1.3 : 1) * (e.fade ? 1 : EASES.back(passed));
@@ -350,7 +352,7 @@ function lines(ctx, c, d) {
         ctx.fill(); ctx.lineWidth = u * .32; ctx.strokeStyle = s.color; ctx.stroke();
         ctx.restore();
       }
-      if (S <= 2 && N <= 12) valueLabel(ctx, d, c, s.values[i], { x: passed, lab: smooth((passed - .35) / .65) }, x, y - u * 1.4);
+      if (S <= 2 && N <= 12) valueLabel(ctx, d, c, s.values[i], { x: passed, g: countEase(passed), lab: smooth((passed - .35) / .65) }, x, y - u * 1.4);
     });
     ctx.restore();
   });
