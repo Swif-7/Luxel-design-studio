@@ -71,7 +71,9 @@ export function recommend(groups) {
 /* ── 风格预设 ──────────────────────────────────────────────────────────
    palette：7 色，正好对应最多 7 组；panel：卡片底板的颜色（panelOn 是默认开不开）；
    fill：solid 纯色 / gradient 渐变 / glass 玻璃 / hatch 斜线 / sketch 手绘 / outline 描边；
-   radius：柱子圆角占柱宽的比例；glow：辉光；font：sans / serif / mono / hand。 */
+   radius：柱子圆角占柱宽的比例；glow：辉光；font：sans / mono。
+   字体只用项目自带的 IBM Plex（SIL OFL，随仓库分发）：拉丁字母、数字都是 Plex；
+   Plex 不含汉字 / 假名 / 谚文，这些落到用户系统自带的无衬线字体（不打包、不分发）。 */
 export const STYLES = [
   { id: 'glass', name: '玻璃', palette: ['#94d82d', '#748ffc', '#3bc9db', '#f783ac', '#ffa94d', '#9775fa', '#63e6be'],
     panel: '#ffffff80', panelOn: false, ink: '#161b33', grid: '#161b3322', fill: 'glass', radius: .32, font: 'sans', weight: 600 },
@@ -84,11 +86,11 @@ export const STYLES = [
   { id: 'pastel', name: '粉彩', palette: ['#ffadc0', '#9cc3ff', '#b7efa6', '#ffd29d', '#c4b5ff', '#96ecf5', '#f6f09a'],
     panel: '#fffaf6', panelOn: true, ink: '#4a3f55', grid: '#4a3f5514', fill: 'solid', radius: .5, font: 'sans', weight: 600 },
   { id: 'sketch', name: '手绘', palette: ['#e03131', '#1971c2', '#2f9e44', '#f08c00', '#6741d9', '#0c8599', '#c2255c'],
-    panel: '#fffdf5', panelOn: true, ink: '#222222', grid: '#2222221f', fill: 'sketch', radius: 0, font: 'hand', weight: 600 },
+    panel: '#fffdf5', panelOn: true, ink: '#222222', grid: '#2222221f', fill: 'sketch', radius: 0, font: 'sans', weight: 600 },
   { id: 'blueprint', name: '蓝图', palette: ['#ffffff', '#8fd0ff', '#ffd43b', '#63e6be', '#ffa8a8', '#d0bfff', '#a5d8ff'],
     panel: '#0b3d91', panelOn: true, ink: '#e7f1ff', grid: '#ffffff2e', fill: 'hatch', radius: 0, font: 'mono', weight: 400, dashed: true },
   { id: 'editorial', name: '报刊', palette: ['#1d3557', '#e63946', '#457b9d', '#a8a29e', '#2a9d8f', '#e9c46a', '#6d597a'],
-    panel: '#f4eee2', panelOn: true, ink: '#1b1b1b', grid: '#1b1b1b1f', fill: 'solid', radius: 0, font: 'serif', weight: 700 },
+    panel: '#f4eee2', panelOn: true, ink: '#1b1b1b', grid: '#1b1b1b1f', fill: 'solid', radius: 0, font: 'sans', weight: 700 },
   { id: 'dashboard', name: '仪表盘', palette: ['#60a5fa', '#34d399', '#fbbf24', '#f472b6', '#a78bfa', '#22d3ee', '#fb7185'],
     panel: '#111827', panelOn: true, ink: '#e5e7eb', grid: '#ffffff14', fill: 'gradient', radius: .25, font: 'sans', weight: 600 },
   { id: 'vivid', name: '渐变', palette: ['#7950f2', '#f06595', '#20c997', '#fd7e14', '#339af0', '#fcc419', '#e64980'],
@@ -97,9 +99,7 @@ export const STYLES = [
 export const styleById = (id) => STYLES.find(s => s.id === id) || STYLES[0];
 export const FONTS = {
   sans: '"IBM Plex Sans","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif',
-  serif: 'Georgia,"Songti SC","STSong","Times New Roman",serif',
   mono: '"IBM Plex Mono",ui-monospace,Menlo,"PingFang SC",monospace',
-  hand: '"Chalkboard SE","Comic Sans MS","Kaiti SC","KaiTi",cursive',
 };
 
 /* ── 数字格式 ──────────────────────────────────────────────────────────
