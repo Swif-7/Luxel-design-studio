@@ -38,7 +38,7 @@ Every tool is a static page that runs in the browser. Images and data are proces
 | [**Rheo**](https://swif-7.github.io/Luxel-design-studio/rheo.html) | Real-time flow shader studio: seeded color ribbons, depth of field, surface textures, particles and an ASCII glyph layer | PNG up to 4K · 10 s WebM video · JSON parameters · standalone HTML |
 | [**Rubric**](https://swif-7.github.io/Luxel-design-studio/rubric.html) | Builds a light and dark color and type system with sliders, checks contrast, and copies it as a Markdown UI spec for coding agents | Markdown spec (clipboard) |
 | [**Recast**](https://swif-7.github.io/Luxel-design-studio/recast.html) | Batch image compression, format conversion and resizing in a Web Worker | WebP · JPEG · PNG · AVIF (where supported) · ZIP |
-| [**Relief**](https://swif-7.github.io/Luxel-design-studio/relief.html) | Places a screenshot on a background, with cropping, corner radius, browser or phone frames, shadows, aspect ratios and 9 text layouts | PNG · JPG · clipboard |
+| [**Relief**](https://swif-7.github.io/Luxel-design-studio/relief.html) | Places a screenshot on a background, with cropping, browser or phone frames, 9 text layouts and on-canvas drag, resize and snapping | PNG · JPG · clipboard |
 | [**Rise**](https://swif-7.github.io/Luxel-design-studio/rise.html) | Turns pasted data into animated charts: 18 chart types, 10 visual styles, up to 7 series | PNG · JPG · PNG sequence (with alpha) · MP4 or WebM · standalone HTML |
 | **Roll** | Online video editing | *In development, not part of this release* |
 
@@ -80,9 +80,10 @@ Every tool is a static page that runs in the browser. Images and data are proces
 <details>
 <summary><b>Relief</b>: details</summary>
 
-- Five steps: Crop → Background → Composition → Text → Export.
+- Four steps: Crop → Background → Composition → Export.
 - Backgrounds: a Rheo flow generated on the spot (random colors or styles), a frame imported from Rheo, a solid color, or your own image with adjustable blur.
-- Browser and phone frames, adjustable shadow, radius and scale, and common aspect ratios.
+- Direct manipulation on the canvas: drag the title, subtitle or screenshot to move it, with Photoshop-style snapping to the center lines, edges and other elements. Click to get a size slider next to it; double-click text to edit it in place.
+- Browser and hand-drawn phone frames (metal band, side buttons, Dynamic Island) with adjustable border thickness, plus shadow, radius and common aspect ratios.
 - Nine layouts, including heading on top, text left, caption, bleed off the bottom, corner tag, bullet list, quote and magazine.
 
 </details>

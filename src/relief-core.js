@@ -20,14 +20,17 @@ export function exportSize(aspect, scale = 1) {
 }
 
 /* ── 外框 ──────────────────────────────────────────────────────────────
-   浏览器窗口在内容上方加一条宽度 5.5% 的标题栏；手机外框是固定的竖屏比例，
-   内容按「铺满、顶部对齐」塞进屏幕，所以外框比例与截图无关。 */
-export const BROWSER_BAR = 0.055;
-export const PHONE_ASPECT = 9 / 19.5;
-export const PHONE_BEZEL = 0.045;        // 边框厚度，占外框宽度的比例
-export function frameAspect(frame, contentAspect) {
-  if (frame === 'browser') return 1 / (1 / contentAspect + BROWSER_BAR);
-  if (frame === 'phone') return PHONE_ASPECT;
+   浏览器窗口在内容上方加一条标题栏；手机是金属边 + 黑色玻璃边 + 固定比例的屏幕，
+   截图按「铺满、顶部对齐」塞进屏幕，所以手机外框的比例与截图无关。
+   thick 是「边框粗细」滑块 0–100，50 是默认：浏览器标题栏 0.5×–1.5×，手机玻璃边从很窄到很宽。 */
+export const BROWSER_BAR = 0.055;                    // 默认标题栏高度，占窗口宽度的比例
+export const PHONE_SCREEN = 9 / 19.5;                // 屏幕比例
+export const PHONE_BAND = 0.014;                     // 金属中框，占机身宽度的比例
+export const browserBar = (thick = 50) => BROWSER_BAR * (0.5 + clamp(thick, 0, 100) / 100);
+export const phoneBezel = (thick = 50) => 0.012 + 0.045 * clamp(thick, 0, 100) / 100;
+export function frameAspect(frame, contentAspect, thick = 50) {
+  if (frame === 'browser') return 1 / (1 / contentAspect + browserBar(thick));
+  if (frame === 'phone') { const b = PHONE_BAND + phoneBezel(thick); return 1 / ((1 - 2 * b) / PHONE_SCREEN + 2 * b); }
   return contentAspect;
 }
 
@@ -36,47 +39,60 @@ export function frameAspect(frame, contentAspect) {
    文字排在 text 区域里。尺寸单位 u = √(宽×高)/100，横竖画幅字号观感一致。 */
 export const TEMPLATES = [
   { name: '无文字', shot: [0, 0, 1, 1] },
-  { name: '标题居上', shot: [0, .3, 1, 1], text: [.08, .07, .92, .27], align: 'center', title: 6.2, sub: 2.6, nudge: 'y' },
-  { name: '左文右图', shot: [.4, 0, 1, 1], text: [.07, .2, .38, .8], align: 'left', valign: 'middle', title: 5.4, sub: 2.4, nudge: 'x' },
-  { name: '底部说明', shot: [0, 0, 1, .8], text: [.1, .8, .9, .95], align: 'center', valign: 'top', title: 3.4, sub: 2.2, nudge: 'y' },
-  { name: '贴底露出', shot: [0, .3, 1, 1.45], anchor: 'top', text: [.08, .07, .92, .27], align: 'center', title: 6.4, sub: 2.6, nudge: 'y' },
+  { name: '标题居上', shot: [0, .3, 1, 1], text: [.08, .07, .92, .27], align: 'center', title: 6.2, sub: 2.6 },
+  { name: '左文右图', shot: [.4, 0, 1, 1], text: [.07, .2, .38, .8], align: 'left', valign: 'middle', title: 5.4, sub: 2.4 },
+  { name: '底部说明', shot: [0, 0, 1, .8], text: [.1, .8, .9, .95], align: 'center', valign: 'top', title: 3.4, sub: 2.2 },
+  { name: '贴底露出', shot: [0, .3, 1, 1.45], anchor: 'top', text: [.08, .07, .92, .27], align: 'center', title: 6.4, sub: 2.6 },
   { name: '角标签', shot: [0, .06, 1, .94], tag: true, title: 2.2, sub: 2.2 },
-  { name: '要点列表', shot: [.42, 0, 1, 1], text: [.07, .18, .4, .82], align: 'left', valign: 'middle', title: 4.8, sub: 2.4, bullets: true, nudge: 'x' },
-  { name: '引语', shot: [0, 0, .58, 1], text: [.6, .18, .93, .82], align: 'left', valign: 'middle', title: 3.8, sub: 2.2, quote: true, nudge: 'x' },
-  { name: '杂志大字', shot: [0, .12, 1, 1], text: [.04, .04, .96, .5], align: 'center', valign: 'top', title: 14, behind: true, nudge: 'y' },
+  { name: '要点列表', shot: [.42, 0, 1, 1], text: [.07, .18, .4, .82], align: 'left', valign: 'middle', title: 4.8, sub: 2.4, bullets: true },
+  { name: '引语', shot: [0, 0, .58, 1], text: [.6, .18, .93, .82], align: 'left', valign: 'middle', title: 3.8, sub: 2.2, quote: true },
+  { name: '杂志大字', shot: [0, .12, 1, 1], text: [.04, .04, .96, .5], align: 'center', valign: 'top', title: 14, behind: true },
 ];
 
-/* 截图在 shot 区域里的位置。scale 30–95 是占区域可用尺寸的百分比；
-   区域四周先留出短边 6% 的边距。贴底露出的模板顶部对齐，让截图溢出画布底边。 */
-export function placeShot(tpl, W, H, aspect, scale) {
+/* 截图在 shot 区域里的位置。scale 20–150 是占区域可用尺寸的百分比（超过 100 就溢出区域，可以做出血效果）；
+   区域四周先留出短边 6% 的边距。贴底露出的模板顶部对齐，让截图溢出画布底边。
+   off：在画面上拖动后的偏移 [dx, dy]，按画布宽高的比例记，导出任何尺寸都落在同一位置。 */
+export const SCALE_MIN = 20, SCALE_MAX = 150;
+export function placeShot(tpl, W, H, aspect, scale, off = [0, 0]) {
   const t = TEMPLATES[tpl] || TEMPLATES[0];
   const [x0, y0, x1, y1] = t.shot;
   const m = Math.min(W, H) * 0.06;
   const rx = x0 * W + m, ry = y0 * H + m, rw = (x1 - x0) * W - 2 * m, rh = (y1 - y0) * H - 2 * m;
-  const k = clamp(scale, 30, 95) / 100;
+  const k = clamp(scale, SCALE_MIN, SCALE_MAX) / 100;
   let w = rw * k, h = w / aspect;
   if (h > rh * k) { h = rh * k; w = h * aspect; }
   const x = rx + (rw - w) / 2;
   const y = t.anchor === 'top' ? ry : ry + (rh - h) / 2;
-  return { x, y, w, h };
+  return { x: x + (off?.[0] || 0) * W, y: y + (off?.[1] || 0) * H, w, h };
 }
 
-/* 文字位置微调：居中的排版只能上下挪，侧边的排版只能左右挪（nudge 标明方向）。
-   shift 取 -100…100，对应画布高 / 宽的 ±20%；挪完夹回画布内，四周至少留 2%。 */
-export const SHIFT_RANGE = 0.2;
-export function shiftOffset(tpl, W, H, shift = 0) {
-  const axis = TEMPLATES[tpl]?.nudge;
-  const k = clamp(shift, -100, 100) / 100 * SHIFT_RANGE;
-  return { dx: axis === 'x' ? k * W : 0, dy: axis === 'y' ? k * H : 0 };
-}
-
-export function textBox(tpl, W, H, shift = 0) {
+/* 文字区（模板默认位置）。拖动的偏移在绘制时按字段各自加上。 */
+export function textBox(tpl, W, H) {
   const t = TEMPLATES[tpl];
   if (!t || !t.text) return null;
   const [x0, y0, x1, y1] = t.text;
-  const w = (x1 - x0) * W, h = (y1 - y0) * H;
-  const { dx, dy } = shiftOffset(tpl, W, H, shift);
-  return { x: clamp(x0 * W + dx, W * .02, W * .98 - w), y: clamp(y0 * H + dy, H * .02, H * .98 - h), w, h };
+  return { x: x0 * W, y: y0 * H, w: (x1 - x0) * W, h: (y1 - y0) * H };
+}
+
+/* ── 画面上拖动的磁吸 ─────────────────────────────────────────────────
+   像 Photoshop 的智能参考线：移动中的框拿左 / 中 / 右（上 / 中 / 下）三条线去对齐目标线，
+   离得最近且在阈值内的那条吸过去。目标线是画布中轴、四边、安全边距，以及其他元素的边和中线。
+   box 是移动后的框，others 是其他元素的框；返回修正量和要显示的参考线（画布坐标）。 */
+export function snapBox(box, W, H, others = [], threshold = 6) {
+  const m = Math.min(W, H) * 0.06;
+  const tx = [W / 2, 0, W, m, W - m], ty = [H / 2, 0, H, m, H - m];
+  for (const o of others) { tx.push(o.x, o.x + o.w / 2, o.x + o.w); ty.push(o.y, o.y + o.h / 2, o.y + o.h); }
+  const pick = (edges, targets) => {
+    let best = null;
+    for (const e of edges) for (const t of targets) {
+      const d = t - e;
+      if (Math.abs(d) <= threshold && (!best || Math.abs(d) < Math.abs(best.d) - 1e-9)) best = { d, at: t };
+    }
+    return best;
+  };
+  const bx = pick([box.x, box.x + box.w / 2, box.x + box.w], tx);
+  const by = pick([box.y, box.y + box.h / 2, box.y + box.h], ty);
+  return { dx: bx ? bx.d : 0, dy: by ? by.d : 0, guides: { x: bx ? bx.at : null, y: by ? by.at : null } };
 }
 
 /* 要点列表：副标题按 · / 、 ， | 或换行切成几条。 */

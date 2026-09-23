@@ -89,6 +89,9 @@ button.primary:hover{background:var(--accent);border-color:var(--accent);opacity
 .seg button:hover{background:transparent;color:var(--text)}
 .seg button[aria-pressed=true]{background:var(--surface-2);color:var(--text);box-shadow:0 1px 3px #0002}
 .dock input[type=range]{width:130px;margin:5px 0;height:4px;accent-color:var(--accent);cursor:pointer}
+.dock .select-row{display:inline-block;align-self:flex-start}
+.dock select{padding:5px 30px 5px 13px;font-size:12.5px}
+.col .ctl+.ctl,.col .ctl+label.ctl{margin-top:4px}
 .row{display:flex;gap:6px}
 .pill{padding:5px 13px;font-size:12.5px;white-space:nowrap}
 .swatches{display:flex;gap:6px;align-items:center}
@@ -109,13 +112,33 @@ button.primary:hover{background:var(--accent);border-color:var(--accent);opacity
 .hint{margin:2px 0 0;font-size:11.5px;color:var(--text-3)}
 .swatches button.auto{width:auto;padding:0 10px;border-radius:var(--r-pill);font-size:11.5px;color:var(--text-2);background:var(--surface-2);box-shadow:inset 0 0 0 1px var(--border-control)}
 
-/* 画面上直接改字：透明点击区 + 闪烁光标 + 原位编辑框 */
+/* 构图：画面上叠一层对象（截图、标题、副标题）—— 点选、拖动、框外的大小浮层、磁吸参考线、原位编辑框。
+   全部是黑白的细线，参考线用 Photoshop 那种品红，一眼能和画面内容区分开 */
 .text-layer{position:absolute;pointer-events:none}
-.txt-hit{position:absolute;padding:0;border:0;border-radius:8px;background:transparent;cursor:text;pointer-events:auto;
-  outline:1.5px dashed transparent;outline-offset:2px;transition:outline-color .15s,background .15s}
-.txt-hit:hover,.txt-hit:focus-visible{outline-color:#ffffffcc;background:#ffffff14;box-shadow:0 0 0 1px #0000001f}
-.txt-caret{position:absolute;width:2px;border-radius:1px;pointer-events:none;animation:caret 1.06s steps(1) infinite}
-@keyframes caret{0%,50%{opacity:1}50.01%,100%{opacity:0}}
+.layer-clip{position:absolute;inset:0;overflow:hidden;border-radius:12px}
+#text-hits,#guides{position:absolute;inset:0}
+#text-hits .obj{position:absolute;padding:0;border:0;border-radius:6px;background:transparent;cursor:move;pointer-events:auto;touch-action:none;
+  outline:1px dashed transparent;outline-offset:0;transition:outline-color .12s}
+/* 全站按钮的底色和悬停色不能漏到这层透明的点击区上（选择器要比 button:hover 更具体） */
+#text-hits .obj.is-shot{border-radius:0}
+#text-hits .obj:hover{background:transparent;outline-color:#ffffffc0;box-shadow:0 0 0 1px #00000026}
+#text-hits .obj:focus-visible{outline-color:transparent}
+#text-hits .obj.is-selected:hover,.dragging #text-hits .obj{outline-color:transparent;box-shadow:none}
+.dragging .obj{cursor:grabbing}
+.sel{position:absolute;pointer-events:none;border-radius:6px;box-shadow:0 0 0 1px #ffffff,0 0 0 2px #0000003d}
+#guides i{position:absolute;background:#ff2fb3;pointer-events:none}
+#guides .gx{top:0;bottom:0;width:1px;margin-left:-.5px}
+#guides .gy{left:0;right:0;height:1px;margin-top:-.5px}
+.pop{position:absolute;z-index:2;pointer-events:auto;display:flex;align-items:center;gap:8px;height:34px;padding:0 5px 0 13px;border-radius:var(--r-pill);
+  background:var(--surface-2);color:var(--text);box-shadow:0 10px 28px -10px #0007,inset 0 0 0 1px var(--border);white-space:nowrap}
+.pop-label{font-size:11.5px;color:var(--text-3)}
+.pop input[type=range]{width:120px;margin:0;height:4px;accent-color:var(--accent);cursor:pointer}
+.pop output{font:11.5px var(--mono);min-width:3.2em;text-align:right;color:var(--text)}
+.pop-reset{width:26px;height:26px;padding:0;border:0;border-radius:50%;display:grid;place-items:center;background:transparent;color:var(--text-2)}
+.pop-reset:hover{background:var(--surface-3);color:var(--text)}
+.pop-reset svg{width:14px;height:14px}
+.compose-hint{position:absolute;left:0;right:0;bottom:4px;margin:0;text-align:center;font-size:11.5px;color:var(--text-3);pointer-events:none;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:0 8px}
 .text-editor{position:absolute;margin:0;padding:0;border:0;resize:none;overflow:hidden;background:transparent;pointer-events:auto;
   outline:1.5px dashed #ffffffcc;outline-offset:6px;border-radius:4px;caret-color:currentColor;white-space:pre-wrap;word-break:break-all}
 
@@ -155,5 +178,7 @@ button.primary:hover{background:var(--accent);border-color:var(--accent);opacity
   .dock .ctls{flex-wrap:wrap;justify-content:center}
   .toast{top:116px}                /* 窄屏顶栏是两行（品牌 + 步骤条），提示条放到它下面 */
 }
+/* 手机上控件多的一步（构图）面板最多占屏幕四成多一点，里面滚动，给画面留出位置 */
+@media(max-width:700px){.dock{max-height:44dvh;overflow-y:auto;overscroll-behavior:contain}}
 @media(max-width:480px){.steps button{font-size:0;gap:0;padding:4px}.steps button i{font-size:11px}}
-@media(prefers-reduced-motion:reduce){*{transition:none!important}.txt-caret{animation:none}}
+@media(prefers-reduced-motion:reduce){*{transition:none!important}}

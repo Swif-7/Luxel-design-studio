@@ -12,7 +12,7 @@
     <input id="pick" type="file" accept="image/*,.heic,.heif" title="选择截图">
     <span class="glyph" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="4.5" width="17" height="15" rx="3.5"/><rect x="7.5" y="8.5" width="9" height="7" rx="1.5"/></svg></span>
     <b>粘贴截图（⌘V），或拖入 / 点击选择</b>
-    <small>接下来依次：裁切 → 背景 → 构图 → 文字 → 导出<br>全部在本地处理，不会上传</small>
+    <small>接下来依次：裁切 → 背景 → 构图 → 导出<br>全部在本地处理，不会上传</small>
   </label>
   <div id="crop" class="crop" hidden>
     <div id="crop-frame" class="crop-frame"><img id="crop-img" alt="待裁切的截图" draggable="false">
@@ -24,7 +24,12 @@
     <span id="crop-dims" class="crop-dims"></span>
   </div>
   <canvas id="preview" class="preview" hidden></canvas>
-  <div id="text-layer" class="text-layer" hidden><div id="text-hits"></div><textarea id="text-editor" class="text-editor" rows="1" spellcheck="false" hidden></textarea></div>
+  <div id="text-layer" class="text-layer" hidden>
+    <div class="layer-clip"><div id="text-hits"></div><div id="sel" class="sel" hidden></div><div id="guides"></div></div>
+    <div id="pop" class="pop" hidden><span id="pop-label" class="pop-label"></span><input id="pop-range" type="range" aria-label="大小"><output id="pop-out"></output><button id="pop-reset" type="button" class="pop-reset" title="复位：回到默认位置和大小" aria-label="复位"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 10a6 6 0 1 0 1.8-4.3M4 4v3.4h3.4"/></svg></button></div>
+    <textarea id="text-editor" class="text-editor" rows="1" spellcheck="false" hidden></textarea>
+  </div>
+  <p id="compose-hint" class="compose-hint" hidden>拖动文字或截图移动 · 点击调大小 · 双击改字</p>
 </section>
 
 <div id="dock" class="dock" role="group" aria-label="当前步骤的设置" hidden></div>

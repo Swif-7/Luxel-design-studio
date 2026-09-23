@@ -38,7 +38,7 @@ Luxel（*lux* 光 × *pixel* 像素）是一组设计工具，专做设计工作
 | [**Rheo**](https://swif-7.github.io/Luxel-design-studio/rheo.html) | 实时流动着色器工作台：按种子生成流动色带，支持景深、表面纹理、粒子和 ASCII 字符点阵 | PNG（最高 4K）· 10 秒 WebM 视频 · JSON 参数 · 独立 HTML |
 | [**Rubric**](https://swif-7.github.io/Luxel-design-studio/rubric.html) | 用滑块整理浅深两套配色与字体，检查对比度，一键复制成可直接交给 agent 的 Markdown UI 规范 | Markdown 规范（剪贴板） |
 | [**Recast**](https://swif-7.github.io/Luxel-design-studio/recast.html) | 批量压缩图片、转换格式、缩放尺寸，在 Web Worker 里编码 | WebP · JPEG · PNG · AVIF（视浏览器支持）· ZIP |
-| [**Relief**](https://swif-7.github.io/Luxel-design-studio/relief.html) | 把截图放进好看的背景：裁切、圆角、浏览器 / 手机外框、阴影、画幅和 9 种文字排版 | PNG · JPG · 复制到剪贴板 |
+| [**Relief**](https://swif-7.github.io/Luxel-design-studio/relief.html) | 把截图放进好看的背景：裁切、浏览器 / 手机外框、9 种文字排版，在画面上直接拖动、调大小、磁吸对齐 | PNG · JPG · 复制到剪贴板 |
 | [**Rise**](https://swif-7.github.io/Luxel-design-studio/rise.html) | 粘贴数据，做成会动的图表：18 种图表、10 套风格，最多 7 组数据 | PNG · JPG · PNG 序列（可带透明）· MP4 或 WebM · 独立 HTML |
 | **Roll** | 在线视频剪辑 | *开发中，不在本次发布范围内* |
 
@@ -80,9 +80,10 @@ Luxel（*lux* 光 × *pixel* 像素）是一组设计工具，专做设计工作
 <details>
 <summary><b>Relief</b>：详细功能</summary>
 
-- 五步：裁切 → 背景 → 构图 → 文字 → 导出。
+- 四步：裁切 → 背景 → 构图 → 导出。
 - 背景可以现场生成 Rheo 流动（随机颜色或样式），也可以导入 Rheo 画面、用纯色，或用自己的图片（可调模糊）。
-- 浏览器与手机外框，阴影、圆角和大小可调，并提供常用画幅比例。
+- 在画面上直接操作：拖动标题、副标题或截图移动，像 Photoshop 一样吸附到中轴线、四边和其他元素；点击后在旁边弹出大小滑块，双击文字原位修改。
+- 浏览器外框和自己绘制的手机外框（金属中框、侧键、灵动岛），边框粗细可调；阴影、圆角和常用画幅比例。
 - 九种排版：标题居上、左文右图、底部说明、贴底露出、角标签、要点列表、引语、杂志大字等。
 
 </details>
