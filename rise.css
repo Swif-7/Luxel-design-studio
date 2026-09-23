@@ -125,28 +125,39 @@ button.primary:hover{background:var(--accent);border-color:var(--accent);opacity
 
 /* ── Rise：舞台 = 数据栏（仅第一步）＋ 预览 ─────────────────────────── */
 .stage{max-width:1240px;display:flex;align-items:stretch;gap:22px;container-type:normal;place-items:initial}
-.editor{flex:0 0 330px;min-height:0;display:flex;flex-direction:column;gap:10px;padding:14px;border-radius:var(--r-panel);background:var(--surface);
-  box-shadow:inset 0 0 0 1px var(--border)}
+.editor{flex:0 0 360px;min-height:0;display:flex;flex-direction:column;gap:10px;padding:14px;border-radius:var(--r-panel);background:var(--surface);
+  box-shadow:0 1px 2px #0000000a,0 18px 40px -26px #0000004d;overflow:auto;align-self:flex-start;max-height:100%}
 .ed-head{display:flex;align-items:center;gap:8px}
 .ed-head b{font-size:13px;font-weight:600}
-.ed-head .count{font:11.5px var(--mono);color:var(--text-3);margin-right:auto}
+.ed-head .count{font:11.5px var(--mono);color:var(--text-3);margin-right:auto;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
 .ed-head button{padding:4px 11px;font-size:12px}
-.editor textarea{flex:0 0 38%;min-height:110px;resize:none;padding:10px 12px;border-radius:var(--r-card);border:1px solid var(--border-control);
-  background:var(--surface-2);color:var(--text);font:12.5px/1.65 var(--mono);white-space:pre;overflow:auto}
-.editor textarea:focus{outline:none;border-color:var(--text)}
-.ed-tip{margin:0;font-size:11.5px;color:var(--text-3);line-height:1.6}
-.parsed{flex:1;min-height:0;overflow:auto;display:flex;flex-direction:column;gap:8px;padding-right:2px}
-.grp{display:flex;flex-direction:column;gap:6px;padding:9px 10px;border-radius:var(--r-card);background:var(--surface-2);box-shadow:inset 0 0 0 1px var(--border)}
-.grp-head{display:flex;align-items:center;gap:7px;font-size:12.5px;font-weight:600;min-width:0}
-.grp-head i{width:10px;height:10px;border-radius:3px;flex:none}
-.grp-head span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.grp-head small{margin-left:auto;font:11px var(--mono);color:var(--text-3);font-weight:400;white-space:nowrap}
-.chips{display:flex;flex-wrap:wrap;gap:4px}
-.chips span{font:11.5px/1 var(--mono);padding:5px 8px;border-radius:var(--r-pill);background:var(--surface-3);color:var(--text);white-space:nowrap}
-.chips span em{font-style:normal;color:var(--text-3);margin-right:5px}
-.amb{display:flex;align-items:center;gap:8px;font-size:11.5px;color:var(--text-2)}
-.amb button{padding:3px 10px;font-size:11.5px}
-.drop-note{font-size:11.5px;color:var(--danger)}
+.ed-tip{margin:0;font-size:11.5px;color:var(--text-3);line-height:1.7}
+.ed-icon svg{width:13px;height:13px;vertical-align:-2px}
+
+/* 数据行：一行一颗胶囊，靠阴影区分，不画分隔线。横轴那一行整颗反色（黑底白字），一眼就能找到 */
+.rows{display:flex;flex-direction:column;gap:8px}
+.drow{display:flex;align-items:center;gap:6px;min-height:40px;padding:4px 4px 4px 5px;border-radius:var(--r-pill);background:var(--surface-2);color:var(--text);
+  box-shadow:0 1px 2px #0000000f,0 6px 16px -10px #00000047;transition:background .15s,color .15s,box-shadow .15s}
+.drow:focus-within{box-shadow:0 0 0 1.5px var(--text),0 6px 16px -10px #00000047}
+.drow .tag{flex:none;min-width:34px;padding:5px 7px;border-radius:var(--r-pill);background:var(--surface-3);color:var(--text-2);font:600 11px/1 var(--sans);text-align:center;white-space:nowrap}
+.drow.empty .tag{background:transparent;color:var(--text-3);font-weight:400}
+.drow .dval{flex:1;min-width:0;border:0;background:transparent;color:inherit;font:12.5px/1 var(--mono);padding:6px 2px;outline:none}
+.drow .dval::placeholder{color:var(--text-3);font-family:var(--sans);opacity:.8}
+.drow .meta{flex:none;font:11px/1 var(--mono);color:var(--text-3);white-space:nowrap}
+.drow .meta .amb{padding:4px 9px;font:11px/1 var(--sans);border-radius:var(--r-pill);border:1px dashed var(--border-control);background:transparent;color:var(--text-2)}
+.drow .meta .amb:hover{border-style:solid;color:var(--text)}
+.axis-btn{flex:none;width:30px;height:30px;padding:0;border:0;border-radius:50%;display:grid;place-items:center;background:var(--surface-3);color:var(--text-3);cursor:pointer}
+.axis-btn svg{width:15px;height:15px}
+.axis-btn:hover{background:var(--border);color:var(--text)}
+.drow.axis{background:var(--accent);color:var(--accent-fg);box-shadow:0 1px 2px #0000001a,0 10px 22px -12px #00000080}
+.drow.axis .tag{background:color-mix(in srgb,var(--accent-fg) 18%,transparent);color:var(--accent-fg)}
+.drow.axis .meta{color:color-mix(in srgb,var(--accent-fg) 60%,transparent)}
+.drow.axis .dval::placeholder{color:color-mix(in srgb,var(--accent-fg) 55%,transparent)}
+.drow.axis .axis-btn{background:var(--accent-fg);color:var(--accent)}
+.add-row{align-self:flex-start;padding:5px 12px;font-size:12px;border-radius:var(--r-pill);border:0;background:var(--surface-2);color:var(--text-2);
+  box-shadow:0 1px 2px #0000000f,0 6px 16px -10px #00000040}
+.add-row:hover{color:var(--text)}
+.add-row:disabled{opacity:.4;cursor:not-allowed}
 
 .view{flex:1;min-width:0;min-height:0;display:flex;flex-direction:column;align-items:center;gap:12px}
 .canvas-wrap{flex:1;min-height:0;width:100%;position:relative}
@@ -175,6 +186,13 @@ button.primary:hover{background:var(--accent);border-color:var(--accent);opacity
 .thumbs button span{position:absolute;left:3px;right:3px;bottom:3px;font:600 8.5px/1.45 var(--sans);border-radius:99px;background:#ffffffe6;color:#0d0d0d;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:center}
 .thumbs button b{position:absolute;top:3px;right:3px;font:600 8px/1 var(--sans);padding:2px 5px;border-radius:99px;background:#0d0d0d;color:#fff}
+.thumbs button[aria-disabled=true]{cursor:not-allowed}
+.thumbs button[aria-disabled=true] canvas{opacity:.32;filter:grayscale(1)}
+.thumbs button[aria-disabled=true] span{opacity:.6}
+.thumbs button b.no{background:var(--surface-3);color:var(--text-2);box-shadow:inset 0 0 0 1px var(--border)}
+/* 悬停提示：挂在 body 上，不会被横向滚动的缩略图条裁掉 */
+.tip{position:fixed;z-index:80;max-width:260px;padding:8px 12px;border-radius:12px;background:var(--accent);color:var(--accent-fg);
+  font-size:12px;line-height:1.55;pointer-events:none;box-shadow:0 8px 24px #0003}
 .toggles{display:flex;flex-direction:column;gap:6px}
 .toggle{display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:12.5px;color:var(--text-2);cursor:pointer;white-space:nowrap}
 .toggle input{accent-color:var(--accent);width:15px;height:15px;cursor:pointer}
@@ -184,8 +202,7 @@ button.primary:hover{background:var(--accent);border-color:var(--accent);opacity
 
 @media(max-width:860px){
   .stage{flex-direction:column;gap:12px}
-  .editor{flex:0 0 auto;max-height:40%;overflow:auto}
-  .editor textarea{flex:0 0 96px}
+  .editor{flex:0 0 auto;max-height:44%}
   .ed-tip{display:none}
   .playbar{flex-wrap:wrap;justify-content:center;row-gap:6px}
   .playbar input[type=range]{width:min(200px,46vw)}

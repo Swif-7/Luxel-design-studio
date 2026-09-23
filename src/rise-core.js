@@ -29,6 +29,31 @@ export const chartById = (id) => CHARTS.find(c => c.id === id) || CHARTS[0];
 /* 按类别着色（每一项一个颜色）的图：图例列的是类别，不是组 */
 export const PER_ITEM = new Set(['pie', 'donut', 'rose', 'polar', 'treemap', 'waffle', 'funnel', 'rings']);
 
+/* 多组数据合成一张图时，哪些图画不了、为什么（悬停在灰掉的缩略图上显示）。
+   这些图表达的是「一组数里的各项」或「一个数」，第二组数据没有地方放。 */
+const ONE_GROUP = {
+  pie: '饼图表示一组数里各项各占多少，几组数据叠不进同一个圆',
+  donut: '环形图表示一组数里各项各占多少，几组数据叠不进同一个环',
+  rose: '玫瑰图的每一瓣是同一组里的一项，放不下第二组',
+  polar: '极坐标柱的每一圈是同一组里的一项，放不下第二组',
+  treemap: '矩形树图按一组数的占比切分面积，放不下第二组',
+  waffle: '华夫格的 100 格按一组数的占比分配，放不下第二组',
+  funnel: '漏斗表示同一组数逐级减少的过程，放不下第二组',
+  rings: '进度环每个环是同一组里的一项，放不下第二组',
+  gauge: '仪表盘只显示一个数',
+  bignum: '大数字只显示一个数',
+};
+/* → { ok, reason, tag }：tag 是缩略图角上的短标签 */
+export function chartSupport(id, data, mode) {
+  const groups = data.groups.length, n = Math.max(0, ...data.groups.map(g => g.values.length));
+  if (id === 'radar' && n > 0 && n < 3) return { ok: false, tag: '至少 3 项', reason: `雷达图至少要 3 项（3 个方向）才围得成形状，现在每组只有 ${n} 项` };
+  if (mode !== 'split' && groups > 1 && ONE_GROUP[id]) {
+    const alt = ['pie', 'donut', 'treemap', 'waffle'].includes(id) ? '；想对比几组的构成，可以用堆叠柱' : '';
+    return { ok: false, tag: '仅单组', reason: `${ONE_GROUP[id]}。想用它，回第一步选「每组一张图」${alt}` };
+  }
+  return { ok: true, tag: '', reason: '' };
+}
+
 /* 按数据形状推荐：返回图表 id，最合适的在前。 */
 export function recommend(groups) {
   const g = groups[0];
@@ -109,22 +134,42 @@ export function niceScale(min, max, count = 5) {
 }
 
 /* ── 动画 ──────────────────────────────────────────────────────────────
-   anim：{ effect:'grow'|'fade'|'pop', dur 秒, stagger 0–100, ease:'out'|'inout'|'linear', hold 秒, loop }
-   第 i 个元素（共 n 个）的进度：错峰 s 把总时长切成互相重叠的窗口，s=0 同时动、s=100 一个接一个。 */
+   anim：{ effect:'grow'|'fade'|'pop', dur 秒, stagger 0–100, ease:'spring'|'out'|'inout'|'linear', hold 秒, loop }
+   第 i 个元素（共 n 个）的原始进度 phase：错峰 0 时同时动，越大越像一道波从左扫到右。
+   「自然」是一个从静止出发的阻尼弹簧：起步是缓的（不会猛地弹出来），收尾略冲过 3% 再落回，像有重量的东西停下来。
+   「弹跳」是同一个弹簧、阻尼更小，冲过约 17%。 */
+const spring = (k, w) => (x) => (x >= 1 ? 1 : 1 - Math.exp(-k * x) * (Math.cos(w * x) + k / w * Math.sin(w * x)));
 export const EASES = {
-  out: (x) => 1 - (1 - x) ** 3,
-  inout: (x) => (x < .5 ? 4 * x ** 3 : 1 - (-2 * x + 2) ** 3 / 2),
+  spring: spring(6, 5.2),
+  out: (x) => 1 - (1 - x) ** 4,
+  inout: (x) => (x < .5 ? 8 * x ** 4 : 1 - (-2 * x + 2) ** 4 / 2),
   linear: (x) => x,
-  back: (x) => { const c = 1.9; return 1 + (c + 1) * (x - 1) ** 3 + c * (x - 1) ** 2; },
+  back: spring(5, 9),
 };
-export function progress(t, i, n, anim) {
-  const s = n > 1 ? clamp(anim.stagger, 0, 100) / 100 : 0;
-  const w = anim.dur / (1 + s * (n - 1));
-  const x = anim.dur <= 0 ? 1 : clamp((t - i * s * w) / w, 0, 1);
-  return (anim.effect === 'pop' ? EASES.back : EASES[anim.ease] || EASES.out)(x);
+export const smooth = (x) => { x = clamp(x, 0, 1); return x * x * (3 - 2 * x); };
+/* 错峰只占总时长的一部分（最多 60%）：不管有几个元素，每个都有至少 40% 的时长慢慢走完，
+   元素多的时候也不会一个个「咔咔」地快速弹出 */
+export function phase(t, i, n, anim) {
+  if (anim.dur <= 0) return 1;
+  const spread = n > 1 ? clamp(anim.stagger, 0, 100) / 100 * .6 * anim.dur : 0;
+  const w = anim.dur - spread;
+  return clamp((t - (n > 1 ? i / (n - 1) * spread : 0)) / w, 0, 1);
 }
+export const easeOf = (anim) => (anim.effect === 'pop' ? EASES.back : EASES[anim.ease] || EASES.spring);
+export const progress = (t, i, n, anim) => easeOf(anim)(phase(t, i, n, anim));
+/* 数字往上数：先快后慢地逼近终值（四次方缓出），最后一段只动个位，读起来不跳 */
+export const countEase = (x) => 1 - (1 - clamp(x, 0, 1)) ** 4;
 /* 一轮的时长：动画 + 结尾停留 */
 export const cycle = (anim) => anim.dur + anim.hold;
+/* 循环播放：停留结束后整张图淡出，再从头开始，而不是一下子清空 */
+export const EXIT = .5, GAP = .15;
+export function loopFrame(raw, anim) {
+  const len = cycle(anim);
+  if (!anim.loop) return { t: Math.min(raw, len), fade: 1 };
+  const t = raw % (len + EXIT + GAP);
+  if (t <= len) return { t, fade: 1 };
+  return { t: len, fade: 1 - smooth((t - len) / EXIT) };
+}
 
 /* ── 画幅与导出尺寸 ─────────────────────────────────────────────────── */
 export const RATIOS = { '4:3': 4 / 3, '16:9': 16 / 9, '1:1': 1, '3:4': 3 / 4, '9:16': 9 / 16 };

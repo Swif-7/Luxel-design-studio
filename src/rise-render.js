@@ -30,6 +30,6 @@ export function drawFrame(ctx, scene, W, H, t, opts = {}) {
   const p = prepare(scene, W, H, opts);
   ctx.clearRect(0, 0, W, H);
   ctx.drawImage(p.layer, 0, 0);
-  drawDynamic(ctx, p.frame.dyn, t);
+  drawDynamic(ctx, p.frame.dyn, t, opts.fade ?? 1);
   return p;
 }

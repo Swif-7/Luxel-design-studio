@@ -1,7 +1,7 @@
 // Rise 页面：① 数据 → ② 图表 → ③ 风格 → ④ 动效 → ⑤ 背景 → ⑥ 排版 → ⑦ 导出。
 // 一次只显示一步的控件（底部面板）；中间的预览一直在播。预览和所有导出共用 rise-render.js 的 drawFrame。
-import { parseData, SAMPLE, MAX_GROUPS } from './rise-data.js';
-import { CHARTS, STYLES, LAYOUTS, RATIOS, recommend, styleById, chartById, exportSize, cycle, clamp, chartsToDraw, PER_ITEM } from './rise-core.js';
+import { parseRows, rowsFromText, looksLikeAxis, SAMPLE, MIN_ROWS, MAX_ROWS } from './rise-data.js';
+import { CHARTS, STYLES, LAYOUTS, RATIOS, recommend, chartSupport, styleById, chartById, exportSize, cycle, loopFrame, clamp } from './rise-core.js';
 import { drawFrame, prepare, clearStatic } from './rise-render.js';
 import { makeCanvas, clearCache } from './relief-render.js';
 import { parseRheoStyle } from './relief-core.js';
@@ -37,26 +37,37 @@ const STEPS = ['数据', '图表', '风格', '动效', '背景', '排版', '导�
 const SOLIDS = ['#f1f3f5', '#ffffff', '#16202e', '#eef1ff', '#fff4e6', '#e6fcf5', '#f8f0fc'];
 const SETTINGS_KEY = 'rise-settings';
 const DEFAULTS = {
-  text: SAMPLE, overrides: {},
+  rows: rowsFromText(SAMPLE).rows, axisRow: 0, overrides: {},
   mode: 'merge', splitView: 'each', current: 0,
   chart: 'bar', style: 'glass', panel: false, grid: true, values: true, decimals: 'auto', abbr: 'auto',
-  anim: { effect: 'grow', dur: 1.6, stagger: 45, ease: 'out', hold: 1.6, loop: true },
+  anim: { effect: 'grow', dur: 1.8, stagger: 45, ease: 'spring', hold: 1.6, loop: true },
   src: 'rheo', rheo: { ...defaults, particles: false }, solid: '#f1f3f5', blur: 30, rheoSize: 100, imageSize: 100, frameSize: 100,
   ratio: '4:3', layout: 'top', scale: 90, title: '点击修改标题', sub: '点击修改副标题', note: '数据来源：点击修改',
   fmt: 'png', size: 1920, fps: 30,
 };
+const padRows = (rows) => { const r = rows.slice(0, MAX_ROWS); while (r.length < MIN_ROWS) r.push(''); return r; };
 let s = structuredClone(DEFAULTS);
 try {
   const saved = JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}');
   s = { ...s, ...saved, anim: { ...s.anim, ...(saved.anim || {}) }, rheo: { ...s.rheo, ...(saved.rheo || {}) } };
   if (s.src === 'image') s.src = 'rheo';               // 导入的背景图不会保存
+  if (!Array.isArray(saved.rows) && typeof saved.text === 'string') {                  // 旧版是一整段文字：按行分开，猜横轴
+    const r = rowsFromText(saved.text); s.rows = r.rows; s.axisRow = r.axisRow; s.overrides = {};
+  }
+  delete s.text;
+  s.rows = padRows(s.rows);
+  if (s.axisRow !== null && !(s.axisRow >= 0 && s.axisRow < s.rows.length)) s.axisRow = null;
+  if (!saved.motion) s.anim = { ...s.anim, ease: 'spring', dur: Math.max(s.anim.dur, 1.8) };   // 第一版的默认缓动偏硬，换成「自然」
+  if (saved.motion === 3) s.anim = { ...s.anim, dur: 1.8, stagger: 45, effect: s.anim.effect === 'fade' ? 'fade' : 'grow' };   // 试过的「丝滑 / 舒缓 / Q 弹」已撤回：时长、错峰回到原来的默认
+  if (!['spring', 'out', 'inout', 'linear'].includes(s.anim.ease)) s.anim.ease = 'spring';
+  s.motion = 2;
 } catch {}
 let saveTimer;
 const flushSettings = () => { clearTimeout(saveTimer); try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(s)); } catch {} };
 const saveSettings = () => { clearTimeout(saveTimer); saveTimer = setTimeout(flushSettings, 250); };   // 拖滑块时别每一下都写
 addEventListener('pagehide', flushSettings);
 
-let data = parseData(s.text, s.overrides);
+let data = parseRows(s.rows, s.axisRow, s.overrides);
 let step = 0;
 let bgImage = null, bgImageId = 0, rheoFrame = null;
 let editing = null;
@@ -74,12 +85,12 @@ function bgScene() {
 }
 /* 渲染需要的那部分设置（数据原文、导出选项这些不影响画面，不进缓存键） */
 const viewSettings = (over = {}) => {
-  const { text, overrides, fmt, size, fps, ...rest } = s;
+  const { rows, axisRow, overrides, fmt, size, fps, ...rest } = s;
   return { ...rest, ...over };
 };
 const sceneOf = (over = {}) => {
   const bg = bgScene();
-  return { data, s: viewSettings(over), bg, bgKey: bg.key + '|' + bg.blur, dataKey: s.text + JSON.stringify(s.overrides) };
+  return { data, s: viewSettings(over), bg, bgKey: bg.key + '|' + bg.blur, dataKey: JSON.stringify([s.rows, s.axisRow, s.overrides]) };
 };
 const aspect = () => RATIOS[s.ratio] || 4 / 3;
 const transparentBg = () => s.src === 'none';
@@ -90,7 +101,7 @@ function render() {
   paintSteps();
   paintDock();
   paintTabs();
-  if (step === 0) paintParsed();
+  if (step === 0) paintRows();
   schedulePreview();
 }
 function paintSteps() {
@@ -100,42 +111,117 @@ function paintSteps() {
 $('steps').onclick = (e) => { const b = e.target.closest('[data-step]'); if (b) go(+b.dataset.step); };
 function go(n) { if (editing) endEdit(true); step = clamp(n, 0, STEPS.length - 1); render(); }
 
-/* ── 数据栏 ─────────────────────────────────────────────────────── */
+/* ── 图表能不能画这份数据 ─────────────────────────────────────────
+   合成一张图时，饼图这类只能放一组的图不让选；数据或模式一变，当前选的图要是画不了了，
+   换成推荐里第一个能画的，并用提示条说一声。 */
+const support = (id) => chartSupport(id, data, s.mode);
+const recommended = () => recommend(data.groups).filter(id => support(id).ok);
+let chartNoticeReady = false;                          // 刚打开页面时静默纠正，不弹提示
+function ensureChart() {
+  if (!data.groups.length || support(s.chart).ok) return;
+  const from = chartById(s.chart).name;
+  s.chart = recommended()[0] || CHARTS.find(c => support(c.id).ok).id;
+  if (chartNoticeReady) toast(`${from}画不了现在的数据，已换成${chartById(s.chart).name}`);
+}
+
+/* ── 数据栏：一行一个胶囊输入框 ──────────────────────────────────────
+   默认 5 行，最多 8 行（1 行横轴 + 7 组）。每行末尾的按钮把这一行设为横轴，其余非空行都是数据组；
+   再点一次取消，所有行都当数据组。整段粘贴 / 拖入 CSV 会按行分进去，并猜第一行是不是横轴。 */
 const esc = (t) => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
-function setText(text) {
-  s.text = text;
-  // 行号变了，旧的千分位选择对不上了：只保留仍然有歧义的那几行
-  data = parseData(s.text, s.overrides);
+const AXIS_ICON = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 2.5v10.5h10.5"/><path d="M6 13v-1.6M9 13v-1.6M12 13v-1.6"/></svg>';
+function reparse() {
+  data = parseRows(s.rows, s.axisRow, s.overrides);
+  // 只保留还有歧义的那几行的千分位选择
   const live = new Set(data.ambiguousLines.map(a => String(a.line)));
-  for (const k of Object.keys(s.overrides)) if (!live.has(k)) delete s.overrides[k];
-  data = parseData(s.text, s.overrides);
+  let stale = false;
+  for (const k of Object.keys(s.overrides)) if (!live.has(k)) { delete s.overrides[k]; stale = true; }
+  if (stale) data = parseRows(s.rows, s.axisRow, s.overrides);
   if (s.current >= data.groups.length) s.current = 0;
+  ensureChart();
   saveSettings();
 }
-function paintParsed() {
-  const pal = styleById(s.style).palette;
-  const n = data.groups.length;
-  $('ed-count').textContent = n ? `${n} / ${MAX_GROUPS} 组${data.labels ? ` · ${data.labels.length} 列` : ''}` : '';
-  const fmtN = (v) => (Number.isInteger(v) ? v : +v.toFixed(6)).toLocaleString('en-US', { maximumFractionDigits: 6 });
-  let html = data.groups.map((g, i) => {
-    const amb = g.ambiguous ? `<div class="amb">${g.mode === 'list' ? '逗号按分隔符拆开了' : '逗号当成了千分位'}<button type="button" class="pill" data-line="${g.line}" data-mode="${g.mode === 'list' ? 'thousands' : 'list'}">${g.mode === 'list' ? '改为千分位' : '改为分隔符'}</button></div>` : '';
-    return `<div class="grp"><div class="grp-head"><i style="background:${pal[i % 7]}"></i><span>${esc(g.name)}</span><small>${g.values.length} 个数${g.prefix || g.suffix ? ` · ${esc(g.prefix + '…' + g.suffix)}` : ''}</small></div>
-      <div class="chips">${g.values.map((v, k) => `<span>${data.labels?.[k] ? `<em>${esc(data.labels[k])}</em>` : g.itemLabels[k] ? `<em>${esc(g.itemLabels[k])}</em>` : ''}${fmtN(v)}</span>`).join('')}</div>${amb}</div>`;
-  }).join('');
-  if (data.dropped) html += `<p class="drop-note">还有 ${data.dropped} 行没用上：最多 ${MAX_GROUPS} 组</p>`;
-  if (!n) html = '<p class="ed-tip">还没有认出数字。每行写一组数，比如「12 30 45」。</p>';
-  $('parsed').innerHTML = html;
+/* 结构变了（加行、粘贴、示例）才重建输入框；打字时只更新每行的标签和说明，光标不会丢 */
+function renderRows() {
+  $('rows').innerHTML = s.rows.map((v, i) => `<div class="drow" data-i="${i}"><span class="tag"></span>`
+    + `<input class="dval" data-i="${i}" value="${esc(v)}" spellcheck="false" autocomplete="off" aria-label="第 ${i + 1} 行">`
+    + `<span class="meta"></span><button type="button" class="axis-btn" data-axis="${i}">${AXIS_ICON}</button></div>`).join('');
+  paintRows();
 }
-$('data').value = s.text;
-$('data').addEventListener('input', () => { setText($('data').value); paintParsed(); paintTabs(); schedulePreview(); });
-$('parsed').addEventListener('click', (e) => {
-  const b = e.target.closest('[data-line]');
-  if (!b) return;
-  s.overrides[b.dataset.line] = b.dataset.mode;
-  setText(s.text); paintParsed(); schedulePreview();
+function paintRows() {
+  const byLine = new Map(data.groups.map((g, k) => [g.line, { g, k }]));
+  $('rows').querySelectorAll('.drow').forEach((row) => {
+    const i = +row.dataset.i, text = (s.rows[i] || '').trim(), axis = i === s.axisRow, hit = byLine.get(i);
+    row.classList.toggle('axis', axis);
+    row.classList.toggle('empty', !text);
+    const tag = row.querySelector('.tag'), meta = row.querySelector('.meta'), btn = row.querySelector('.axis-btn'), input = row.querySelector('input');
+    tag.textContent = axis ? '横轴' : hit ? `组 ${hit.k + 1}` : String(i + 1);
+    input.placeholder = axis ? '横轴：一月 二月 三月 …' : i === 0 && s.axisRow === null ? '一行一组，例：新用户 120 98 143' : '组名和数，例：回访 86 112 134';
+    btn.setAttribute('aria-pressed', String(axis));
+    btn.setAttribute('aria-label', axis ? `取消横轴（第 ${i + 1} 行）` : `把第 ${i + 1} 行设为横轴`);
+    btn.dataset.tip = axis ? '再点一次取消：所有行都当数据组' : '设为横轴：这一行的文字排在横轴上，其余行都当数据组';
+    let m = '';
+    if (axis) m = data.labels ? `${data.labels.length} 项` : '';
+    else if (hit && hit.g.ambiguous) m = `<button type="button" class="amb" data-amb="${i}" data-mode="${hit.g.mode === 'list' ? 'thousands' : 'list'}" data-tip="${hit.g.mode === 'list' ? '现在逗号当分隔符，拆成了几个数；点一下改成千分位' : '现在逗号当千分位；点一下改成分隔符'}">${hit.g.mode === 'list' ? '逗号 · 分隔' : '逗号 · 千分位'}</button>`;
+    else if (hit) m = `${hit.g.values.length} 个数`;
+    else if (text && data.dropped && !hit && !axis && parseLineCount(text)) m = '超出 7 组';
+    else if (text) m = looksLikeAxis(text) ? `<button type="button" class="amb" data-axis="${i}" data-tip="这一行只有文字、没有数，多半是横轴；点一下设为横轴">设为横轴？</button>` : '没认出数';
+    meta.innerHTML = m;
+  });
+  const n = data.groups.length;
+  $('ed-count').textContent = n ? `${n} 组${data.labels ? ` · 横轴 ${data.axisName ? data.axisName + ' ' : ''}${data.labels.length} 项` : ''}` : '';
+  $('add-row').disabled = s.rows.length >= MAX_ROWS;
+}
+const parseLineCount = (text) => parseRows([text], null).groups.length;
+function setRows(rows, axisRow) {
+  s.rows = padRows(rows); s.axisRow = axisRow; s.overrides = {};
+  reparse(); renderRows(); paintTabs(); restart();
+}
+$('rows').addEventListener('input', (e) => {
+  const el = e.target.closest('.dval');
+  if (!el) return;
+  s.rows[+el.dataset.i] = el.value;
+  reparse(); paintRows(); paintTabs(); schedulePreview();
 });
-$('sample').onclick = () => { $('data').value = SAMPLE; s.overrides = {}; setText(SAMPLE); render(); };
-$('clear').onclick = () => { $('data').value = ''; s.overrides = {}; setText(''); render(); $('data').focus(); };
+$('rows').addEventListener('click', (e) => {
+  const axis = e.target.closest('[data-axis]'), amb = e.target.closest('[data-amb]');
+  if (axis) {
+    const i = +axis.dataset.axis;
+    s.axisRow = s.axisRow === i ? null : i;
+    delete s.overrides[i];
+    reparse(); paintRows(); paintTabs(); restart(); hideTip();
+  } else if (amb) {
+    s.overrides[amb.dataset.amb] = amb.dataset.mode;
+    reparse(); paintRows(); schedulePreview(); hideTip();
+  }
+});
+/* 回车跳到下一行（没有就加一行）；在任一行里粘贴多行文字，从这一行开始往下分 */
+$('rows').addEventListener('keydown', (e) => {
+  const el = e.target.closest('.dval');
+  if (!el || e.key !== 'Enter' || e.isComposing) return;
+  e.preventDefault();
+  const i = +el.dataset.i;
+  if (i + 1 >= s.rows.length) { if (s.rows.length >= MAX_ROWS) return; s.rows.push(''); renderRows(); }
+  $('rows').querySelector(`.dval[data-i="${i + 1}"]`)?.focus();
+});
+$('rows').addEventListener('paste', (e) => {
+  const el = e.target.closest('.dval');
+  const text = e.clipboardData?.getData('text/plain') || '';
+  if (!el || !/\r?\n/.test(text.trim())) return;
+  e.preventDefault();
+  const start = +el.dataset.i, got = rowsFromText(text);
+  const rows = s.rows.slice();
+  got.rows.forEach((line, k) => { if (start + k < MAX_ROWS) rows[start + k] = line; });
+  const lost = got.extra + Math.max(0, start + got.rows.length - MAX_ROWS);
+  setRows(rows, got.axisRow === 0 ? start : s.axisRow);
+  toast(`已分成 ${Math.min(got.rows.length, MAX_ROWS - start)} 行${got.axisRow === 0 ? '，第一行当横轴' : ''}${lost ? `；还有 ${lost} 行放不下（最多 ${MAX_ROWS} 行）` : ''}`);
+});
+$('add-row').onclick = () => {
+  if (s.rows.length >= MAX_ROWS) return;
+  s.rows.push(''); saveSettings(); renderRows();
+  $('rows').querySelector(`.dval[data-i="${s.rows.length - 1}"]`)?.focus();
+};
+$('sample').onclick = () => { const r = rowsFromText(SAMPLE); setRows(r.rows, r.axisRow); };
+$('clear').onclick = () => { setRows([], null); $('rows').querySelector('.dval')?.focus(); };
 
 /* ── 底部面板 ─────────────────────────────────────────────────────── */
 const seg = (act, opts, cur, disabled = []) => `<div class="seg" role="group">${opts.map(([v, t]) => `<button type="button" data-act="${act}" data-v="${v}" aria-pressed="${String(v) === String(cur)}" ${disabled.includes(v) ? 'disabled' : ''}>${t}</button>`).join('')}</div>`;
@@ -151,8 +237,15 @@ function controls() {
       ctl('数字缩写', seg('abbr', [['auto', '自动'], ['none', '不缩写'], ['cn', '万 / 亿'], ['en', 'k / M']], s.abbr)),
       ctl('小数位', seg('decimals', [['auto', '自动'], ['0', '0'], ['1', '1'], ['2', '2']], s.decimals))];
     case 1: {
-      const rec = recommend(data.groups);
-      return [`<div class="ctl grow"><span class="lab">图表类型<span>${s.mode === 'merge' && data.groups.length > 1 && chartById(s.chart).multi === 'first' ? '这种图只画第一组 —— 想每组都画，回第一步选「每组一张图」' : ''}</span></span><div class="thumbs" id="chart-thumbs" style="--cols:${Math.ceil(CHARTS.length / 2)}">${CHARTS.map(c => `<button type="button" data-act="chart" data-v="${c.id}" aria-pressed="${c.id === s.chart}" title="${c.name}"><canvas></canvas><span>${c.name}</span>${rec.slice(0, 3).includes(c.id) ? '<b>推荐</b>' : ''}</button>`).join('')}</div></div>`];
+      const rec = recommended();
+      const some = CHARTS.some(c => !support(c.id).ok);
+      const note = some && s.mode !== 'split' && data.groups.length > 1 ? `合成一张图：灰掉的只能画一组，鼠标移上去看原因` : '';
+      return [`<div class="ctl grow"><span class="lab">图表类型<span>${note}</span></span><div class="thumbs" id="chart-thumbs" style="--cols:${Math.ceil(CHARTS.length / 2)}">${CHARTS.map(c => {
+        const ok = support(c.id);
+        return ok.ok
+          ? `<button type="button" data-act="chart" data-v="${c.id}" aria-pressed="${c.id === s.chart}" title="${c.name}"><canvas></canvas><span>${c.name}</span>${rec.slice(0, 3).includes(c.id) ? '<b>推荐</b>' : ''}</button>`
+          : `<button type="button" data-act="chart" data-v="${c.id}" aria-pressed="false" aria-disabled="true" aria-label="${c.name}（不可用：${esc(ok.reason)}）" data-tip="${esc(ok.reason)}"><canvas></canvas><span>${c.name}</span><b class="no">${ok.tag}</b></button>`;
+      }).join('')}</div></div>`];
     }
     case 2: return [
       `<div class="ctl grow"><span class="lab">风格</span><div class="thumbs" id="style-thumbs" style="--cols:${Math.ceil(STYLES.length / 2)}">${STYLES.map(st => `<button type="button" data-act="style" data-v="${st.id}" aria-pressed="${st.id === s.style}" title="${st.name}"><canvas></canvas><span>${st.name}</span></button>`).join('')}</div></div>`,
@@ -161,7 +254,7 @@ function controls() {
       ctl('入场', seg('effect', [['grow', '生长'], ['fade', '淡入'], ['pop', '弹跳']], s.anim.effect)),
       range('dur', '时长', s.anim.dur, .4, 4, secs(s.anim.dur), .1),
       range('stagger', '错峰', s.anim.stagger, 0, 100),
-      ctl('缓动', seg('ease', [['out', '缓出'], ['inout', '缓入缓出'], ['linear', '匀速']], s.anim.ease, s.anim.effect === 'pop' ? ['out', 'inout', 'linear'] : [])),
+      ctl('缓动', seg('ease', [['spring', '自然'], ['out', '缓出'], ['inout', '缓入缓出'], ['linear', '匀速']], s.anim.ease, s.anim.effect === 'pop' ? ['spring', 'out', 'inout', 'linear'] : [])),
       range('hold', '结尾停留', s.anim.hold, 0, 4, secs(s.anim.hold), .1),
       ctl('播放', seg('loop', [['1', '循环'], ['0', '只播一次']], s.anim.loop ? '1' : '0')),
       ctl('&nbsp;', '<button type="button" class="pill" data-act="replay">重播</button>')];
@@ -212,6 +305,7 @@ const ANIM_KEYS = new Set(['effect', 'dur', 'stagger', 'ease', 'hold', 'loop']);
 $('dock').addEventListener('click', async (e) => {
   const b = e.target.closest('button[data-act]');
   if (!b || b.disabled) return;
+  if (b.getAttribute('aria-disabled') === 'true') { toast(b.dataset.tip); return; }   // 触屏没有悬停：点一下直接说原因
   const act = b.dataset.act, v = b.dataset.v;
   switch (act) {
     case 'next': return go(step + 1);
@@ -228,7 +322,7 @@ $('dock').addEventListener('click', async (e) => {
     case 'layout': s.layout = v; break;
     case 'loop': s.anim.loop = v === '1'; break;
     case 'size': case 'fps': s[act] = +v; break;
-    case 'mode': s.mode = v; s.current = 0; restart(); break;
+    case 'mode': s.mode = v; s.current = 0; ensureChart(); restart(); break;
     default:
       if (ANIM_KEYS.has(act)) { s.anim[act] = v; restart(); }
       else if (v !== undefined) s[act] = v;
@@ -295,21 +389,17 @@ function paintThumbs() {
 }
 
 /* ── 预览：按画幅比例塞进舞台，持续播放 ──────────────────────────────
-   时间轴：t 从 0 走到「动画 + 停留」，循环时回到 0。拖进度条会暂停在那一帧。 */
+   时间轴：t 从 0 走到「动画 + 停留」；循环时整张图淡出后从头再来（loopFrame）。拖进度条会暂停在那一帧。 */
 let playing = true, t0 = performance.now(), tPaused = 0;
 const now = () => (playing ? (performance.now() - t0) / 1000 : tPaused);
-function timeAt(raw) {
-  const len = cycle(s.anim);
-  if (!s.anim.loop) return Math.min(raw, len);
-  return len > 0 ? raw % (len + .35) : 0;            // 循环之间留一小段空白，像重新开始
-}
+const frameAt = () => (playing ? loopFrame(now(), s.anim) : { t: tPaused, fade: 1 });
 function restart() { t0 = performance.now(); if (!playing) { tPaused = 0; } schedulePreview(); }
 function paintPlay() {
   $('play').querySelector('svg').innerHTML = playing ? '<rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/>' : '<path d="M7 5.5v13l11-6.5z"/>';
   $('play').setAttribute('aria-label', playing ? '暂停' : '播放');
 }
 $('play').onclick = () => {
-  if (playing) { tPaused = timeAt(now()); playing = false; }
+  if (playing) { tPaused = frameAt().t; playing = false; }
   else { playing = true; t0 = performance.now() - tPaused * 1000; }
   paintPlay(); schedulePreview();
 };
@@ -318,7 +408,7 @@ $('scrub').addEventListener('input', (e) => {
 });
 paintPlay();
 
-let previewQueued = false, loopOn = false;
+let previewQueued = false;
 function schedulePreview() {
   if (previewQueued) return;
   previewQueued = true;
@@ -335,8 +425,8 @@ function paintPreview() {
   const W = Math.round(w * dpr), H = Math.round(h * dpr);
   if (cv.width !== W || cv.height !== H) { cv.width = W; cv.height = H; }
   Object.assign(cv.style, { width: Math.round(w) + 'px', height: Math.round(h) + 'px', left: Math.round((wrap.width - w) / 2) + 'px', top: Math.round((wrap.height - h) / 2) + 'px' });
-  const t = timeAt(now());
-  const out = drawFrame(cv.getContext('2d'), sceneOf(), W, H, t, { interactive: step === 5, hide: editing });
+  const { t, fade } = frameAt();
+  const out = drawFrame(cv.getContext('2d'), sceneOf(), W, H, t, { interactive: step === 5, hide: editing, fade });
   lastRegions = out.regions; lastK = W / w; lastInk = out.frame.statics.ink;
   const len = cycle(s.anim);
   $('scrub').value = String(Math.round(Math.min(1, t / (len || 1)) * 1000));
@@ -542,11 +632,10 @@ let start = null, raf = 0;
 const len = cycle(DYN.anim);
 function frame(now) {
   if (start === null) start = now;
-  let t = (now - start) / 1000;
-  if (LOOP) t %= len + .35; else t = Math.min(t, len);
+  const { t, fade } = loopFrame((now - start) / 1000, { ...DYN.anim, loop: LOOP });
   ctx.clearRect(0, 0, cv.width, cv.height);
   ctx.drawImage(bg, 0, 0, cv.width, cv.height);
-  drawDynamic(ctx, DYN, t);
+  drawDynamic(ctx, DYN, t, fade);
   if (LOOP || t < len) raf = requestAnimationFrame(frame);
 }
 const play = () => { cancelAnimationFrame(raf); start = null; raf = requestAnimationFrame(frame); };
@@ -636,8 +725,8 @@ addEventListener('drop', async (e) => {
   if (f.type.startsWith('image/') && step === 4) { try { bgImage = await loadImage(URL.createObjectURL(f)); bgImageId++; s.src = 'image'; render(); } catch { toast('这张图读不出来'); } return; }
   if (!/\.(csv|tsv|txt)$/i.test(f.name) && !f.type.startsWith('text/')) { toast('只能读 CSV / TSV / TXT 文本'); return; }
   const text = (await f.text()).replace(/^﻿/, '');
-  $('data').value = text; s.overrides = {}; setText(text); step = 0; render();
-  toast(`已读入 ${f.name}`);
+  const r = rowsFromText(text); setRows(r.rows, r.axisRow); step = 0; render();
+  toast(r.extra ? `已读入 ${f.name}；只放得下前 ${MAX_ROWS} 行` : `已读入 ${f.name}`);
 });
 addEventListener('paste', (e) => {
   if ($('import-dialog').open) {
@@ -647,6 +736,23 @@ addEventListener('paste', (e) => {
     try { useStyleText(e.clipboardData?.getData('text/plain')); $('import-dialog').close(); } catch { $('import-error').textContent = '剪贴板里没有图片：请先在 Rheo 页点「复制到 Relief」'; }
   }
 });
+
+/* ── 悬停提示：灰掉的选项上说明为什么不能选 ─────────────────────────
+   缩略图条会横向滚动（overflow），伪元素做的气泡会被裁掉，所以用一个挂在 body 上的浮层。 */
+const tip = document.createElement('div');
+tip.className = 'tip'; tip.setAttribute('role', 'tooltip'); tip.hidden = true;
+document.body.append(tip);
+function showTip(el) {
+  tip.textContent = el.dataset.tip; tip.hidden = false;
+  const r = el.getBoundingClientRect(), t = tip.getBoundingClientRect();
+  const left = clamp(r.left + r.width / 2 - t.width / 2, 8, innerWidth - t.width - 8);
+  const top = r.top - t.height - 8 >= 8 ? r.top - t.height - 8 : r.bottom + 8;
+  tip.style.left = left + 'px'; tip.style.top = top + 'px';
+}
+const hideTip = () => { tip.hidden = true; };
+addEventListener('pointerover', (e) => { const el = e.target.closest?.('[data-tip]'); if (el) showTip(el); else hideTip(); });
+addEventListener('focusin', (e) => { const el = e.target.closest?.('[data-tip]'); if (el) showTip(el); else hideTip(); });
+addEventListener('scroll', hideTip, true);
 
 let toastTimer;
 function toast(text, sticky = false) {
@@ -659,4 +765,7 @@ function toast(text, sticky = false) {
 new ResizeObserver(() => { $('text-layer').dataset.sig = ''; schedulePreview(); }).observe($('canvas-wrap'));
 /* 字体没加载完就画，canvas 会用后备字体 —— Plex 就绪后清掉缓存重画 */
 Promise.all(['400 20px "IBM Plex Sans"', '600 20px "IBM Plex Sans"', '400 20px "IBM Plex Mono"'].map(f => document.fonts?.load(f))).then(() => { clearStatic(); clearCache(); schedulePreview(); scheduleThumbs(); }).catch(() => {});
+renderRows();
+ensureChart();
+chartNoticeReady = true;
 render();

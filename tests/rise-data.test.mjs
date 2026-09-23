@@ -90,3 +90,30 @@ test('ambiguous lines are reported with their source line and can be overridden'
 test('label:value pairs with spaces after the colon', () => {
   assert.deepEqual(parseLine('苹果: 12 香蕉: 30').items.map(x => [x.label, x.value]), [['苹果', 12], ['香蕉', 30]]);
 });
+
+test('rows: the chosen row becomes the axis, the others become groups', async () => {
+  const { parseRows, rowsFromText, looksLikeAxis } = await import('../src/rise-data.js');
+  const rows = ['月份 一月 二月 三月', '新用户：1,280 1,960 1,720', '回访：860 1,120 1,340', '', ''];
+  const r = parseRows(rows, 0);
+  assert.equal(r.axisName, '月份');
+  assert.deepEqual(r.labels, ['一月', '二月', '三月']);
+  assert.deepEqual(r.groups.map(g => [g.name, g.line]), [['新用户', 1], ['回访', 2]]);
+  // 年份这类数字当横轴时是标签，不是数
+  const years = parseRows(['2022 2023 2024', '营收 120 180 260'], 0);
+  assert.deepEqual(years.labels, ['2022', '2023', '2024']);
+  assert.equal(years.groups.length, 1);
+  // 不指定横轴：每行都是一组，没有标签
+  const none = parseRows(['1 2 3', '4 5 6'], null);
+  assert.equal(none.groups.length, 2);
+  assert.equal(none.labels, null);
+  // 横轴换到别的行
+  const swapped = parseRows(['一月 1 2', '二月 3 4', 'A B'], 2);
+  assert.deepEqual(swapped.labels, ['A', 'B']);
+  assert.equal(swapped.groups.length, 2);
+  // 歧义按行号记
+  assert.deepEqual(parseRows(['', '100,200,300'], null, { 1: 'thousands' }).groups[0].values, [100200300]);
+  // 粘贴一整段：拆成行，第一行全是文字就当横轴
+  assert.deepEqual(rowsFromText('月份 一月 二月\n新用户 1 2\n\n回访 3 4'), { rows: ['月份 一月 二月', '新用户 1 2', '回访 3 4'], axisRow: 0, extra: 0 });
+  assert.equal(rowsFromText('1 2\n3 4').axisRow, null);
+  assert.ok(looksLikeAxis('一月 二月 三月') && !looksLikeAxis('新用户 1 2'));
+});

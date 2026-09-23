@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { CHARTS, STYLES, LAYOUTS, niceScale, formatValue, progress, cycle, exportSize, layoutScene, gridOf, recommend, buildFrame, resolveAbbr } from '../src/rise-core.js';
+import { CHARTS, STYLES, LAYOUTS, niceScale, formatValue, progress, phase, cycle, EASES, loopFrame, EXIT, GAP, exportSize, layoutScene, gridOf, recommend, buildFrame, resolveAbbr } from '../src/rise-core.js';
 import { squarify, waffleCells } from '../src/rise-draw.js';
 import { parseData, SAMPLE } from '../src/rise-data.js';
 
@@ -39,6 +39,24 @@ test('staggered progress: first element leads, all finish exactly at the duratio
   assert.equal(progress(1, 3, 6, { ...anim, stagger: 0 }), .5);
   assert.ok(progress(.6, 0, 1, { ...anim, effect: 'pop' }) > .6);      // 弹跳会冲过头再回来
   assert.equal(cycle(anim), 3);
+});
+
+test('easing: the default spring starts from rest, overshoots a little and settles; loops fade out before restarting', () => {
+  assert.ok(EASES.spring(.05) < .1);                              // 起步是缓的
+  const peak = Math.max(...Array.from({ length: 101 }, (_, i) => EASES.spring(i / 100)));
+  assert.ok(peak > 1.01 && peak < 1.05, `peak ${peak}`);
+  assert.equal(EASES.spring(1), 1);
+  const anim = { effect: 'grow', dur: 2, stagger: 50, ease: 'spring', hold: 1, loop: true };
+  assert.deepEqual(loopFrame(1, anim), { t: 1, fade: 1 });
+  const exiting = loopFrame(3 + EXIT / 2, anim);
+  assert.equal(exiting.t, 3);
+  assert.ok(exiting.fade > 0 && exiting.fade < 1);
+  const again = loopFrame(3 + EXIT + GAP + .5, anim);
+  assert.ok(Math.abs(again.t - .5) < 1e-9 && again.fade === 1);
+  assert.deepEqual(loopFrame(9, { ...anim, loop: false }), { t: 3, fade: 1 });
+  // 错峰：元素再多，每个也至少走 40% 的时长
+  const w = (n) => { let first = null, last = null; for (let t = 0; t <= 2; t += .001) { const x = phase(t, 0, n, anim); if (x > 0 && first === null) first = t; if (x >= 1 && last === null) last = t; } return last - first; };
+  assert.ok(w(40) >= .8 * .99 * 2 * .5);
 });
 
 test('export sizes keep the long edge and even pixel counts (video encoders need them)', () => {
@@ -110,5 +128,18 @@ test('rise-core imports nothing and rise-draw imports only rise-core (both get i
   const core = await readFile(new URL('../src/rise-core.js', import.meta.url), 'utf8');
   const draw = await readFile(new URL('../src/rise-draw.js', import.meta.url), 'utf8');
   assert.equal((core.match(/^import /gm) || []).length, 0);
-  assert.deepEqual(draw.match(/^import .*$/gm), ["import { clamp, progress, niceScale, formatValue, FONTS, TEXT } from './rise-core.js';"]);
+  const imports = draw.match(/^import .*$/gm);
+  assert.equal(imports.length, 1);
+  assert.match(imports[0], /from '\.\/rise-core\.js';$/);
+});
+
+test('merging several groups rules out the one-group charts, with a reason for each', async () => {
+  const { chartSupport, CHARTS } = await import('../src/rise-core.js');
+  const two = parseData(SAMPLE), one = parseData('12 30 45'), short = parseData('1 2\n3 4');
+  const blocked = CHARTS.filter(c => !chartSupport(c.id, two, 'merge').ok).map(c => c.id);
+  assert.deepEqual(blocked.sort(), ['bignum', 'donut', 'funnel', 'gauge', 'pie', 'polar', 'rings', 'rose', 'treemap', 'waffle']);
+  for (const id of blocked) assert.ok(chartSupport(id, two, 'merge').reason.includes('每组一张图'), id);
+  assert.ok(CHARTS.every(c => chartSupport(c.id, two, 'split').ok));        // 每组一张图：每张只有一组，都能画
+  assert.ok(CHARTS.every(c => chartSupport(c.id, one, 'merge').ok));        // 只有一组时合成也没问题
+  assert.equal(chartSupport('radar', short, 'split').ok, false);            // 雷达要 3 个方向
 });

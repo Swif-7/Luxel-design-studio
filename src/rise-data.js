@@ -144,3 +144,53 @@ export function parseData(text, overrides = {}) {
 export const SAMPLE = `月份 一月 二月 三月 四月 五月 六月
 新用户：1,280 1,960 1,720 2,640 2,310 3,480
 回访：860 1,120 1,340 1,500 1,980 2,210`;
+
+/* ── 按行填写 ─────────────────────────────────────────────────────────
+   页面上数据是一行一个输入框，其中哪一行是横轴由用户点按钮指定（axisRow，可以没有）。
+   横轴那一行只拆成文字标签（年份这类数字也当标签）；其余非空行各是一组，照 parseLine 拆数。
+   overrides 按行号记：{ 行号: 'thousands' | 'list' }。 */
+export const MIN_ROWS = 5, MAX_ROWS = MAX_GROUPS + 1;
+
+export function axisLabels(line) {
+  let { name, body } = splitName(line);
+  const labels = tokenize(body).map(t => t.text.trim()).filter(Boolean);
+  return { name, labels };
+}
+
+export function parseRows(rows, axisRow = null, overrides = {}) {
+  let labels = null, axisName = '';
+  if (axisRow !== null && (rows[axisRow] || '').trim()) ({ name: axisName, labels } = axisLabels(rows[axisRow]));
+  const groups = [], ambiguousLines = [];
+  let dropped = 0;
+  rows.forEach((raw, i) => {
+    const line = (raw || '').trim();
+    if (!line || i === axisRow) return;
+    const g = parseLine(line, { override: overrides[i] || null, columns: labels ? labels.length : 0 });
+    if (!g.items.length) return;
+    if (groups.length >= MAX_GROUPS) { dropped++; return; }
+    if (g.ambiguous) ambiguousLines.push({ line: i, mode: g.mode });
+    groups.push({ line: i, name: g.name || `第 ${groups.length + 1} 组`, values: g.items.map(x => x.value), itemLabels: g.items.map(x => x.label),
+      prefix: g.items.find(x => x.prefix)?.prefix || '', suffix: g.items.find(x => x.suffix)?.suffix || '', scaled: g.items.find(x => x.scaled)?.scaled || '',
+      ambiguous: g.ambiguous, mode: g.mode });
+  });
+  // 横轴那行比数据多一格：第一格是列名（「月份 一月 … 六月」），挪去当横轴名称
+  if (labels && groups.length) {
+    const n = Math.max(...groups.map(g => g.values.length));
+    if (n >= 2 && labels.length === n + 1 && !axisName) { axisName = labels[0]; labels = labels.slice(1); }
+  }
+  if (!labels && groups[0]?.itemLabels.some(Boolean)) labels = groups[0].itemLabels.map((x, i) => x || String(i + 1));
+  return { labels, axisName, groups, dropped, ambiguousLines };
+}
+
+/* 一段文字（粘贴 / CSV / 旧版存档）→ 行，并猜横轴：第一行全是文字（且不止一格）就当横轴 */
+export function rowsFromText(text) {
+  const lines = String(text || '').split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  let axisRow = null;
+  if (lines.length > 1) {
+    const head = tokenize(splitName(lines[0]).body);
+    if (head.length >= 2 && head.every(t => !isNumeric(t.text))) axisRow = 0;
+  }
+  return { rows: lines.slice(0, MAX_ROWS), axisRow, extra: Math.max(0, lines.length - MAX_ROWS) };
+}
+/* 一行里一个数都没有、但有文字 —— 多半是横轴，页面上提示「设为横轴？」 */
+export const looksLikeAxis = (line) => { const t = tokenize(splitName(line).body); return t.length >= 2 && t.every(x => !isNumeric(x.text)); };

@@ -10,9 +10,9 @@
 <section id="stage" class="stage">
   <div id="editor" class="editor">
     <div class="ed-head"><b>数据</b><span id="ed-count" class="count"></span><button type="button" class="ghost" id="sample">示例</button><button type="button" class="ghost" id="clear">清空</button></div>
-    <textarea id="data" spellcheck="false" aria-label="图表数据" placeholder="一行一组，最多 7 组。例如：&#10;月份 一月 二月 三月&#10;新用户：1,280 1,960 1,720&#10;回访：860 1,120 1,340"></textarea>
-    <p class="ed-tip">空格、逗号、顿号、分号、Tab 都能分隔；2,000 这类千分位和小数会自动认出来。第一行全是文字时当作表头；也可以拖入 CSV。</p>
-    <div id="parsed" class="parsed" aria-live="polite"></div>
+    <div id="rows" class="rows" role="group" aria-label="数据，一行一组"></div>
+    <button type="button" id="add-row" class="add-row"><span aria-hidden="true">＋</span> 加一行</button>
+    <p class="ed-tip">一行一组数，行首的文字是组名。点行尾的 <span class="ed-icon" aria-hidden="true"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2.5v10.5h10.5"/><path d="M6 13v-1.6M9 13v-1.6M12 13v-1.6"/></svg></span> 把那一行设为横轴。整段粘贴或拖入 CSV 会自动分到各行。</p>
   </div>
   <div class="view">
     <div id="canvas-wrap" class="canvas-wrap">
