@@ -26,23 +26,55 @@ const alpha = (hex, a) => {
 };
 const font = (st, size, weight = st.weight) => `${weight} ${size}px ${FONTS[st.font] || FONTS.sans}`;
 
+/* ── 液态玻璃（通透版）───────────────────────────────────────────────
+   参考首页 Rubric 封面的胶囊和 macOS 自带的液态玻璃：不磨砂、不模糊、没有大块高光，
+   靠「半透明的同色胶囊 + 一像素内亮边 + 很淡的顶部光泽 + 柔和投影」托起来。
+   ① 投影只画在形状外面（先把形状挖掉再投影），不然会透过半透明的玻璃把它压灰
+   ② 玻璃本体：先垫一层半透明白把背后提亮，再上同色、半透明的一层，上稍透下稍实，背景色能隐约透出来
+   ③ 顶部一层很淡的光泽，只占上沿一小段
+   ④ 一像素内亮边：上沿亮、往下渐淡 —— 相当于 Rubric 胶囊的 inset 0 0 0 1px #fff4 */
+function clipOutside(ctx, path) {
+  ctx.beginPath(); ctx.rect(-1e5, -1e5, 2e5, 2e5);
+  const begin = ctx.beginPath;                                   // path() 自己会 beginPath：临时让它不清空，形状就成了大矩形里的洞
+  ctx.beginPath = () => {};
+  try { path(); } finally { ctx.beginPath = begin; }
+  ctx.clip('evenodd');
+}
+function liquidGlass(ctx, path, color, u, b, lite, shadow = true) {
+  const { x, y, w, h } = b, s = Math.max(1, Math.min(w, h));
+  if (shadow) {
+  ctx.save();                                                    // ①
+  clipOutside(ctx, path);
+  ctx.shadowColor = '#0f172a33'; ctx.shadowBlur = u * 1.1; ctx.shadowOffsetY = u * .45;
+  path(); ctx.fillStyle = '#000'; ctx.fill();
+  ctx.restore();
+  }
+  ctx.save();
+  path(); ctx.clip();
+  const full = (c) => { ctx.fillStyle = c; ctx.fillRect(x - 2, y - 2, w + 4, h + 4); };
+  full('#ffffff5c');                                             // ② 先把背后提亮一层（和 macOS 玻璃一样），再染色：
+  let g = ctx.createLinearGradient(x, y, x, y + Math.max(1, h));   //    否则半透明的橙色压在蓝底上会混成棕色
+  g.addColorStop(0, alpha(color, .5)); g.addColorStop(1, alpha(color, .72));
+  full(g);
+  const L = Math.max(1, Math.min(h, s * 1.4));                      // ③
+  g = ctx.createLinearGradient(x, y, x, y + L);
+  g.addColorStop(0, '#ffffff38'); g.addColorStop(1, '#ffffff00');
+  full(g);
+  if (!lite) {                                                   // ④ 描 2 像素宽的线，裁切后只剩里面那 1 像素
+    g = ctx.createLinearGradient(x, y, x, y + Math.max(1, Math.min(h, s * 3)));
+    g.addColorStop(0, '#ffffffcc'); g.addColorStop(1, '#ffffff40');
+    ctx.lineWidth = Math.max(2, u * .2); ctx.strokeStyle = g; path(); ctx.stroke();
+  }
+  ctx.restore();
+}
+
 /* 填充一个形状：path() 负责描路径，dir 是「长出来」的方向（渐变沿它走）。 */
 function paint(ctx, path, color, st, u, bounds, seed = 1, dir = 'up') {
   const { x, y, w, h } = bounds;
   ctx.save();
   if (st.glow) { ctx.shadowColor = color; ctx.shadowBlur = u * 1.6; }
   if (st.fill === 'glass') {
-    // 玻璃：先在形状后面垫一团同色光晕（用投影画，Safari 也支持），再盖一层白色半透明渐变和高光描边
-    ctx.save();
-    ctx.shadowColor = alpha(color, .9); ctx.shadowBlur = u * 2.2; ctx.shadowOffsetX = 10000;
-    ctx.translate(-10000, 0); path(); ctx.fillStyle = color; ctx.fill();
-    ctx.restore();
-    path();
-    const g = ctx.createLinearGradient(x, y, x, y + Math.max(1, h));
-    g.addColorStop(0, '#ffffffc0'); g.addColorStop(.55, '#ffffff52'); g.addColorStop(1, '#ffffff7a');
-    ctx.fillStyle = alpha(color, .35); ctx.fill();
-    ctx.fillStyle = g; ctx.fill();
-    ctx.lineWidth = Math.max(1, u * .12); ctx.strokeStyle = '#ffffffd0'; ctx.stroke();
+    liquidGlass(ctx, path, color, u, bounds, st.lite, dir !== 'radial');      // 扇区挨在一起：各自投影会压在邻居身上，整张饼的投影在 pies() 里画一次
   } else if (st.fill === 'gradient') {
     const g = dir === 'right' ? ctx.createLinearGradient(x, 0, x + Math.max(1, w), 0)
       : dir === 'radial' ? null : ctx.createLinearGradient(0, y + h, 0, y);
@@ -86,8 +118,13 @@ function strokeLine(ctx, pts, color, st, u, { smooth = false, width = .42, seed 
   ctx.strokeStyle = color;
   ctx.lineWidth = u * width * (st.heavy ? 1.5 : 1);
   if (st.glow) { ctx.shadowColor = color; ctx.shadowBlur = u * 1.6; }
+  if (st.fill === 'glass') { ctx.shadowColor = '#0f172a2e'; ctx.shadowBlur = u * .9; ctx.shadowOffsetY = u * .35; }
   if (st.fill === 'sketch') { const r = rng(seed); for (let k = 0; k < 2; k++) { trace((r() - .5) * u * .4, (r() - .5) * u * .4); ctx.stroke(); } }
   else { trace(); ctx.stroke(); }
+  if (st.fill === 'glass') {                                     // 玻璃管：线条中间偏上一道细白高光
+    ctx.shadowColor = 'transparent'; ctx.lineWidth *= .3; ctx.strokeStyle = '#ffffff59';
+    ctx.translate(0, -u * width * .14); trace(); ctx.stroke();
+  }
   ctx.restore();
   return trace;
 }
@@ -339,6 +376,11 @@ function pies(ctx, c, d) {
   ctx.translate(cx, cy); ctx.rotate(spin); ctx.scale(zoom, zoom); ctx.translate(-cx, -cy);
   if (all.fade) ctx.globalAlpha *= all.a;
   if (sweep < 1) { ctx.beginPath(); ctx.moveTo(cx, cy); ctx.arc(cx, cy, R * 1.2, -Math.PI / 2, -Math.PI / 2 + TAU * sweep); ctx.closePath(); ctx.clip(); }
+  if (st.fill === 'glass' && !rose) {                              // 玻璃：整张饼只投一次影
+    ctx.save(); clipOutside(ctx, () => { ctx.beginPath(); ctx.arc(cx, cy, R, 0, TAU); });
+    ctx.shadowColor = '#0f172a33'; ctx.shadowBlur = u * 1.1; ctx.shadowOffsetY = u * .45;
+    ctx.beginPath(); ctx.arc(cx, cy, R, 0, TAU); ctx.fillStyle = '#000'; ctx.fill(); ctx.restore();
+  }
   let a0 = -Math.PI / 2;
   const labels = [];
   vals.forEach((v, i) => {
@@ -442,6 +484,10 @@ function arcTo(ctx, cx, cy, r, a0, span, frac, e, color, st, u, th) {
   ctx.globalAlpha *= e.a;
   if (st.glow) { ctx.shadowColor = color; ctx.shadowBlur = u * 1.5; }
   ctx.beginPath(); ctx.arc(cx, cy, r, a0, end); ctx.stroke();
+  if (st.fill === 'glass' && th) {                               // 玻璃弧：外侧一道细白高光，像一根弯着的玻璃管
+    ctx.shadowColor = 'transparent'; ctx.lineWidth = Math.max(1, th * .08); ctx.strokeStyle = '#ffffff73';
+    ctx.beginPath(); ctx.arc(cx, cy, r + th * .38, a0, end); ctx.stroke();
+  }
   ctx.restore();
   if (!e.fade && e.x < 1 && th) {
     const glow = Math.sin(Math.PI * Math.min(1, e.x * 1.15)) * .8;
@@ -548,7 +594,7 @@ function waffle(ctx, c, d) {
     if (cx > 0 && owner[k] !== undefined) {
       ctx.globalAlpha = smooth(cx / (fade ? .9 : .45));
       const sc = fade ? 1 : Math.max(0, easeOf(d.anim)(cx)), ww = w * sc;
-      paint(ctx, () => rr(ctx, x + (w - ww) / 2, y + (w - ww) / 2, ww, ww, ww * Math.max(.18, st.radius * .6)), itemColor(c, d, owner[k]), { ...st, glow: false }, u * .6, { x, y, w, h: w }, k);
+      paint(ctx, () => rr(ctx, x + (w - ww) / 2, y + (w - ww) / 2, ww, ww, ww * Math.max(.18, st.radius * .6)), itemColor(c, d, owner[k]), { ...st, glow: false, lite: true }, u * .6, { x, y, w, h: w }, k);
     }
     ctx.restore();
   }
@@ -729,7 +775,13 @@ export function drawStatic(ctx, stc) {
     ctx.shadowColor = 'rgba(10,16,30,.22)'; ctx.shadowBlur = u * 5; ctx.shadowOffsetY = u * 1.4;
     rr(ctx, L.card.x, L.card.y, L.card.w, L.card.h, L.card.r); ctx.fillStyle = stc.panel; ctx.fill();
     ctx.restore();
-    if (st.fill === 'glass') { ctx.save(); rr(ctx, L.card.x, L.card.y, L.card.w, L.card.h, L.card.r); ctx.lineWidth = Math.max(1, u * .15); ctx.strokeStyle = '#ffffffb0'; ctx.stroke(); ctx.restore(); }
+    if (st.fill === 'glass') {                                   // 玻璃风格的卡片：半透明白 + 一像素内亮边，和工具栏胶囊一样通透
+      const { x, y, w, h, r } = L.card, card = () => rr(ctx, x, y, w, h, r);
+      ctx.save(); card(); ctx.clip();
+      const g = ctx.createLinearGradient(x, y, x, y + Math.min(h, u * 24)); g.addColorStop(0, '#ffffffb3'); g.addColorStop(1, '#ffffff4d');
+      ctx.lineWidth = Math.max(2, u * .22); ctx.strokeStyle = g; card(); ctx.stroke();
+      ctx.restore();
+    }
   }
   const regions = [];
   const center = L.align === 'center';

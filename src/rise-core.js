@@ -74,7 +74,7 @@ export function recommend(groups) {
    radius：柱子圆角占柱宽的比例；glow：辉光；font：sans / serif / mono / hand。 */
 export const STYLES = [
   { id: 'glass', name: '玻璃', palette: ['#94d82d', '#748ffc', '#3bc9db', '#f783ac', '#ffa94d', '#9775fa', '#63e6be'],
-    panel: '#ffffff59', panelOn: false, ink: '#161b33', grid: '#161b3322', fill: 'glass', radius: .32, font: 'sans', weight: 600 },
+    panel: '#ffffff80', panelOn: false, ink: '#161b33', grid: '#161b3322', fill: 'glass', radius: .32, font: 'sans', weight: 600 },
   { id: 'neon', name: '霓虹', palette: ['#ff2d95', '#00e5ff', '#b4ff39', '#ffd600', '#a66bff', '#ff7a00', '#00ffa3'],
     panel: '#0d0e1f', panelOn: true, ink: '#eef0ff', grid: '#ffffff17', fill: 'gradient', radius: .2, glow: true, font: 'sans', weight: 600 },
   { id: 'mono', name: '极简', palette: ['#111111', '#6b6b6b', '#a3a3a3', '#3d3d3d', '#c9c9c9', '#8a8a8a', '#565656'],

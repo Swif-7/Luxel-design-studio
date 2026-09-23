@@ -128,7 +128,7 @@ button.primary:hover{background:var(--accent);border-color:var(--accent);opacity
 .editor{flex:0 0 360px;min-height:0;display:flex;flex-direction:column;gap:10px;padding:14px;border-radius:var(--r-panel);background:var(--surface);
   box-shadow:0 1px 2px #0000000a,0 18px 40px -26px #0000004d;overflow:auto;align-self:flex-start;max-height:100%}
 .ed-head{display:flex;align-items:center;gap:8px}
-.ed-head b{font-size:13px;font-weight:600}
+.ed-head b{font-size:13px;font-weight:600;flex:none;white-space:nowrap}
 .ed-head .count{font:11.5px var(--mono);color:var(--text-3);margin-right:auto;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
 .ed-head button{padding:4px 11px;font-size:12px}
 .ed-tip{margin:0;font-size:11.5px;color:var(--text-3);line-height:1.7}
@@ -202,7 +202,13 @@ button.primary:hover{background:var(--accent);border-color:var(--accent);opacity
 
 @media(max-width:860px){
   .stage{flex-direction:column;gap:12px}
-  .editor{flex:0 0 auto;max-height:44%}
+  /* 竖屏：一屏放不下数据卡片 + 预览 + 面板，改成整页滚动 —— 数据卡片按内容撑开、占满宽度，五行都露出来，
+     不再是一个只露两行半、里面还要再滚的小窗；预览给一个固定高度（原来靠 flex 分剩余空间，页面一滚动就没有「剩余」了） */
+  body{height:auto;min-height:100dvh;overflow:auto}
+  main{flex:none}
+  .stage{flex:none}
+  .editor{flex:none;align-self:stretch;max-height:none;overflow:visible}
+  .canvas-wrap{flex:none;height:clamp(200px,64vw,52dvh)}
   .ed-tip{display:none}
   .playbar{flex-wrap:wrap;justify-content:center;row-gap:6px}
   .playbar input[type=range]{width:min(200px,46vw)}
