@@ -51,6 +51,8 @@ try {
   const saved = JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}');
   s = { ...s, ...saved, anim: { ...s.anim, ...(saved.anim || {}) }, rheo: { ...s.rheo, ...(saved.rheo || {}) } };
   if (s.src === 'image') s.src = 'rheo';               // 导入的背景图不会保存
+  if (!STYLES.some(x => x.id === s.style)) { s.style = DEFAULTS.style; s.panel = styleById(s.style).panelOn; }   // 存的风格已经下线了（比如试过又撤掉的）
+  if (!CHARTS.some(x => x.id === s.chart)) s.chart = DEFAULTS.chart;
   if (!Array.isArray(saved.rows) && typeof saved.text === 'string') {                  // 旧版是一整段文字：按行分开，猜横轴
     const r = rowsFromText(saved.text); s.rows = r.rows; s.axisRow = r.axisRow; s.overrides = {};
   }
